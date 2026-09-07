@@ -74,7 +74,8 @@ class AuditIT extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.total").value(3))
                 .andExpect(jsonPath("$.size").value(2))
                 .andExpect(jsonPath("$.content.length()").value(2))
-                .andExpect(jsonPath("$.content[0].type").value("ORDER_FILLED"));
+                .andExpect(jsonPath("$.content[0].type").value("ORDER_FILLED"))
+                .andExpect(jsonPath("$.content[0].correlationId").isString());
         mvc.perform(get("/api/v1/audit").with(user("tester").authorities(new SimpleGrantedAuthority("SCOPE_admin"))).param("type", "NOT_A_TYPE"))
                 .andExpect(status().isBadRequest());
     }

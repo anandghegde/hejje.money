@@ -1,9 +1,11 @@
 package money.hejje.common;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.UUID;
 
 /** Identifier that links every log line, audit event and domain event caused by one request or job. */
-public record CorrelationId(UUID value) {
+public record CorrelationId(@JsonValue UUID value) {
 
     public CorrelationId {
         if (value == null) {
@@ -15,6 +17,7 @@ public record CorrelationId(UUID value) {
         return new CorrelationId(Ids.newId());
     }
 
+    @JsonCreator
     public static CorrelationId of(String value) {
         return new CorrelationId(UUID.fromString(value));
     }

@@ -1,6 +1,8 @@
 spring:
   application:
     name: hejje
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   profiles:
     default: dev
   threads:
