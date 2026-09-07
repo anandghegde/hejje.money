@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
@@ -67,14 +68,14 @@ class AuditIT extends AbstractIntegrationTest {
         for (int i = 0; i < 3; i++) {
             audit.record(AuditEvent.of(AuditEventType.ORDER_FILLED, ActorType.SYSTEM).withOrderId(orderId));
         }
-        mvc.perform(get("/api/v1/audit").with(user("tester"))
+        mvc.perform(get("/api/v1/audit").with(user("tester").authorities(new SimpleGrantedAuthority("SCOPE_admin")))
                         .param("orderId", orderId.toString()).param("type", "ORDER_FILLED").param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(3))
                 .andExpect(jsonPath("$.size").value(2))
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].type").value("ORDER_FILLED"));
-        mvc.perform(get("/api/v1/audit").with(user("tester")).param("type", "NOT_A_TYPE"))
+        mvc.perform(get("/api/v1/audit").with(user("tester").authorities(new SimpleGrantedAuthority("SCOPE_admin"))).param("type", "NOT_A_TYPE"))
                 .andExpect(status().isBadRequest());
     }
 }

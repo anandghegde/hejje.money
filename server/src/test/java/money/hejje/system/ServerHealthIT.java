@@ -4,19 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import money.hejje.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 class ServerHealthIT extends AbstractIntegrationTest {
 
-    @Autowired
-    TestRestTemplate rest;
+    @Test
+    void pingIsPublic() {
+        ResponseEntity<String> response = rest.getForEntity("/api/v1/server/ping", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"status\":\"UP\"");
+    }
 
     @Test
-    void healthIsPublicAndReportsPaperMode() {
-        ResponseEntity<String> response = rest.getForEntity("/api/v1/server/health", String.class);
+    void healthNeedsMarketReadAndReportsPaperMode() {
+        assertThat(rest.getForEntity("/api/v1/server/health", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        ResponseEntity<String> response = rest.exchange("/api/v1/server/health", HttpMethod.GET,
+                new HttpEntity<>(bearer(adminAccessToken())), String.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"mode\":\"PAPER\"").contains("\"status\":\"UP\"");
     }

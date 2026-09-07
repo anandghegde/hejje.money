@@ -41,6 +41,11 @@ hejje:
   mode: ${HEJJE_MODE:PAPER}
   timezone: Asia/Kolkata
   data-dir: ${HEJJE_DATA_DIR:./data}
+  auth:
+    admin-password: ${HEJJE_ADMIN_PASSWORD:}
+    jwt-secret: ${HEJJE_JWT_SECRET:}
+    access-token-ttl: 15m
+    refresh-token-ttl: 12h
 
 ---
 spring:
