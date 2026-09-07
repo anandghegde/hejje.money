@@ -1,0 +1,33 @@
+# Gradle / Java
+server/.gradle/
+server/build/
+server/out/
+*.class
+*.jar
+!server/gradle/wrapper/gradle-wrapper.jar
+
+# Node
+node_modules/
+web/dist/
+web/coverage/
+
+# Go
+tui/bin/
+tui/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Local state
+.env
+.env.*
+data/
+*.log
+
+# OS / IDE
+.DS_Store
+.idea/
+*.iml
+.vscode/

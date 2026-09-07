@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: hejje
+  profiles:
+    default: dev
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${HEJJE_DB_URL:jdbc:postgresql://localhost:5432/hejje}
+    username: ${HEJJE_DB_USER:hejje}
+    password: ${HEJJE_DB_PASSWORD:hejje}
+  flyway:
+    enabled: true
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: false   # event_publication is created by Flyway (V1__baseline.sql)
+      republish-outstanding-events-on-restart: true
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+hejje:
+  mode: ${HEJJE_MODE:PAPER}
+  timezone: Asia/Kolkata
+  data-dir: ${HEJJE_DATA_DIR:./data}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
