@@ -1,0 +1,64 @@
+# Production stack: Caddy (TLS) -> hejje (Spring Boot) -> postgres.
+# Usage (from the repo root on the VM):
+#   cp deploy/.env.example deploy/.env && edit deploy/.env
+#   docker compose -f deploy/docker-compose.prod.yml up -d --build
+services:
+  hejje:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: hejje:latest
+    container_name: hejje
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      HEJJE_DB_URL: jdbc:postgresql://postgres:5432/hejje
+      HEJJE_DB_USER: hejje
+      HEJJE_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      HEJJE_DATA_DIR: /data
+    volumes:
+      - ../data:/data
+    expose:
+      - "8080"
+      - "8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hejje-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hejje
+      POSTGRES_USER: hejje
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - hejje-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hejje -d hejje"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  caddy:
+    image: caddy:2
+    container_name: hejje-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HEJJE_DOMAIN: ${HEJJE_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - hejje-caddy-data:/data
+      - hejje-caddy-config:/config
+    depends_on:
+      - hejje
+
+volumes:
+  hejje-pgdata:
+  hejje-caddy-data:
+  hejje-caddy-config:

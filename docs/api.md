@@ -14,11 +14,23 @@ Public liveness probe.
 
 ### `GET /api/v1/server/health`
 
-Scope: `market:read`.
+Scope: `market:read`. Each PRD section 41 line is `{status, detail}`; checks that later milestones fill
+report `NOT_CONFIGURED`. `executionEnabled` is false whenever any readiness check is blocking, with `reasons`.
 
 ```json
-{ "status": "UP", "mode": "PAPER", "version": "0.1.0-SNAPSHOT", "time": "2026-09-08T00:00:00Z" }
+{ "status": "UP", "mode": "PAPER", "version": "0.1.0-SNAPSHOT", "time": "2026-09-08T00:00:00Z",
+  "executionEnabled": true, "reasons": [],
+  "executionServer": { "status": "HEALTHY", "detail": "mode PAPER" },
+  "staticIp":  { "status": "VERIFIED", "detail": "203.0.113.10" },
+  "broker":    { "status": "NOT_CONFIGURED", "detail": "arrives in a later milestone" },
+  "marketData":{ "status": "NOT_CONFIGURED", "detail": "arrives in a later milestone" },
+  "database":  { "status": "HEALTHY", "detail": "SELECT 1 ok" },
+  "clockSync": { "status": "HEALTHY", "detail": "drift 120 ms (limit 2000 ms)" },
+  "riskEngine":{ "status": "NOT_CONFIGURED", "detail": "arrives in a later milestone" },
+  "orderQueue":{ "status": "NOT_CONFIGURED", "detail": "arrives in a later milestone" } }
 ```
+
+`staticIp` is one of `VERIFIED | MISMATCH | UNKNOWN | SKIPPED`; `clockSync` one of `HEALTHY | DEGRADED | UNKNOWN | SKIPPED`.
 
 ### `GET /actuator/health`
 

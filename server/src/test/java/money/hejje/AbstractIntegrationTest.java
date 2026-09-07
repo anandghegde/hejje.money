@@ -3,6 +3,7 @@ package money.hejje;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -21,6 +22,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
         "hejje.auth.rate-limit.transactional-burst=5"
 })
 @ActiveProfiles("test")
+@AutoConfigureObservability(tracing = false)
 public abstract class AbstractIntegrationTest {
 
     public static final String ADMIN_PASSWORD = "test-admin-password";

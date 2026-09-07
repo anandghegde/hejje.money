@@ -20,3 +20,13 @@ Secrets are environment variables only.
 | `hejje.auth.rate-limit.default-rate` / `default-burst` | — | `20` / `40` | Per-principal requests per second and bucket size. |
 | `hejje.auth.rate-limit.transactional-rate` / `transactional-burst` | — | `5` / `5` | Limits for non-GET calls under `transactional-paths`. |
 | `hejje.auth.rate-limit.transactional-paths` | — | `/api/v1/orders, /api/v1/positions, /api/v1/risk, /api/v1/auth/clients` | Path prefixes that count as transactional. |
+| `hejje.execution.expected-ips` | `HEJJE_EXECUTION_EXPECTED_IPS` | (empty) | Comma-separated public IPs registered with the broker. Empty means `MISMATCH` when verification is enabled. |
+| `hejje.system.egress.enabled` | — | `true` (`false` in `dev`/`test`) | Egress IP verification; disabled reports `SKIPPED`. |
+| `hejje.system.egress.check-interval` | — | `5m` | How often the public IP is resolved. |
+| `hejje.system.egress.resolvers` | — | `https://api.ipify.org, https://checkip.amazonaws.com` | Plain-text public-IP endpoints. |
+| `hejje.system.egress.timeout` | — | `5s` | Per-resolver HTTP timeout. |
+| `hejje.system.clock.enabled` | — | `true` (`false` in `dev`/`test`) | Clock drift check; disabled reports `SKIPPED`. |
+| `hejje.system.clock.check-interval` | — | `10m` | How often the remote clock is compared. |
+| `hejje.system.clock.host` | — | `https://www.google.com` | HTTPS URL whose `Date` header is the reference. |
+| `hejje.system.clock.max-drift` | — | `2s` | Drift above which the clock is `DEGRADED` (blocks execution). |
+| `management.server.port` | — | (same as server) / `8081` in `prod` | Actuator and Prometheus port. |

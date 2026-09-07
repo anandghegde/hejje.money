@@ -2,6 +2,7 @@ package money.hejje.system;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
 import money.hejje.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
@@ -19,18 +20,29 @@ class ServerHealthIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void healthNeedsMarketReadAndReportsPaperMode() {
+    void healthNeedsMarketReadAndHasPrdShape() {
         assertThat(rest.getForEntity("/api/v1/server/health", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        ResponseEntity<String> response = rest.exchange("/api/v1/server/health", HttpMethod.GET,
-                new HttpEntity<>(bearer(adminAccessToken())), String.class);
+        ResponseEntity<Map> response = rest.exchange("/api/v1/server/health", HttpMethod.GET,
+                new HttpEntity<>(bearer(adminAccessToken())), Map.class);
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("\"mode\":\"PAPER\"").contains("\"status\":\"UP\"");
+        Map<String, Object> body = response.getBody();
+        assertThat(body).containsEntry("status", "UP").containsEntry("mode", "PAPER").containsEntry("executionEnabled", true)
+                .containsKeys("version", "time", "reasons", "executionServer", "staticIp", "broker", "marketData",
+                        "database", "clockSync", "riskEngine", "orderQueue");
+        assertThat((Map<String, Object>) body.get("staticIp")).containsEntry("status", "SKIPPED");
+        assertThat((Map<String, Object>) body.get("clockSync")).containsEntry("status", "SKIPPED");
+        assertThat((Map<String, Object>) body.get("database")).containsEntry("status", "HEALTHY");
+        assertThat((Map<String, Object>) body.get("broker")).containsEntry("status", "NOT_CONFIGURED");
+        assertThat((Map<String, Object>) body.get("orderQueue")).containsEntry("status", "NOT_CONFIGURED");
     }
 
     @Test
-    void actuatorHealthIsUp() {
-        ResponseEntity<String> response = rest.getForEntity("/actuator/health", String.class);
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(response.getBody()).contains("\"status\":\"UP\"");
+    void actuatorHealthAndPrometheusArePublic() {
+        ResponseEntity<String> health = rest.getForEntity("/actuator/health", String.class);
+        assertThat(health.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(health.getBody()).contains("\"status\":\"UP\"");
+        ResponseEntity<String> prometheus = rest.getForEntity("/actuator/prometheus", String.class);
+        assertThat(prometheus.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(prometheus.getBody()).contains("hejje_execution_enabled").contains("hejje_egress_ip_verified").contains("http_server_requests");
     }
 }

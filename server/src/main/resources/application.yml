@@ -46,21 +46,50 @@ hejje:
     jwt-secret: ${HEJJE_JWT_SECRET:}
     access-token-ttl: 15m
     refresh-token-ttl: 12h
+  execution:
+    expected-ips: ${HEJJE_EXECUTION_EXPECTED_IPS:}
+  system:
+    egress:
+      enabled: true
+      check-interval: 5m
+      resolvers: https://api.ipify.org,https://checkip.amazonaws.com
+      timeout: 5s
+    clock:
+      enabled: true
+      check-interval: 10m
+      host: https://www.google.com
+      max-drift: 2s
+      timeout: 5s
 
 ---
 spring:
   config:
     activate:
       on-profile: dev
+hejje:
+  system:
+    egress:
+      enabled: false
+    clock:
+      enabled: false
 
 ---
 spring:
   config:
     activate:
       on-profile: test
+hejje:
+  system:
+    egress:
+      enabled: false
+    clock:
+      enabled: false
 
 ---
 spring:
   config:
     activate:
       on-profile: prod
+management:
+  server:
+    port: 8081   # Prometheus and actuator stay off the Caddy-proxied port

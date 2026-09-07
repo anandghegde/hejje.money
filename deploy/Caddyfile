@@ -1,0 +1,6 @@
+# Automatic TLS for HEJJE_DOMAIN. Only the application port is proxied; the management port (8081,
+# Prometheus) stays internal to the compose network.
+{$HEJJE_DOMAIN} {
+    encode gzip
+    reverse_proxy hejje:8080
+}

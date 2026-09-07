@@ -1,0 +1,23 @@
+# Bare-metal alternative to docker compose for the application only (Postgres and Caddy managed separately).
+# Install: cp deploy/systemd/hejje.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now hejje
+[Unit]
+Description=Hejje trading server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=hejje
+Group=hejje
+WorkingDirectory=/opt/hejje
+EnvironmentFile=/etc/hejje/hejje.env
+Environment=SPRING_PROFILES_ACTIVE=prod
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=75 -jar /opt/hejje/hejje.jar
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hejje/data
+
+[Install]
+WantedBy=multi-user.target
