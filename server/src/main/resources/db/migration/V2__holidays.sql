@@ -1,0 +1,27 @@
+CREATE TABLE exchange_holiday
+(
+    date     DATE NOT NULL,
+    exchange TEXT NOT NULL,
+    name     TEXT NOT NULL,
+    PRIMARY KEY (date, exchange)
+);
+
+-- NSE equity/F&O trading holidays 2026 (weekday closures; weekend-only holidays omitted).
+-- Source: NSE holiday circular for calendar year 2026, cross-checked with Zerodha's holiday calendar.
+INSERT INTO exchange_holiday (date, exchange, name) VALUES
+    ('2026-01-15', 'NSE', 'Municipal Corporation Elections in Maharashtra'),
+    ('2026-01-26', 'NSE', 'Republic Day'),
+    ('2026-03-03', 'NSE', 'Holi'),
+    ('2026-03-26', 'NSE', 'Shri Ram Navami'),
+    ('2026-03-31', 'NSE', 'Shri Mahavir Jayanti'),
+    ('2026-04-03', 'NSE', 'Good Friday'),
+    ('2026-04-14', 'NSE', 'Dr. Baba Saheb Ambedkar Jayanti'),
+    ('2026-05-01', 'NSE', 'Maharashtra Day'),
+    ('2026-05-28', 'NSE', 'Bakri Id'),
+    ('2026-06-26', 'NSE', 'Muharram'),
+    ('2026-09-14', 'NSE', 'Ganesh Chaturthi'),
+    ('2026-10-02', 'NSE', 'Mahatma Gandhi Jayanti'),
+    ('2026-10-20', 'NSE', 'Dussehra'),
+    ('2026-11-10', 'NSE', 'Diwali-Balipratipada'),
+    ('2026-11-24', 'NSE', 'Prakash Gurpurb Sri Guru Nanak Dev'),
+    ('2026-12-25', 'NSE', 'Christmas');

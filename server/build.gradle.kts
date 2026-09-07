@@ -32,7 +32,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
     implementation("io.micrometer:micrometer-registry-prometheus")
-    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
+    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     runtimeOnly("org.postgresql:postgresql")
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")

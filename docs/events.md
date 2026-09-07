@@ -1,0 +1,33 @@
+# Events
+
+Hejje uses two in-process event channels. Both live in `money.hejje.common.event`.
+
+## 1. Durable domain events
+
+Used for anything that changes trading state: orders, signals, positions, risk decisions, readiness changes.
+
+- Events are immutable records implementing `HejjeEvent` (`id`, `occurredAt`, `correlationId`). Embed an
+  `EventMeta` component created with `EventMeta.create(clock)` to satisfy the contract.
+- Publish with Spring's `ApplicationEventPublisher` from inside the transaction that made the change.
+- Consume with `@ApplicationModuleListener` (Spring Modulith). The listener runs asynchronously after the
+  publishing transaction commits, in its own transaction.
+- Spring Modulith's event publication registry persists every publication in `event_publication`
+  (created by `V1__baseline.sql`). Incomplete publications are re-delivered on restart
+  (`spring.modulith.events.republish-outstanding-events-on-restart=true`), so listeners must be idempotent.
+- Events cross module boundaries; they are the only way for one module to react to another without a
+  direct dependency on its API.
+
+## 2. High-volume market events
+
+Used for ticks and candles, thousands per second during the session.
+
+- Payloads implement `MarketEvent` (`occurredAt`).
+- Delivered through `TickBus` (`publish`, `subscribe`), a plain in-memory listener registry with no
+  persistence and no transactions. Listeners run on the publisher's thread and must be fast and non-blocking.
+- The implementation arrives with the market data module in M1.3. Modules code against the interface now.
+
+## Correlation
+
+Every HTTP request carries `X-Correlation-Id` (a UUID; generated when absent or invalid, echoed back on
+the response). It is bound to the logging MDC as `correlationId`, appears on every log line, defaults into
+every audit event and should be copied into every domain event via `EventMeta.create(...)`.

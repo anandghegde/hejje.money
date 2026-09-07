@@ -1,14 +1,27 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- %msg is replaced by a converter that masks secrets (api_key, api_secret, access_token, password, authorization). -->
+    <conversionRule conversionWord="msg" converterClass="money.hejje.common.logging.RedactingMessageConverter"/>
+
     <springProfile name="prod">
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder"/>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <threadName/>
+                    <mdc/>
+                    <provider class="money.hejje.common.logging.RedactingMessageJsonProvider"/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
         </appender>
     </springProfile>
     <springProfile name="!prod">
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
-                <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n</pattern>
+                <pattern>%d{HH:mm:ss.SSS} %-5level [%thread] [%X{correlationId:-}] %logger{36} - %msg%n</pattern>
             </encoder>
         </appender>
     </springProfile>

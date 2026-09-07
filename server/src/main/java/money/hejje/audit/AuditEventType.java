@@ -1,0 +1,23 @@
+package money.hejje.audit;
+
+/** Catalogue of audit event types (PRD section 47 plus Phase 0 additions). Append only. */
+public enum AuditEventType {
+    SIGNAL_CREATED,
+    STRATEGY_RECOMMENDED,
+    AGENT_RECOMMENDED,
+    USER_APPROVED,
+    RISK_CHECK_PASSED,
+    RISK_CHECK_REJECTED,
+    ORDER_SUBMITTED,
+    BROKER_ACCEPTED,
+    ORDER_FILLED,
+    STOP_MODIFIED,
+    POSITION_CLOSED,
+    STRATEGY_PAUSED,
+    KILL_SWITCH_ENABLED,
+    AUTH_LOGIN,
+    AUTH_LOGIN_FAILED,
+    CLIENT_CREATED,
+    CLIENT_REVOKED,
+    EGRESS_IP_STATUS_CHANGED
+}
