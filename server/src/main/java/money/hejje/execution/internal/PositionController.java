@@ -11,6 +11,7 @@ import money.hejje.common.config.HejjeProperties;
 import money.hejje.execution.ExecutionEngine;
 import money.hejje.orders.OrderService;
 import money.hejje.orders.Position;
+import money.hejje.common.costs.CostBreakdown;
 import money.hejje.orders.Trade;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -66,5 +67,13 @@ class PositionController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
         return orders.trades(mode == null ? properties.mode() : mode, from, to);
+    }
+
+    @GetMapping("/trades/{id}/costs")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    CostBreakdown tradeCosts(@PathVariable UUID id, @RequestParam(required = false) ExecutionMode mode) {
+        Trade trade = orders.findTrade(id, mode == null ? properties.mode() : mode)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "No trade " + id));
+        return orders.cost(trade);
     }
 }

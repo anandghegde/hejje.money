@@ -58,3 +58,7 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.broker.limits.general-per-second` | — | `10` | Rate for all other broker calls. |
 | `hejje.broker.limits.read-wait-millis` | — | `1000` | How long a read may wait for a rate-limit token before failing. |
 | `hejje.reconciliation.pause-on-critical` | — | `true` | Trip the kill switch (STOP_NEW_ORDERS) on a CRITICAL reconciliation issue. |
+| `hejje.paper.slippage-bps` | `HEJJE_PAPER_SLIPPAGE_BPS` | `5` | MARKET fills slip this many basis points against the taker (PAPER mode). |
+| `hejje.paper.partial-fill-probability` | — | `0.0` | Chance a paper fill is split (0 disables). |
+| `hejje.paper.starting-capital` | — | `1000000` | Simulated paper cash in rupees. |
+| `hejje.costs.*` | — | see config/costs.yaml | Transaction cost rates (brokerage, STT, exchange txn, GST, SEBI, stamp duty) per segment. |

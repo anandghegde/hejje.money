@@ -333,3 +333,13 @@ Scope: `admin`. Marks an issue resolved. A CRITICAL issue (position quantity mis
 
 Scope: `market:read`. p50/p95/p99 (ms) per PRD section 44 timer: `api.request`/`http.server.requests`, `risk.evaluate`,
 `broker.call{op}`, `broker.ack`.
+
+## Paper mode and costs
+
+Every response carries `X-Hejje-Mode` (PAPER / CONFIRM / AUTO). Orders, positions and trades are filtered by the current
+mode by default; pass `?mode=` to inspect the other ledger. Positions carry `fees` (paise) and `netRealizedPnl`.
+
+### `GET /api/v1/trades/{id}/costs`
+
+Scope: `market:read`. The itemized transaction cost of a fill (PRD section 12.2), computed by the cost model:
+`{ brokerage, stt, exchangeTxn, gst, sebi, stampDuty, total }` (each in paise).

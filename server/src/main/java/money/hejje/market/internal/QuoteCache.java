@@ -37,6 +37,11 @@ public class QuoteCache {
         latest.merge(tick.instrumentId(), tick, (old, fresh) -> fresh.ts().isBefore(old.ts()) ? old : fresh);
     }
 
+    /** Clears the cache (test isolation; the cache is a shared singleton). */
+    public void clear() {
+        latest.clear();
+    }
+
     public Optional<MarketTick> lastTick(UUID instrumentId) {
         return Optional.ofNullable(latest.get(instrumentId));
     }

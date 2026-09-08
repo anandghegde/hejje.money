@@ -17,6 +17,7 @@ public record Position(
         int netQuantity,
         BigDecimal averagePrice,
         Money realizedPnl,
+        Money fees,
         int dayBuyQty,
         int daySellQty,
         Instant openedAt,
@@ -24,5 +25,10 @@ public record Position(
 
     public boolean isFlat() {
         return netQuantity == 0;
+    }
+
+    /** Realized P&L net of transaction costs. */
+    public Money netRealizedPnl() {
+        return realizedPnl.minus(fees);
     }
 }

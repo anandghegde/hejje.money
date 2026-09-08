@@ -1,6 +1,11 @@
 spring:
   application:
     name: hejje
+  config:
+    import:
+      - optional:file:./config/costs.yaml
+      - optional:file:../config/costs.yaml
+      - optional:classpath:costs.yaml
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   profiles:
@@ -43,6 +48,10 @@ hejje:
   mode: ${HEJJE_MODE:PAPER}
   timezone: Asia/Kolkata
   data-dir: ${HEJJE_DATA_DIR:./data}
+  paper:
+    slippage-bps: ${HEJJE_PAPER_SLIPPAGE_BPS:5}
+    partial-fill-probability: 0.0
+    starting-capital: 1000000
   broker:
     adapter: ${HEJJE_BROKER_ADAPTER:fake}
     web-url: ${HEJJE_WEB_URL:http://localhost:5173}

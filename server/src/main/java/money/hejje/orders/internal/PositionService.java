@@ -31,12 +31,13 @@ public class PositionService {
     }
 
     /** Applies a fill and returns the updated position. Realized P&L accrues on the reducing part of the fill. */
-    public Position applyFill(ExecutionMode mode, UUID instrumentId, Product product, UUID strategyId, Side side, int qty, BigDecimal price) {
+    public Position applyFill(ExecutionMode mode, UUID instrumentId, Product product, UUID strategyId, Side side, int qty, BigDecimal price, Money fee) {
         Instant now = clock.now();
         Position current = store.find(mode, instrumentId, product, strategyId).orElse(null);
         int net = current == null ? 0 : current.netQuantity();
         BigDecimal avg = current == null ? BigDecimal.ZERO.setScale(2) : current.averagePrice();
         Money realized = current == null ? Money.ZERO : current.realizedPnl();
+        Money fees = current == null ? Money.ZERO : current.fees();
         int dayBuy = current == null ? 0 : current.dayBuyQty();
         int daySell = current == null ? 0 : current.daySellQty();
         UUID id = current == null ? Ids.newId() : current.id();
@@ -66,7 +67,8 @@ public class PositionService {
             }
         }
 
-        Position updated = new Position(id, mode, instrumentId, product, strategyId, net, avg, realized, dayBuy, daySell, openedAt, now);
+        fees = fees.plus(fee == null ? Money.ZERO : fee);
+        Position updated = new Position(id, mode, instrumentId, product, strategyId, net, avg, realized, fees, dayBuy, daySell, openedAt, now);
         store.upsert(updated);
         events.publishEvent(new PositionChangedEvent(EventMeta.create(clock), id, instrumentId, net));
         return updated;

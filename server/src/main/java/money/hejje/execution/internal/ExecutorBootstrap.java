@@ -75,6 +75,11 @@ class ExecutorBootstrap implements ReadinessCheck {
         } else {
             log.info("Bootstrap: broker not connected; skipping reconciliation until login");
         }
+        if (properties.mode() != money.hejje.common.ExecutionMode.PAPER
+                && !orders.openPositions(money.hejje.common.ExecutionMode.PAPER).isEmpty()) {
+            log.warn("Starting in {} mode with {} open PAPER positions from earlier; they are not managed in this mode",
+                    properties.mode(), orders.openPositions(money.hejje.common.ExecutionMode.PAPER).size());
+        }
         complete = true;
         detail = "execution enabled";
         audit.record(AuditEvent.of(AuditEventType.EXECUTION_ENABLED, ActorType.SYSTEM).withActorId(lease.owner()));

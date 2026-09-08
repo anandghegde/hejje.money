@@ -40,6 +40,9 @@ class MarketDataIT extends AbstractIntegrationTest {
     InstrumentService instruments;
 
     @Autowired
+    money.hejje.market.internal.QuoteCache quoteCache;
+
+    @Autowired
     FakeBrokerAdapter fake;
 
     @Autowired
@@ -64,6 +67,7 @@ class MarketDataIT extends AbstractIntegrationTest {
         instruments.sync();
         infy = instruments.resolve("NSE:INFY").map(Instrument::id).orElseThrow();
         fake.reset();
+        quoteCache.clear();
     }
 
     @Test

@@ -38,6 +38,12 @@ class BrokerSessionIT extends AbstractIntegrationTest {
     @Autowired
     JdbcTemplate jdbc;
 
+    @org.junit.jupiter.api.BeforeEach
+    void cleanReadiness() {
+        jdbc.update("UPDATE reconciliation_issue SET resolved_at = now() WHERE resolved_at IS NULL");
+        jdbc.update("UPDATE kill_switch SET stop_new_orders = FALSE WHERE mode = 'PAPER'");
+    }
+
     @AfterEach
     void reconnect() {
         if (!sessions.isConnected()) {

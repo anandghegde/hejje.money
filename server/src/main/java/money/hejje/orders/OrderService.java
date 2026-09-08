@@ -16,6 +16,11 @@ import money.hejje.common.ActorType;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Ids;
 import money.hejje.common.Side;
+import money.hejje.common.costs.CostBreakdown;
+import money.hejje.common.costs.CostFill;
+import money.hejje.common.costs.CostModel;
+import money.hejje.instruments.Instrument;
+import money.hejje.instruments.InstrumentService;
 import money.hejje.common.event.EventMeta;
 import money.hejje.common.time.HejjeClock;
 import money.hejje.orders.internal.OrderIntentStore;
@@ -45,17 +50,21 @@ public class OrderService {
     private final TradeStore trades;
     private final PositionStore positions;
     private final PositionService positionService;
+    private final InstrumentService instruments;
+    private final CostModel costModel;
     private final AuditService audit;
     private final HejjeClock clock;
     private final ApplicationEventPublisher events;
 
     OrderService(OrderStore orders, OrderIntentStore intents, TradeStore trades, PositionStore positions, PositionService positionService,
-            AuditService audit, HejjeClock clock, ApplicationEventPublisher events) {
+            InstrumentService instruments, CostModel costModel, AuditService audit, HejjeClock clock, ApplicationEventPublisher events) {
         this.orders = orders;
         this.intents = intents;
         this.trades = trades;
         this.positions = positions;
         this.positionService = positionService;
+        this.instruments = instruments;
+        this.costModel = costModel;
         this.audit = audit;
         this.clock = clock;
         this.events = events;
@@ -109,6 +118,18 @@ public class OrderService {
 
     public List<Trade> tradesForOrder(UUID orderId) {
         return trades.byOrder(orderId);
+    }
+
+    /** The transaction cost of a fill, computed deterministically from the trade and its instrument. */
+    public CostBreakdown cost(Trade trade) {
+        Instrument instrument = instruments.findById(trade.instrumentId()).orElse(null);
+        money.hejje.common.InstrumentType type = instrument == null ? money.hejje.common.InstrumentType.EQ : instrument.type();
+        money.hejje.common.Product product = orders.findById(trade.orderId()).map(HejjeOrder::product).orElse(money.hejje.common.Product.MIS);
+        return costModel.compute(new CostFill(type, product, trade.side(), trade.quantity(), trade.price()));
+    }
+
+    public java.util.Optional<Trade> findTrade(UUID tradeId, ExecutionMode mode) {
+        return trades.query(mode, null, null).stream().filter(t -> t.id().equals(tradeId)).findFirst();
     }
 
     public List<Position> positions(ExecutionMode mode) {
@@ -253,10 +274,12 @@ public class OrderService {
     private void recordFill(HejjeOrder order, BrokerOrder update, int delta, BigDecimal price, OrderEventSource source) {
         UUID strategyId = null;
         String brokerTradeId = update.brokerOrderId() + ":" + update.filledQuantity();
-        boolean fresh = trades.insertIfAbsent(new Trade(Ids.newId(), order.id(), brokerTradeId, order.instrumentId(), order.side(),
-                delta, price, clock.now(), order.mode(), strategyId));
+        Trade trade = new Trade(Ids.newId(), order.id(), brokerTradeId, order.instrumentId(), order.side(), delta, price, clock.now(),
+                order.mode(), strategyId);
+        boolean fresh = trades.insertIfAbsent(trade);
         if (fresh) {
-            positionService.applyFill(order.mode(), order.instrumentId(), order.product(), strategyId, order.side(), delta, price);
+            money.hejje.common.Money fee = cost(trade).total();
+            positionService.applyFill(order.mode(), order.instrumentId(), order.product(), strategyId, order.side(), delta, price, fee);
         }
     }
 

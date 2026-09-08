@@ -1,0 +1,34 @@
+# Transaction cost rates (PRD 12.2). Percentages are fractions of turnover (0.0003 = 0.03%).
+# Defaults follow current Zerodha / NSE charge sheets. verify=true until confirmed against the live sheets.
+# Loaded into hejje.costs.* (see server/src/main/resources/application.yml which imports these values).
+hejje:
+  costs:
+    verify: true
+    brokerage-flat: 20        # rupees per executed order (Zerodha)
+    brokerage-pct: 0.0003     # 0.03%
+    gst-pct: 0.18             # 18% on brokerage + exchange txn + SEBI
+    sebi-pct: 0.000001        # 10 per crore
+    equity-intraday:
+      stt-pct: 0.00025        # 0.025% on sell
+      stt-on-sell-only: true
+      exchange-txn-pct: 0.0000297   # NSE ~0.00297%
+      stamp-duty-pct: 0.00003       # 0.003% buy
+      brokerage-free: false
+    equity-delivery:
+      stt-pct: 0.001          # 0.1% both sides
+      stt-on-sell-only: false
+      exchange-txn-pct: 0.0000297
+      stamp-duty-pct: 0.00015       # 0.015% buy
+      brokerage-free: true    # Zerodha equity delivery brokerage is zero
+    futures:
+      stt-pct: 0.0002         # 0.02% on sell
+      stt-on-sell-only: true
+      exchange-txn-pct: 0.0000173   # ~0.00173%
+      stamp-duty-pct: 0.00002       # 0.002% buy
+      brokerage-free: false
+    options:
+      stt-pct: 0.001          # 0.1% on premium sell
+      stt-on-sell-only: true
+      exchange-txn-pct: 0.0003503   # ~0.03503%
+      stamp-duty-pct: 0.00003       # 0.003% buy
+      brokerage-free: false
