@@ -44,3 +44,10 @@ every audit event and should be copied into every domain event via `EventMeta.cr
 `BrokerOrderUpdate`s (order state changes from the broker WebSocket, postback, poll or simulation) are not domain events:
 they are fanned out in-process through `money.hejje.broker.BrokerOrderUpdates` (`subscribe`, `publish`) on the producing
 thread. The execution module turns them into durable `OrderStateChangedEvent`s after applying them to the order state machine.
+
+## Market events (Phase 1, M1.3)
+
+`MarketTick` and `CandleClosedEvent` are `MarketEvent`s delivered on the in-process `TickBus`
+(`money.hejje.market.internal.InProcessTickBus`): a bounded queue with one dispatcher thread that guarantees total
+ordering; on overflow the oldest event is dropped and `hejje_tick_bus_dropped_total` is incremented. The client market
+WebSocket and the candle builder subscribe here. These are never persisted.

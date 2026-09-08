@@ -57,6 +57,18 @@ hejje:
       starting-capital: 1000000
   security:
     encryption-key: ${HEJJE_ENCRYPTION_KEY:}
+  market:
+    watchlist:
+      - "INDEX:NIFTY 50"
+      - "INDEX:NIFTY BANK"
+      - "INDEX:INDIA VIX"
+    stream-on-startup: ${HEJJE_MARKET_STREAM:false}
+    stale-after: 10s
+    quote-stale-after: 5s
+    tick-queue: 100000
+    record: ${HEJJE_MARKET_RECORD:false}
+    retention-sessions: 15
+    historical-per-second: 3
   instruments:
     sync-on-startup: false
     sync-cron: "0 0 8 * * MON-FRI"
@@ -88,6 +100,8 @@ spring:
 hejje:
   instruments:
     sync-on-startup: true
+  market:
+    stream-on-startup: true
   system:
     egress:
       enabled: false

@@ -192,3 +192,50 @@ Scope: `admin`. Invalidates the session at the broker, clears the stored token. 
 
 Public (per-IP rate limit). Kite order postback JSON; `checksum` verified with the api secret. `204` accepted, `403` bad
 checksum, `400` not JSON. Present only when `hejje.broker.zerodha.api-secret` is configured.
+
+## Market data
+
+All endpoints need `market:read` (backfill and jobs need `admin`). Candle timeframes: `M1 M3 M5 M15 H1 D1`.
+
+### `GET /api/v1/market/quotes?ids=<uuid>,<uuid>`
+
+Last tick per instrument with staleness; falls back to a REST quote for instruments never streamed.
+
+```json
+{ "0192...": { "instrumentId": "0192...", "ts": "2026-09-08T04:00:00Z", "lastPrice": 1498.20, "bid": 1498.10,
+    "ask": 1498.30, "volume": 123456, "oi": 0, "stale": false } }
+```
+
+### `GET /api/v1/market/candles?instrumentId=&timeframe=&from=&to=`
+
+Merges recent candles (Postgres) with older history (Parquet). Ordered by openTime; `from`/`to` are ISO-8601 instants.
+
+```json
+[ { "instrumentId": "0192...", "timeframe": "M5", "openTime": "2026-09-08T03:45:00Z", "open": 24950.00,
+    "high": 24990.00, "low": 24940.00, "close": 24985.00, "volume": 12345, "oi": 1000500, "synthetic": false } ]
+```
+
+### `POST /api/v1/market/subscriptions` · `DELETE /api/v1/market/subscriptions`
+
+Body `{ "instrumentIds": ["<uuid>"] }`. Adds/removes streaming subscriptions (LTP mode; the default watchlist stays FULL
+and cannot be removed). Returns `{ "subscribed": ["<uuid>"] }`.
+
+### `POST /api/v1/market/history/backfill`
+
+Scope: `admin`. Body `{ "instrumentId", "timeframe", "from", "to" }`. Returns `{ "jobId": "<uuid>" }`. Minute data is
+chunked into <=60-day broker requests; a 3/s throttle stands in until the M1.6 limiter.
+
+### `GET /api/v1/market/history/jobs/{id}`
+
+Scope: `admin`. `{ "jobId", "instrumentId", "timeframe", "from", "to", "status": "RUNNING|DONE|FAILED", "chunksTotal",
+"chunksDone", "candlesWritten", "error" }`.
+
+### `GET /api/v1/market/history/coverage?instrumentId=&timeframe=M1`
+
+`{ "instrumentId", "timeframe", "from", "to", "candleCount" }`; a zero `candleCount` means no history stored.
+
+### WebSocket `/ws/market`
+
+Auth by `?token=` (JWT or an API key with `market:read`). Client sends `{"subscribe":["<uuid>"]}` /
+`{"unsubscribe":["<uuid>"]}`. Server pushes `{"type":"tick",...}` and `{"type":"candle","candle":{...}}` for subscribed
+instruments.

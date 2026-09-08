@@ -37,6 +37,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("com.zerodhatech.kiteconnect:kiteconnect:4.0.1")
+    implementation("org.duckdb:duckdb_jdbc:1.5.5.1")
     runtimeOnly("org.postgresql:postgresql")
 
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")

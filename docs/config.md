@@ -41,3 +41,11 @@ Secrets are environment variables only.
 | `hejje.broker.fake.connected` | — | `true` | Fake broker starts with a connected session. |
 | `hejje.broker.fake.starting-capital` | — | `1000000` | Fake broker cash in rupees. |
 | `hejje.security.encryption-key` | `HEJJE_ENCRYPTION_KEY` | — | 32 bytes (base64 or hex) for AES-256-GCM of broker tokens at rest. Required in `prod`; random per start otherwise. |
+| `hejje.market.watchlist` | — | NIFTY 50, NIFTY BANK, INDIA VIX (+ nearest NIFTY/BANKNIFTY futures) | Canonical symbols streamed in FULL mode by default. |
+| `hejje.market.stream-on-startup` | `HEJJE_MARKET_STREAM` | `false` (`true` in `dev`) | Open the broker stream and subscribe the watchlist once the session is connected. |
+| `hejje.market.stale-after` | — | `10s` | No tick for this long during the session makes `marketData` readiness STALE. |
+| `hejje.market.quote-stale-after` | — | `5s` | QuoteCache staleness threshold. |
+| `hejje.market.tick-queue` | — | `100000` | Tick-bus bounded queue; overflow drops the oldest (`hejje_tick_bus_dropped_total`). |
+| `hejje.market.record` | `HEJJE_MARKET_RECORD` | `false` | Record ticks to `data-dir/ticks/{date}/ticks.parquet`. |
+| `hejje.market.retention-sessions` | — | `15` | Postgres candle retention in trading sessions (older stays in Parquet). |
+| `hejje.market.historical-per-second` | — | `3` | Historical backfill throttle until the M1.6 rate limiter. |
