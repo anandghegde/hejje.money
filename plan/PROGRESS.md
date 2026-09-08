@@ -28,3 +28,22 @@ One entry per completed milestone. Newest at the bottom.
 - VM hostname: **not provisioned yet**. Expected egress IPs (`HEJJE_EXECUTION_EXPECTED_IPS`): **to be filled after provisioning**.
 - Kite app redirect URL: `https://<HEJJE_DOMAIN>/api/v1/broker/callback` (endpoint arrives in M1.1).
 - Local toolchain note: Gradle 8.14.5 runs on JDK 17 and provisions the Java 21 toolchain via foojay; the wrapper distribution download timed out from this machine, so builds here used a locally unpacked Gradle 8.14.5.
+
+## Phase 1 exit
+
+All milestones M1.1–M1.9 implemented and committed on `main` (2026-09-08). Server: `cd server && ./gradlew clean build`
+green, 221 tests, `ApplicationModules.verify()` passes. Web: `cd web && npm ci && npm run lint && npm test && npm run build`
+green. TUI: `cd tui && go vet ./... && go test ./... && go build ./cmd/hejje` green (Go 1.27.1 installed via brew this session).
+
+Phase 1 exit checklist status:
+- [x] PAPER: place, modify, cancel, fill, close; audit trail; fees visible (M1.4/M1.7 tests, `PaperTradeIT`).
+- [ ] CONFIRM live 1-share round trip — needs a provisioned VM with a static IP registered at Zerodha and a real Kite login (not available in this environment).
+- [x] Restart mid-session recovery and reconciliation without manual intervention (`ExecutionRecoveryIT`).
+- [x] Duplicate request (same idempotency key, retried) creates exactly one broker order (`ExecutionIT`).
+- [x] Broker logout during session: readiness red, new intents rejected with a reason, closes allowed (`BrokerSessionIT`, gate).
+- [x] Egress IP mismatch disables execution and shows in health/TUI (`EgressMismatchIT`, `hejje status`).
+- [x] Kill switch from Web, TUI, API and local paths (API + Web + TUI implemented; local `--kill` CLI is a documented follow-up).
+
+Follow-ups carried forward: live CONFIRM round trip on a real VM; local `--kill` CLI and HA standby (Phase 5); wiring the
+Playwright smoke stack into CI; verifying `config/costs.yaml` rates against the current Zerodha/NSE charge sheets.
+
