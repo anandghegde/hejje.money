@@ -191,10 +191,11 @@ class ZerodhaKiteAdapterWireMockTest {
         login();
         wiremock.stubFor(post(urlPathEqualTo("/orders/regular")).willReturn(json(403, error("TokenException", "Token is invalid or has expired."))));
         assertThatThrownBy(() -> adapter.placeOrder(marketBuy())).isInstanceOf(BrokerException.class);
-        String allLogs = String.join("\n", logs.list.stream().map(ILoggingEvent::getFormattedMessage).toList());
+        java.util.List<ILoggingEvent> captured = java.util.List.copyOf(logs.list);
+        String allLogs = String.join("\n", captured.stream().map(ILoggingEvent::getFormattedMessage).toList());
         assertThat(allLogs).isNotEmpty();
         assertThat(allLogs).doesNotContain(API_SECRET).doesNotContain(ACCESS_TOKEN);
-        for (ILoggingEvent event : logs.list) {
+        for (ILoggingEvent event : captured) {
             if (event.getArgumentArray() != null) {
                 for (Object arg : event.getArgumentArray()) {
                     assertThat(String.valueOf(arg)).doesNotContain(API_SECRET).doesNotContain(ACCESS_TOKEN);

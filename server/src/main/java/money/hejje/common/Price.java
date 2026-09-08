@@ -1,5 +1,7 @@
 package money.hejje.common;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
@@ -24,8 +26,15 @@ public record Price(BigDecimal value) implements Comparable<Price> {
     }
 
     /** Parses a price such as {@code "24930.05"}. */
+    @JsonCreator
     public static Price of(String value) {
         return new Price(new BigDecimal(value));
+    }
+
+    /** JSON form is the plain decimal string, avoiding floating-point round-trips. */
+    @JsonValue
+    public String asText() {
+        return value.toPlainString();
     }
 
     public static Price of(BigDecimal value) {

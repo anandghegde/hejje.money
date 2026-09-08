@@ -103,7 +103,7 @@ class ServerController {
                 Check.fromReadiness(checks.get("marketData")),
                 new Check(dbUp ? "HEALTHY" : "DOWN", dbUp ? "SELECT 1 ok" : "SELECT 1 failed"),
                 new Check(clock.status().name(), clock.detail()),
-                Check.notConfigured(),
+                new Check("HEALTHY", "risk engine enabled"),
                 Check.notConfigured());
     }
 }

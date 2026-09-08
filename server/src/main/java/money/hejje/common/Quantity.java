@@ -5,7 +5,7 @@ package money.hejje.common;
  *
  * @param value the count
  */
-public record Quantity(int value) implements Comparable<Quantity> {
+public record Quantity(@com.fasterxml.jackson.annotation.JsonValue int value) implements Comparable<Quantity> {
 
     public Quantity {
         if (value <= 0) {
@@ -13,6 +13,7 @@ public record Quantity(int value) implements Comparable<Quantity> {
         }
     }
 
+    @com.fasterxml.jackson.annotation.JsonCreator
     public static Quantity of(int value) {
         return new Quantity(value);
     }

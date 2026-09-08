@@ -52,6 +52,11 @@ class ExecutionIT extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbc.execute("TRUNCATE trade, order_event, hejje_order, risk_decision, order_intent, position, idempotency_record CASCADE");
+        jdbc.update("UPDATE kill_switch SET stop_new_orders = FALSE WHERE mode = 'PAPER'");
+        // this suite exercises the execution pipeline, not risk policy: relax the limits so plain orders pass risk
+        jdbc.update("UPDATE risk_limits SET mandatory_stop = FALSE, no_reentry_minutes = 0, no_averaging_down = FALSE, "
+                + "no_new_trades_after = '23:59:59', max_trades_per_day = 100000, max_consecutive_losses = 100000, "
+                + "max_quantity = 100000, max_open_positions = 1000 WHERE mode = 'PAPER'");
         instruments.sync();
         infy = instruments.resolve("NSE:INFY").map(Instrument::id).orElseThrow();
         fake.reset();

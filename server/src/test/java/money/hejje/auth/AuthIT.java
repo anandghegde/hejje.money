@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import money.hejje.AbstractIntegrationTest;
+import money.hejje.common.time.MutableClock;
+import org.springframework.beans.factory.annotation.Autowired;
 import money.hejje.audit.AuditEventType;
 import money.hejje.audit.AuditQuery;
 import money.hejje.audit.AuditService;
@@ -26,6 +28,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 class AuthIT extends AbstractIntegrationTest {
+
+    @Autowired
+    MutableClock testClock;
 
     @Autowired
     TokenService tokens;
@@ -77,11 +82,12 @@ class AuthIT extends AbstractIntegrationTest {
 
     @Test
     void expiredAccessTokenIs401AndRefreshIssuesNewSession() {
+        testClock.set(java.time.Instant.now()); // other suites move the shared clock; this test needs real-time expiry
         ResponseEntity<Map> login = loginAdmin();
         String adminId = (String) rest.exchange("/api/v1/auth/me", HttpMethod.GET,
                 new HttpEntity<>(bearer((String) login.getBody().get("accessToken"))), Map.class).getBody().get("id");
         HejjePrincipal principal = new HejjePrincipal(UUID.fromString(adminId), "admin", HejjePrincipal.Type.USER, ScopeCatalog.ALL);
-        String expired = tokens.issueAccessToken(principal, Instant.now().minus(Duration.ofMinutes(20)), Duration.ofMinutes(15));
+        String expired = tokens.issueAccessToken(principal, testClock.instant().minus(Duration.ofMinutes(20)), Duration.ofMinutes(15));
         assertThat(rest.exchange("/api/v1/auth/me", HttpMethod.GET, new HttpEntity<>(bearer(expired)), String.class).getStatusCode())
                 .isEqualTo(HttpStatus.UNAUTHORIZED);
 

@@ -49,3 +49,6 @@ Secrets are environment variables only.
 | `hejje.market.record` | `HEJJE_MARKET_RECORD` | `false` | Record ticks to `data-dir/ticks/{date}/ticks.parquet`. |
 | `hejje.market.retention-sessions` | — | `15` | Postgres candle retention in trading sessions (older stays in Parquet). |
 | `hejje.market.historical-per-second` | — | `3` | Historical backfill throttle until the M1.6 rate limiter. |
+
+Risk limits are not application properties; they are rows in `risk_limits` (one per mode, seeded with defaults in
+migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.

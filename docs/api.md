@@ -286,3 +286,31 @@ Scope: `market:read`. Fills recorded from the broker, newest first.
 ### WebSocket `/ws/events`
 
 Auth by `?token=`. Pushes `{"type":"order"|"fill"|"position"|"broker"|"readiness", ...}` as state changes.
+
+## Risk
+
+### `GET /api/v1/risk`
+
+Scope: `risk:read`. Account risk dashboard (PRD section 54): realized/unrealized/net P&L, daily loss limit, gross exposure
+and its limit, open positions, trades today, consecutive losses, margin used %, and the kill switch state.
+
+### `GET /api/v1/risk/limits` · `PUT /api/v1/risk/limits`
+
+Scope: `risk:read` / `risk:write`. Limits for the current mode (money fields in paise). The PUT body carries every limit
+as a flat field (e.g. `maxLossPerDayPaise`, `maxRiskPerTradePaise`, `maxOpenPositions`, `noNewTradesAfter` as `HH:mm`,
+`mandatoryStop`, `noAveragingDown`, `noReentryMinutes`, `maxConsecutiveLosses`).
+
+### `POST /api/v1/risk/kill-switch`
+
+Scope: `risk:write`. Body `{ "action": "STOP_NEW_ORDERS" | "CANCEL_ALL_OPEN" | "CLOSE_ALL_POSITIONS", "confirmation": "CLOSE ALL" }`.
+Every action stops new orders. `CLOSE_ALL_POSITIONS` requires `confirmation == "CLOSE ALL"` (else 400); `CANCEL_ALL_OPEN`
+and `CLOSE_ALL_POSITIONS` are carried out asynchronously by the execution module. Returns the kill switch state.
+
+### `GET /api/v1/risk/kill-switch` · `DELETE /api/v1/risk/kill-switch`
+
+Scope: `risk:read` (read) / `admin` (re-arm). DELETE clears `stopNewOrders`.
+
+### `POST /api/v1/risk/position-size`
+
+Scope: `risk:read`. Body `{ "entry": "24980.00", "stop": "24935.00", "riskPaise": 200000, "lotSize": 75, "maxQuantity": 0 }`
+returns `{ "quantity": n }` floored to whole lots and capped at `maxQuantity` (0 = no cap).
