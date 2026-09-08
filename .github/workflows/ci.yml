@@ -36,4 +36,17 @@ jobs:
       - run: npm test
       - run: npm run build
 
-  # tui: added in M1.9
+  tui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27"
+          cache-dependency-path: tui/go.sum
+      - run: go vet ./...
+      - run: go test ./...
+      - run: go build ./cmd/hejje

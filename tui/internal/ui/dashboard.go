@@ -1,0 +1,208 @@
+package ui
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+
+	"hejje.money/tui/internal/api"
+)
+
+type refreshMsg struct{}
+
+type model struct {
+	client    *api.Client
+	health    api.Health
+	positions []api.Position
+	orders    []api.Order
+	risk      api.RiskDashboard
+	err       string
+	status    string
+	quitting  bool
+	selPos    int
+	selOrder  int
+}
+
+// RunDashboard starts the Bubble Tea dashboard (PRD 5.4).
+func RunDashboard(client *api.Client) error {
+	p := tea.NewProgram(model{client: client}, tea.WithAltScreen())
+	_, err := p.Run()
+	return err
+}
+
+func (m model) Init() tea.Cmd {
+	return tea.Batch(m.refresh(), tick())
+}
+
+func tick() tea.Cmd {
+	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return refreshMsg{} })
+}
+
+func (m model) refresh() tea.Cmd {
+	return func() tea.Msg {
+		return loaded{
+			health:    fetchHealth(m.client),
+			positions: fetchPositions(m.client),
+			orders:    fetchOrders(m.client),
+			risk:      fetchRisk(m.client),
+		}
+	}
+}
+
+type loaded struct {
+	health    api.Health
+	positions []api.Position
+	orders    []api.Order
+	risk      api.RiskDashboard
+}
+
+func fetchHealth(c *api.Client) api.Health { h, _ := c.Health(); return h }
+func fetchPositions(c *api.Client) []api.Position { p, _ := c.Positions(); return p }
+func fetchOrders(c *api.Client) []api.Order { o, _ := c.Orders(); return o }
+func fetchRisk(c *api.Client) api.RiskDashboard { r, _ := c.Risk(); return r }
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case refreshMsg:
+		return m, tea.Batch(m.refresh(), tick())
+	case loaded:
+		m.health = msg.health
+		m.positions = msg.positions
+		m.orders = msg.orders
+		m.risk = msg.risk
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		case "r":
+			return m, m.refresh()
+		case "c":
+			if o := m.selectedOpenOrder(); o != nil {
+				_ = m.client.CancelOrder(o.ID)
+				m.status = "cancel requested " + o.ID
+			}
+			return m, m.refresh()
+		case "x":
+			if p := m.selectedPosition(); p != nil {
+				_, _ = m.client.ClosePosition(p.InstrumentID, p.Product)
+				m.status = "close requested " + p.InstrumentID
+			}
+			return m, m.refresh()
+		case "K":
+			_, _ = m.client.KillSwitch("STOP_NEW_ORDERS", "")
+			m.status = "kill switch: new orders stopped"
+			return m, m.refresh()
+		case "down":
+			m.selPos++
+		case "up":
+			if m.selPos > 0 {
+				m.selPos--
+			}
+		}
+	}
+	return m, nil
+}
+
+func (m model) selectedPosition() *api.Position {
+	open := openPositions(m.positions)
+	if m.selPos >= 0 && m.selPos < len(open) {
+		return &open[m.selPos]
+	}
+	return nil
+}
+
+func (m model) selectedOpenOrder() *api.Order {
+	open := openOrders(m.orders)
+	if m.selOrder >= 0 && m.selOrder < len(open) {
+		return &open[m.selOrder]
+	}
+	return nil
+}
+
+func openPositions(ps []api.Position) []api.Position {
+	var out []api.Position
+	for _, p := range ps {
+		if p.NetQuantity != 0 {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func openOrders(os []api.Order) []api.Order {
+	var out []api.Order
+	for _, o := range os {
+		switch o.State {
+		case "OPEN", "PARTIALLY_FILLED", "BROKER_ACCEPTED", "TRIGGER_PENDING":
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+var (
+	liveStyle  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("196"))
+	paperStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("39"))
+	dim        = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+)
+
+func (m model) View() string {
+	if m.quitting {
+		return ""
+	}
+	var b strings.Builder
+	mode := m.health.Mode
+	if mode == "" {
+		mode = "…"
+	}
+	banner := paperStyle.Render("● PAPER " + mode)
+	if mode == "CONFIRM" || mode == "AUTO" {
+		banner = liveStyle.Render("● LIVE " + mode)
+	}
+	b.WriteString(banner + "\n")
+	b.WriteString(dim.Render("HEJJE") + "\n\n")
+
+	b.WriteString("BEST HEJJE\n")
+	b.WriteString(dim.Render("  No strategies deployed") + "\n\n")
+
+	b.WriteString("POSITIONS\n")
+	for i, p := range openPositions(m.positions) {
+		marker := "  "
+		if i == m.selPos {
+			marker = "> "
+		}
+		b.WriteString(fmt.Sprintf("%s%-38s %-4s net %5d avg %8.2f realized %s\n", marker, p.InstrumentID, p.Product, p.NetQuantity, p.AveragePrice, Rupees(p.RealizedPnl.Paise)))
+	}
+	if len(openPositions(m.positions)) == 0 {
+		b.WriteString(dim.Render("  (none)") + "\n")
+	}
+
+	b.WriteString("\nOPEN ORDERS\n")
+	for _, o := range openOrders(m.orders) {
+		b.WriteString(fmt.Sprintf("  %-38s %-4s %5d %-8s %s\n", o.ID, o.Side, o.Quantity, o.OrderType, o.State))
+	}
+	if len(openOrders(m.orders)) == 0 {
+		b.WriteString(dim.Render("  (none)") + "\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("Daily P&L %s / limit %s\n", Rupees(m.risk.NetPnl.Paise), Rupees(m.risk.DailyLossLimit.Paise)))
+	b.WriteString(fmt.Sprintf("Server %s  Broker %s  Market %s\n", dotStatus(m.health.Status == "UP"), dotStatus(m.health.Broker.Status == "HEALTHY"), dotStatus(m.health.MarketData.Status != "DOWN")))
+	if m.status != "" {
+		b.WriteString(dim.Render(m.status) + "\n")
+	}
+	b.WriteString(dim.Render("[c] cancel  [x] close  [K] kill  [r] refresh  [q] quit") + "\n")
+	return b.String()
+}
+
+func dotStatus(ok bool) string {
+	if ok {
+		return "●"
+	}
+	return "○"
+}
