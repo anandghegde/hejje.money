@@ -82,8 +82,8 @@ class RiskIT extends AbstractIntegrationTest {
 
         // a new BUY is rejected by risk
         Assertions.assertThatThrownBy(() -> engine.submit(order(Side.BUY, 10, OrderReason.MANUAL)))
-                .isInstanceOfSatisfying(ExecutionException.RiskRejected.class,
-                        e -> assertThat(e.checks()).anyMatch(c -> c.name().equals("killSwitch") && !c.passed()));
+                .isInstanceOfSatisfying(ExecutionException.Validation.class,
+                        e -> assertThat(e.reasons()).anyMatch(r -> r.contains("Kill switch")));
 
         // a POSITION_CLOSE is allowed through risk (reaches the broker)
         var close = engine.submit(order(Side.SELL, 10, OrderReason.POSITION_CLOSE));
@@ -102,8 +102,9 @@ class RiskIT extends AbstractIntegrationTest {
         fake.flush();
 
         // the next evaluation sees the breach and auto-trips the kill switch (reason DAILY_LOSS), rejecting the order
+        // the order is rejected (by risk directly, or by the gate once the switch has tripped) and the switch shows DAILY_LOSS
         Assertions.assertThatThrownBy(() -> engine.submit(order(Side.BUY, 10, OrderReason.MANUAL)))
-                .isInstanceOf(ExecutionException.RiskRejected.class);
+                .isInstanceOf(ExecutionException.class);
         assertThat(risk.killSwitch(ExecutionMode.PAPER).stopNewOrders()).isTrue();
         assertThat(risk.killSwitch(ExecutionMode.PAPER).reason()).isEqualTo("DAILY_LOSS");
         assertThat(audit.query(new AuditQuery(null, null, AuditEventType.KILL_SWITCH_ENABLED, null, 0, 50)).total()).isPositive();

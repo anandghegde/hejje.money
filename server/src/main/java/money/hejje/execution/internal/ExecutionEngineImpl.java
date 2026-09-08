@@ -39,6 +39,8 @@ import money.hejje.risk.RiskDecision;
 import money.hejje.risk.RiskEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,10 +62,11 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     private final HejjeClock clock;
     private final HejjeProperties properties;
     private final ApplicationEventPublisher events;
+    private final MeterRegistry meters;
 
     ExecutionEngineImpl(BrokerAdapter broker, OrderService orders, OrderValidator validator, RiskEngine risk,
             RiskDecisionStore riskDecisions, IdempotencyStore idempotency, UnknownOrderResolver unknownResolver, AuditService audit,
-            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events) {
+            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events, MeterRegistry meters) {
         this.broker = broker;
         this.orders = orders;
         this.validator = validator;
@@ -75,6 +78,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
         this.clock = clock;
         this.properties = properties;
         this.events = events;
+        this.meters = meters;
     }
 
     @Override
@@ -143,7 +147,13 @@ public class ExecutionEngineImpl implements ExecutionEngine {
             throw new ExecutionException.Validation(errors);
         }
 
-        RiskDecision decision = risk.evaluate(validating);
+        Timer.Sample riskSample = Timer.start(meters);
+        RiskDecision decision;
+        try {
+            decision = risk.evaluate(validating);
+        } finally {
+            riskSample.stop(Timer.builder("risk.evaluate").publishPercentileHistogram().register(meters));
+        }
         riskDecisions.save(validating.id(), decision, Map.of());
         if (!decision.isApproved()) {
             orders.updateIntentStatus(validating.withStatus(IntentStatus.RISK_REJECTED, decision.failures()));

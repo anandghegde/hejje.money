@@ -52,3 +52,9 @@ Secrets are environment variables only.
 
 Risk limits are not application properties; they are rows in `risk_limits` (one per mode, seeded with defaults in
 migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
+| `hejje.broker.limits.orders-per-second` / `-per-minute` / `-per-day` | — | `10` / `200` / `3000` | Broker order rate limits (PRD 39); transactional calls fail fast with RATE_LIMITED when exhausted. |
+| `hejje.broker.limits.quote-per-second` | — | `1` | Quote request rate. |
+| `hejje.broker.limits.historical-per-second` | — | `3` | Historical request rate. |
+| `hejje.broker.limits.general-per-second` | — | `10` | Rate for all other broker calls. |
+| `hejje.broker.limits.read-wait-millis` | — | `1000` | How long a read may wait for a rate-limit token before failing. |
+| `hejje.reconciliation.pause-on-critical` | — | `true` | Trip the kill switch (STOP_NEW_ORDERS) on a CRITICAL reconciliation issue. |

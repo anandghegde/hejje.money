@@ -87,6 +87,10 @@ public class OrderService {
         return orders.findByTag(mode, tag);
     }
 
+    public Optional<HejjeOrder> findByBrokerOrderId(String broker, String brokerOrderId) {
+        return orders.findByBrokerOrderId(broker, brokerOrderId);
+    }
+
     public List<HejjeOrder> query(ExecutionMode mode, OrderState state, Instant from, Instant to) {
         return orders.query(mode, state, from, to);
     }
@@ -113,6 +117,26 @@ public class OrderService {
 
     public List<Position> openPositions(ExecutionMode mode) {
         return positions.openByMode(mode);
+    }
+
+    /**
+     * Imports a broker order that Hejje did not create (found during reconciliation). Creates the local order shell, then
+     * applies the broker snapshot to record fills and state. Returns the imported order.
+     */
+    @Transactional
+    public HejjeOrder importExternal(String broker, ExecutionMode mode, BrokerOrder update) {
+        String tag = "ext-" + update.brokerOrderId();
+        UUID id = money.hejje.common.Ids.newId();
+        HejjeOrder shell = new HejjeOrder(id, null, mode, broker, update.brokerOrderId(), tag, update.instrumentId(), update.side(),
+                update.quantity(), 0, java.math.BigDecimal.ZERO.setScale(2), update.orderType() == null ? money.hejje.common.OrderType.MARKET : update.orderType(),
+                update.product() == null ? money.hejje.common.Product.MIS : update.product(),
+                update.limitPrice(), update.triggerPrice(), OrderState.BROKER_ACCEPTED, update.rawStatus(),
+                update.placedAt() == null ? clock.now() : update.placedAt(), clock.now(), null, null);
+        orders.insert(shell);
+        orders.appendEvent(id, null, OrderState.BROKER_ACCEPTED, OrderEventSource.EXTERNAL, java.util.Map.of("brokerOrderId", update.brokerOrderId()), clock.now());
+        audit.record(AuditEvent.of(AuditEventType.EXTERNAL_ORDER_IMPORTED, ActorType.SYSTEM).withOrderId(id).withBrokerRef(update.brokerOrderId()));
+        applyBrokerUpdate(broker, mode, update, OrderEventSource.RECONCILIATION);
+        return orders.findById(id).orElseThrow();
     }
 
     /** Records a user/system-initiated transition (SUBMITTING, CANCEL_PENDING, ...). Throws {@link IllegalTransition}. */

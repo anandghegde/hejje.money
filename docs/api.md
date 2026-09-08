@@ -314,3 +314,22 @@ Scope: `risk:read` (read) / `admin` (re-arm). DELETE clears `stopNewOrders`.
 
 Scope: `risk:read`. Body `{ "entry": "24980.00", "stop": "24935.00", "riskPaise": 200000, "lotSize": 75, "maxQuantity": 0 }`
 returns `{ "quantity": n }` floored to whole lots and capped at `maxQuantity` (0 = no cap).
+
+## Execution operations (reconciliation, latency)
+
+### `POST /api/v1/execution/reconcile`
+
+Scope: `admin`. Runs a reconciliation pass now (PRD section 38) and returns the open issues.
+
+### `GET /api/v1/execution/reconciliation-issues`
+
+Scope: `market:read`. Open issues: `{ id, kind, severity: INFO|WARN|CRITICAL, instrumentId, orderId, expected, observed, detail, detectedAt }`.
+
+### `POST /api/v1/execution/reconciliation-issues/{id}/resolve`
+
+Scope: `admin`. Marks an issue resolved. A CRITICAL issue (position quantity mismatch) blocks execution until resolved.
+
+### `GET /api/v1/server/latency`
+
+Scope: `market:read`. p50/p95/p99 (ms) per PRD section 44 timer: `api.request`/`http.server.requests`, `risk.evaluate`,
+`broker.call{op}`, `broker.ack`.

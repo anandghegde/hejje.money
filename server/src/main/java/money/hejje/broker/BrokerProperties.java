@@ -10,5 +10,28 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param webUrl  base URL of the Web client; the login callback redirects to {@code <webUrl>/broker?connected=1}
  */
 @ConfigurationProperties("hejje.broker")
-public record BrokerProperties(@DefaultValue("fake") String adapter, @DefaultValue("http://localhost:5173") String webUrl) {
+public record BrokerProperties(@DefaultValue("fake") String adapter, @DefaultValue("http://localhost:5173") String webUrl,
+        @DefaultValue Limits limits) {
+
+    /**
+     * Per-operation broker rate limits (PRD section 39). Transactional operations fail fast when exhausted; reads wait
+     * briefly. All configuration-driven, never hardcoded in strategy logic.
+     *
+     * @param ordersPerSecond   order place/modify/cancel per second
+     * @param ordersPerMinute   order operations per minute
+     * @param ordersPerDay      order operations per day
+     * @param quotePerSecond    quote requests per second
+     * @param historicalPerSecond historical requests per second
+     * @param generalPerSecond  everything else per second
+     * @param readWaitMillis    how long a read may wait for a token before failing
+     */
+    public record Limits(
+            @DefaultValue("10") int ordersPerSecond,
+            @DefaultValue("200") int ordersPerMinute,
+            @DefaultValue("3000") int ordersPerDay,
+            @DefaultValue("1") int quotePerSecond,
+            @DefaultValue("3") int historicalPerSecond,
+            @DefaultValue("10") int generalPerSecond,
+            @DefaultValue("1000") long readWaitMillis) {
+    }
 }

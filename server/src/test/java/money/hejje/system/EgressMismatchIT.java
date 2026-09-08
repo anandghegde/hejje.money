@@ -16,6 +16,7 @@ import money.hejje.system.internal.EgressIpVerifier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -46,8 +47,12 @@ class EgressMismatchIT extends AbstractIntegrationTest {
     @Autowired
     AuditService audit;
 
+    @Autowired
+    JdbcTemplate jdbc;
+
     @Test
     void wrongEgressIpBlocksExecutionAndShowsInHealth() {
+        jdbc.update("UPDATE reconciliation_issue SET resolved_at = now() WHERE resolved_at IS NULL");
         resolver.stubFor(get("/ip-a").willReturn(aResponse().withStatus(200).withBody("198.51.100.7\n")));
         resolver.stubFor(get("/ip-b").willReturn(aResponse().withStatus(500)));
 

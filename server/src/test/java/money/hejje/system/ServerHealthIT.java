@@ -7,6 +7,7 @@ import money.hejje.AbstractIntegrationTest;
 import money.hejje.common.time.MutableClock;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -16,6 +17,9 @@ class ServerHealthIT extends AbstractIntegrationTest {
 
     @Autowired
     MutableClock clock;
+
+    @Autowired
+    JdbcTemplate jdbc;
 
     @Test
     void pingIsPublic() {
@@ -27,6 +31,7 @@ class ServerHealthIT extends AbstractIntegrationTest {
     @Test
     void healthNeedsMarketReadAndHasPrdShape() {
         clock.setIst("2026-09-13T10:00:00"); // Sunday: session closed, so marketData readiness is SKIPPED regardless of test order
+        jdbc.update("UPDATE reconciliation_issue SET resolved_at = now() WHERE resolved_at IS NULL");
         assertThat(rest.getForEntity("/api/v1/server/health", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         ResponseEntity<Map> response = rest.exchange("/api/v1/server/health", HttpMethod.GET,
                 new HttpEntity<>(bearer(adminAccessToken())), Map.class);
@@ -40,7 +45,7 @@ class ServerHealthIT extends AbstractIntegrationTest {
         assertThat((Map<String, Object>) body.get("database")).containsEntry("status", "HEALTHY");
         assertThat((Map<String, Object>) body.get("broker")).containsEntry("status", "HEALTHY");
         assertThat((String) ((Map<String, Object>) body.get("broker")).get("detail")).contains("fake CONNECTED");
-        assertThat((Map<String, Object>) body.get("orderQueue")).containsEntry("status", "NOT_CONFIGURED");
+        assertThat((Map<String, Object>) body.get("orderQueue")).containsEntry("status", "HEALTHY");
     }
 
     @Test

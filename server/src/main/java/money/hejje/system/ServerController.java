@@ -104,6 +104,6 @@ class ServerController {
                 new Check(dbUp ? "HEALTHY" : "DOWN", dbUp ? "SELECT 1 ok" : "SELECT 1 failed"),
                 new Check(clock.status().name(), clock.detail()),
                 new Check("HEALTHY", "risk engine enabled"),
-                Check.notConfigured());
+                new Check("HEALTHY", "no order queue (orders are rate-limited fail-fast)"));
     }
 }

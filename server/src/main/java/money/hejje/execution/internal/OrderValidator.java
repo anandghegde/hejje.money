@@ -2,13 +2,12 @@ package money.hejje.execution.internal;
 
 import java.util.ArrayList;
 import java.util.List;
-import money.hejje.broker.BrokerSessionService;
 import money.hejje.common.OrderType;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.common.time.HejjeClock;
+import money.hejje.execution.LiveTradingGate;
 import money.hejje.orders.OrderIntent;
-import money.hejje.system.ExecutionReadiness;
 import org.springframework.stereotype.Component;
 
 /** Deterministic pre-broker validation of an intent (PRD section 36 pipeline). Never calls the broker. */
@@ -17,14 +16,12 @@ public class OrderValidator {
 
     private final InstrumentService instruments;
     private final HejjeClock clock;
-    private final ExecutionReadiness readiness;
-    private final BrokerSessionService broker;
+    private final LiveTradingGate gate;
 
-    OrderValidator(InstrumentService instruments, HejjeClock clock, ExecutionReadiness readiness, BrokerSessionService broker) {
+    OrderValidator(InstrumentService instruments, HejjeClock clock, LiveTradingGate gate) {
         this.instruments = instruments;
         this.clock = clock;
-        this.readiness = readiness;
-        this.broker = broker;
+        this.gate = gate;
     }
 
     public List<String> validate(OrderIntent intent) {
@@ -55,12 +52,8 @@ public class OrderValidator {
         if (!intent.isExposureReducing() && !clock.isSessionOpen()) {
             errors.add("Market is closed (no AMO support yet); only closes are allowed outside the session");
         }
-        if (!broker.isConnected()) {
-            errors.add("Broker is not connected");
-        }
-        if (!readiness.isExecutionEnabled()) {
-            errors.add("Execution is disabled: " + String.join("; ", readiness.reasons()));
-        }
+        // the live-trading gate composes broker session, kill switch and every readiness check
+        errors.addAll(gate.check(intent));
         return errors;
     }
 }
