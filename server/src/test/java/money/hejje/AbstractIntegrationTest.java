@@ -1,12 +1,18 @@
 package money.hejje;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import money.hejje.common.time.MutableClock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,7 +29,19 @@ import org.testcontainers.containers.PostgreSQLContainer;
 })
 @ActiveProfiles("test")
 @AutoConfigureObservability(tracing = false)
+@Import(AbstractIntegrationTest.TestClockConfig.class)
 public abstract class AbstractIntegrationTest {
+
+    /** The application clock is a {@link MutableClock} in integration tests; tests that move it must reset it. */
+    @TestConfiguration
+    public static class TestClockConfig {
+
+        @Bean
+        @Primary
+        public MutableClock clock() {
+            return new MutableClock(Instant.now(), MutableClock.IST);
+        }
+    }
 
     public static final String ADMIN_PASSWORD = "test-admin-password";
 

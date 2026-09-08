@@ -123,3 +123,33 @@ Scope: `admin`. Lists `{id, name, keyPrefix, scopes, createdAt, expiresAt, revok
 ### `DELETE /api/v1/auth/clients/{id}`
 
 Scope: `admin`. Revokes the key (204; 404 if unknown). Audited as `CLIENT_REVOKED`.
+
+## Instruments
+
+Symbols follow `docs/symbols.md`. All instrument endpoints need `market:read` unless stated.
+
+### `GET /api/v1/instruments?q=&exchange=&type=&limit=20`
+
+Prefix search on symbol/underlying and substring search on name; active instruments first; `limit` at most 200.
+
+```json
+[ { "id": "0192...", "symbol": "NIFTY", "name": "NIFTY", "exchange": "NFO", "type": "FUT", "underlying": "NIFTY",
+    "expiry": "2026-09-29", "lotSize": 75, "tickSize": 0.05, "active": true, "updatedAt": "2026-09-08T02:30:00Z",
+    "hejjeSymbol": "NFO:NIFTY:FUT:2026-09-29" } ]
+```
+
+### `GET /api/v1/instruments/{id}`
+
+One instrument (shape above); 404 when unknown.
+
+### `GET /api/v1/instruments/resolve?symbol=NFO:NIFTY:FUT:2026-09-29`
+
+Resolves a canonical symbol (or `EXCHANGE:TRADINGSYMBOL`). 400 when the symbol is malformed, 404 when unknown.
+
+### `POST /api/v1/instruments/sync`
+
+Scope: `admin`. Runs the instrument master sync now.
+
+```json
+{ "broker": "fake", "received": 32, "upserted": 32, "deactivated": 0, "activeAfter": 32, "syncedAt": "2026-09-08T02:30:00Z" }
+```

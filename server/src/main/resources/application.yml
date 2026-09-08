@@ -43,6 +43,11 @@ hejje:
   mode: ${HEJJE_MODE:PAPER}
   timezone: Asia/Kolkata
   data-dir: ${HEJJE_DATA_DIR:./data}
+  broker:
+    adapter: ${HEJJE_BROKER_ADAPTER:fake}
+  instruments:
+    sync-on-startup: false
+    sync-cron: "0 0 8 * * MON-FRI"
   auth:
     admin-password: ${HEJJE_ADMIN_PASSWORD:}
     jwt-secret: ${HEJJE_JWT_SECRET:}
@@ -69,6 +74,8 @@ spring:
     activate:
       on-profile: dev
 hejje:
+  instruments:
+    sync-on-startup: true
   system:
     egress:
       enabled: false
