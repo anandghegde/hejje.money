@@ -25,7 +25,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
         "hejje.auth.admin-password=" + AbstractIntegrationTest.ADMIN_PASSWORD,
         "hejje.auth.jwt-secret=test-secret-test-secret-test-secret-test-secret",
         "hejje.auth.rate-limit.default-burst=25",
-        "hejje.auth.rate-limit.transactional-burst=5"
+        "hejje.auth.rate-limit.transactional-burst=5",
+        "hejje.broker.zerodha.api-secret=test-kite-secret",
+        "hejje.security.encryption-key=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 })
 @ActiveProfiles("test")
 @AutoConfigureObservability(tracing = false)

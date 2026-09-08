@@ -33,3 +33,11 @@ Secrets are environment variables only.
 | `hejje.broker.adapter` | `HEJJE_BROKER_ADAPTER` | `fake` | Which `BrokerAdapter` bean is active: `fake` (deterministic in-memory broker, dev/test) or `zerodha` (M1.2). |
 | `hejje.instruments.sync-on-startup` | — | `false` (`true` in `dev`) | Run the instrument master sync once after startup. |
 | `hejje.instruments.sync-cron` | — | `0 0 8 * * MON-FRI` | Cron (IST) of the daily instrument sync; skipped on exchange holidays. |
+| `hejje.broker.web-url` | `HEJJE_WEB_URL` | `http://localhost:5173` | Web client base URL; the broker login callback redirects there. |
+| `hejje.broker.zerodha.api-key` | `HEJJE_KITE_API_KEY` | — | Kite Connect app key. Required when the adapter is `zerodha`. |
+| `hejje.broker.zerodha.api-secret` | `HEJJE_KITE_API_SECRET` | — | Kite Connect app secret. Required when the adapter is `zerodha`; also enables the postback endpoint. |
+| `hejje.broker.zerodha.base-url` | — | `https://api.kite.trade` | Kite REST base URL (tests point it at WireMock). |
+| `hejje.broker.zerodha.connect-timeout` / `read-timeout` | — | `5s` / `10s` | HTTP timeouts; a timed-out transactional call is `TIMEOUT` (outcome unknown). |
+| `hejje.broker.fake.connected` | — | `true` | Fake broker starts with a connected session. |
+| `hejje.broker.fake.starting-capital` | — | `1000000` | Fake broker cash in rupees. |
+| `hejje.security.encryption-key` | `HEJJE_ENCRYPTION_KEY` | — | 32 bytes (base64 or hex) for AES-256-GCM of broker tokens at rest. Required in `prod`; random per start otherwise. |

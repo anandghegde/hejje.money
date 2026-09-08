@@ -153,3 +153,42 @@ Scope: `admin`. Runs the instrument master sync now.
 ```json
 { "broker": "fake", "received": 32, "upserted": 32, "deactivated": 0, "activeAfter": 32, "syncedAt": "2026-09-08T02:30:00Z" }
 ```
+
+## Broker
+
+### `GET /api/v1/broker/login-url`
+
+Scope: `admin`. `{ "broker": "zerodha", "loginUrl": "https://kite.trade/connect/login?api_key=...&v=3" }`
+
+### `GET /api/v1/broker/callback?request_token=&status=`
+
+Public. Target of the broker's login redirect. Exchanges the token and answers `302` to `<hejje.broker.web-url>/broker?connected=1`,
+or `/broker?error=auth|login_cancelled|...` on failure. Audited as `BROKER_CONNECTED` / `BROKER_LOGIN_FAILED`.
+
+### `POST /api/v1/broker/login?request_token=`
+
+Scope: `admin`. Same exchange as the callback, returns the status below.
+
+### `GET /api/v1/broker/status`
+
+Scope: `market:read`. PRD section 40 shape.
+
+```json
+{ "broker": "zerodha", "state": "CONNECTED", "brokerUserId": "AB1234", "establishedAt": "2026-09-08T02:12:18Z",
+  "expiresAt": "2026-09-09T00:30:00Z", "lastCheckedAt": "2026-09-08T04:00:00Z", "detail": "session established",
+  "liveTradingEnabled": true }
+```
+`state` is `CONNECTED | EXPIRED | DISCONNECTED | ERROR`; `liveTradingEnabled` is false unless `CONNECTED`.
+
+### `POST /api/v1/broker/validate`
+
+Scope: `admin`. Calls the broker profile endpoint now; returns the status. An AUTH failure marks the session `DISCONNECTED`.
+
+### `POST /api/v1/broker/logout`
+
+Scope: `admin`. Invalidates the session at the broker, clears the stored token. Audited `BROKER_LOGGED_OUT`.
+
+### `POST /api/v1/broker/postback`
+
+Public (per-IP rate limit). Kite order postback JSON; `checksum` verified with the api secret. `204` accepted, `403` bad
+checksum, `400` not JSON. Present only when `hejje.broker.zerodha.api-secret` is configured.

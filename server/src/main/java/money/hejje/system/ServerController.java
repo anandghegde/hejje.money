@@ -2,6 +2,7 @@ package money.hejje.system;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.config.HejjeProperties;
@@ -45,6 +46,18 @@ class ServerController {
         static Check notConfigured() {
             return new Check(NOT_CONFIGURED, "arrives in a later milestone");
         }
+
+        /** A readiness-backed line: OK -> HEALTHY, BLOCKING -> DOWN, SKIPPED -> SKIPPED; absent check -> NOT_CONFIGURED. */
+        static Check fromReadiness(ReadinessCheck.CheckResult result) {
+            if (result == null) {
+                return notConfigured();
+            }
+            return new Check(switch (result.status()) {
+                case OK -> "HEALTHY";
+                case BLOCKING -> "DOWN";
+                case SKIPPED -> "SKIPPED";
+            }, result.detail());
+        }
     }
 
     /** PRD section 41 shape plus execution readiness. */
@@ -76,6 +89,7 @@ class ServerController {
         boolean dbUp = database.isHealthy();
         EgressIpVerifier.Result ip = egress.lastResult();
         ClockDriftChecker.Result clock = clockDrift.lastResult();
+        Map<String, ReadinessCheck.CheckResult> checks = readiness.results();
         return new Health(
                 dbUp ? "UP" : "DEGRADED",
                 properties.mode(),
@@ -85,8 +99,8 @@ class ServerController {
                 readiness.reasons(),
                 new Check("HEALTHY", "mode " + properties.mode()),
                 new Check(ip.status().name(), ip.detail()),
-                Check.notConfigured(),
-                Check.notConfigured(),
+                Check.fromReadiness(checks.get("brokerSession")),
+                Check.fromReadiness(checks.get("marketData")),
                 new Check(dbUp ? "HEALTHY" : "DOWN", dbUp ? "SELECT 1 ok" : "SELECT 1 failed"),
                 new Check(clock.status().name(), clock.detail()),
                 Check.notConfigured(),

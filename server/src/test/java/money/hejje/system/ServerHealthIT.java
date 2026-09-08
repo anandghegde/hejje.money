@@ -32,7 +32,8 @@ class ServerHealthIT extends AbstractIntegrationTest {
         assertThat((Map<String, Object>) body.get("staticIp")).containsEntry("status", "SKIPPED");
         assertThat((Map<String, Object>) body.get("clockSync")).containsEntry("status", "SKIPPED");
         assertThat((Map<String, Object>) body.get("database")).containsEntry("status", "HEALTHY");
-        assertThat((Map<String, Object>) body.get("broker")).containsEntry("status", "NOT_CONFIGURED");
+        assertThat((Map<String, Object>) body.get("broker")).containsEntry("status", "HEALTHY");
+        assertThat((String) ((Map<String, Object>) body.get("broker")).get("detail")).contains("fake CONNECTED");
         assertThat((Map<String, Object>) body.get("orderQueue")).containsEntry("status", "NOT_CONFIGURED");
     }
 

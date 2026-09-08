@@ -31,3 +31,16 @@ Used for ticks and candles, thousands per second during the session.
 Every HTTP request carries `X-Correlation-Id` (a UUID; generated when absent or invalid, echoed back on
 the response). It is bound to the logging MDC as `correlationId`, appears on every log line, defaults into
 every audit event and should be copied into every domain event via `EventMeta.create(...)`.
+
+## Event catalogue (Phase 1)
+
+| Event | Module | When |
+|---|---|---|
+| `EgressIpStatusChanged` | system | egress IP verification result changes |
+| `BrokerSessionChanged(broker, previous, current, detail)` | broker | login, logout, expiry, broker-side rejection |
+
+## Broker order updates
+
+`BrokerOrderUpdate`s (order state changes from the broker WebSocket, postback, poll or simulation) are not domain events:
+they are fanned out in-process through `money.hejje.broker.BrokerOrderUpdates` (`subscribe`, `publish`) on the producing
+thread. The execution module turns them into durable `OrderStateChangedEvent`s after applying them to the order state machine.
