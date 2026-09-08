@@ -4,13 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
 import money.hejje.AbstractIntegrationTest;
+import money.hejje.common.time.MutableClock;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 class ServerHealthIT extends AbstractIntegrationTest {
+
+    @Autowired
+    MutableClock clock;
 
     @Test
     void pingIsPublic() {
@@ -21,6 +26,7 @@ class ServerHealthIT extends AbstractIntegrationTest {
 
     @Test
     void healthNeedsMarketReadAndHasPrdShape() {
+        clock.setIst("2026-09-13T10:00:00"); // Sunday: session closed, so marketData readiness is SKIPPED regardless of test order
         assertThat(rest.getForEntity("/api/v1/server/health", String.class).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         ResponseEntity<Map> response = rest.exchange("/api/v1/server/health", HttpMethod.GET,
                 new HttpEntity<>(bearer(adminAccessToken())), Map.class);

@@ -239,3 +239,50 @@ Scope: `admin`. `{ "jobId", "instrumentId", "timeframe", "from", "to", "status":
 Auth by `?token=` (JWT or an API key with `market:read`). Client sends `{"subscribe":["<uuid>"]}` /
 `{"unsubscribe":["<uuid>"]}`. Server pushes `{"type":"tick",...}` and `{"type":"candle","candle":{...}}` for subscribed
 instruments.
+
+## Orders, positions, trades
+
+Every transactional endpoint requires an `Idempotency-Key` header (a UUID). A replay with the same key and body returns
+the original result; the same key with a different body is 422; an in-flight duplicate is 409. Missing header is 400.
+
+### `POST /api/v1/orders/intents`
+
+Scope: `orders:execute`. Submits an order intent (PRD section 30). Runs validation, then risk, then places the order.
+
+```json
+{ "instrumentId": "0192...", "side": "BUY", "quantity": 10, "orderType": "LIMIT", "product": "MIS",
+  "limitPrice": "1498.50", "triggerPrice": null, "stopPrice": null, "targetPrice": null, "maxRiskPaise": 150000,
+  "reason": "MANUAL", "strategyId": null, "signalId": null }
+```
+201 returns the created order. Validation failure: 422 `problem+json` with a `reasons` array (the adapter is never
+called). Risk rejection: 422 with a `checks` array. The order state follows PRD section 36.
+
+### `GET /api/v1/orders?state=&from=&to=&mode=`
+
+Scope: `market:read`. Orders in the current mode (or `?mode=` to inspect the other), newest first.
+
+### `GET /api/v1/orders/{id}`
+
+Scope: `market:read`. `{ "order": {...}, "events": [ { "seq", "fromState", "toState", "source", "ts" } ] }`.
+
+### `POST /api/v1/orders/{id}/modify`
+
+Scope: `orders:execute`. Body `{ "quantity", "orderType", "limitPrice", "triggerPrice" }` (nulls unchanged).
+
+### `POST /api/v1/orders/{id}/cancel` · `POST /api/v1/orders/cancel-all`
+
+Scope: `orders:cancel`. Cancel one order, or every open order in the current mode (`{ "cancelled": n }`).
+
+### `GET /api/v1/positions?mode=` · `POST /api/v1/positions/close` · `POST /api/v1/positions/close-all`
+
+Scope: `market:read` (read) / `positions:close` (close). Close body `{ "instrumentId", "product", "strategyId" }`
+submits an opposite MARKET order with reason `POSITION_CLOSE`. Positions are keyed by (mode, instrument, product,
+strategy) with average price and realized P&L in paise.
+
+### `GET /api/v1/trades?mode=&from=&to=`
+
+Scope: `market:read`. Fills recorded from the broker, newest first.
+
+### WebSocket `/ws/events`
+
+Auth by `?token=`. Pushes `{"type":"order"|"fill"|"position"|"broker"|"readiness", ...}` as state changes.

@@ -51,3 +51,11 @@ thread. The execution module turns them into durable `OrderStateChangedEvent`s a
 (`money.hejje.market.internal.InProcessTickBus`): a bounded queue with one dispatcher thread that guarantees total
 ordering; on overflow the oldest event is dropped and `hejje_tick_bus_dropped_total` is incremented. The client market
 WebSocket and the candle builder subscribe here. These are never persisted.
+
+## Order and position events (Phase 1, M1.4)
+
+Durable domain events published inside the execution transaction and consumed with `@ApplicationModuleListener`:
+`OrderIntentCreatedEvent`, `OrderSubmittedEvent`, `OrderStateChangedEvent`, `OrderFilledEvent`, `PositionChangedEvent`.
+Broker order updates (WebSocket, postback, poll, simulation) arrive on the in-process `BrokerOrderUpdates` bus and are
+turned into these durable events by `OrderService.applyBrokerUpdate` after the state machine runs. Order transitions and
+fills are serialized per order id, so updates racing ahead of the local acknowledgement never corrupt state.

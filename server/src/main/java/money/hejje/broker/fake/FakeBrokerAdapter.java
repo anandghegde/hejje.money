@@ -259,6 +259,7 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     public BrokerOrderRef placeOrder(BrokerOrderRequest request) {
         requireSession("placeOrder");
         script();
+        boolean dropThisAck = dropAck.getAndSet(false);
         FakeOrder order;
         synchronized (this) {
             order = new FakeOrder();
@@ -279,10 +280,13 @@ public class FakeBrokerAdapter implements BrokerAdapter {
             order.updatedAt = order.placedAt;
             order.status = order.type == OrderType.SL || order.type == OrderType.SL_M ? BrokerOrderStatus.TRIGGER_PENDING : BrokerOrderStatus.OPEN;
             orders.put(order.id, order);
-            publish(order);
-            match(order, quotes.get(order.instrumentId));
+            if (!dropThisAck) {
+                publish(order);
+                match(order, quotes.get(order.instrumentId));
+            }
         }
-        if (dropAck.compareAndSet(true, false)) {
+        if (dropThisAck) {
+            // the order reached the broker but neither the ack nor any update comes back; the poll fallback must find it
             throw new BrokerException(BrokerException.Kind.TIMEOUT, "simulated: acknowledgement lost", true, null);
         }
         return new BrokerOrderRef(order.id);
@@ -528,7 +532,7 @@ public class FakeBrokerAdapter implements BrokerAdapter {
         cash = startingCapital;
         connected = true;
         brokerSideValid = true;
-        sequence.set(1);
+        // sequence is intentionally not reset so broker order ids stay unique across resets
     }
 
     public Optional<BigDecimal> lastPrice(UUID instrumentId) {
