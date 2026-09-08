@@ -17,6 +17,7 @@ services:
       HEJJE_DB_USER: hejje
       HEJJE_DB_PASSWORD: ${POSTGRES_PASSWORD}
       HEJJE_DATA_DIR: /data
+      HEJJE_WEB_URL: ${HEJJE_WEB_URL:-https://${HEJJE_DOMAIN}}
     volumes:
       - ../data:/data
     expose:

@@ -7,6 +7,7 @@ COPY server/src ./src
 RUN gradle bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 RUN groupadd --system hejje && useradd --system --gid hejje --home /app --shell /usr/sbin/nologin hejje \
     && mkdir -p /app /data && chown -R hejje:hejje /app /data
 WORKDIR /app
