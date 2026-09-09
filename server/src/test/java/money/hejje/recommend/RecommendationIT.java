@@ -154,7 +154,7 @@ class RecommendationIT extends AbstractIntegrationTest {
         assertThat(best.get("direction")).isEqualTo("BUY");
         assertThat(best.get("instrument")).isEqualTo("NSE:INFY");
         assertThat(best.get("strategy")).isEqualTo("it_today_orb");
-        assertThat(best.get("eventRisk")).isEqualTo("UNKNOWN");
+        assertThat(best.get("eventRisk")).isEqualTo("LOW"); // calendar empty for this session
         assertThat(best.get("expectedRewardRupees")).isNotNull();
         assertThat(trade.get("noTrade")).isNull();
         UUID signalId = UUID.fromString((String) best.get("signalId"));

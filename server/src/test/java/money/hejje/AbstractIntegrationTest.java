@@ -43,6 +43,50 @@ public abstract class AbstractIntegrationTest {
         public MutableClock clock() {
             return new MutableClock(Instant.now(), MutableClock.IST);
         }
+
+        /**
+         * {@code @Scheduled} jobs (signal expiry sweep, score/regime/pulse refresh, lease heartbeat) must never run against
+         * the test clock and the shared database: a library enables scheduling regardless of {@code SystemConfig}'s profile
+         * guard, so the scheduler itself is replaced by one that drops every task.
+         */
+        @Bean("taskScheduler")
+        @Primary
+        public org.springframework.scheduling.TaskScheduler noOpTaskScheduler() {
+            return new NoOpTaskScheduler();
+        }
+    }
+
+    /** A {@link org.springframework.scheduling.TaskScheduler} that never runs anything. */
+    static final class NoOpTaskScheduler implements org.springframework.scheduling.TaskScheduler {
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> schedule(Runnable task, org.springframework.scheduling.Trigger trigger) {
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> schedule(Runnable task, Instant startTime) {
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(Runnable task, Instant startTime, java.time.Duration period) {
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> scheduleAtFixedRate(Runnable task, java.time.Duration period) {
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, Instant startTime, java.time.Duration delay) {
+            return null;
+        }
+
+        @Override
+        public java.util.concurrent.ScheduledFuture<?> scheduleWithFixedDelay(Runnable task, java.time.Duration delay) {
+            return null;
+        }
     }
 
     public static final String ADMIN_PASSWORD = "test-admin-password";

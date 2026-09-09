@@ -121,7 +121,7 @@ class ScoringIT extends AbstractIntegrationTest {
         String cap = (String) breakdown.get("cap");
         assertThat(cap == null || cap.contains("out-of-sample")).as("cap: " + cap).isTrue();
         List<Map<?, ?>> adjustments = (List<Map<?, ?>>) breakdown.get("adjustments");
-        assertThat(adjustments).extracting(a -> (Object) a.get("name")).containsExactly("Technical compatibility", "Current regime", "Recent paper/live performance");
+        assertThat(adjustments).extracting(a -> (Object) a.get("name")).containsExactly("Technical compatibility", "Current regime", "Recent paper/live performance", "Event risk");
         int deltaSum = adjustments.stream().mapToInt(a -> ((Number) a.get("delta")).intValue()).sum();
         assertThat(((Number) breakdown.get("finalScore")).intValue()).isEqualTo((int) Math.max(0, Math.min(100, Math.round(base) + deltaSum)));
         // technical adjuster saw candles: the last bar closed below the opening range after the losing day -> condition fails

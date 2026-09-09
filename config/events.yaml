@@ -1,0 +1,22 @@
+# Event calendar and event risk (plan M3.3, docs/events.md). Loaded like config/regime.yaml.
+hejje:
+  events:
+    enabled: true
+    refresh-on-startup: true
+    horizon-days: 60
+    risk:
+      macro-high-within-minutes: 60   # macro event starting within this -> HIGH; the rest of the day MEDIUM
+      macro-in-progress-minutes: 30   # a timed macro event stays "in progress" (HIGH) this long after it starts
+      earnings-heavy-count: 5         # results events on a session at or above which the regime environment is EARNINGS_HEAVY
+    computed:
+      enabled: true
+      expiry-underlyings: [NIFTY, BANKNIFTY]
+      index-rebalance-dates: []       # e.g. [2026-09-30, 2027-03-31]; announced by NSE Indices ahead of the semi-annual review
+    curated:
+      enabled: true
+      files:
+        - classpath:events/macro-2026.yaml   # or file:./config/events/macro-2026.yaml
+    nse:
+      enabled: false                  # best-effort NSE corporate-action / board-meeting feeds; CSV import is the reliable path
+      base-url: https://www.nseindia.com
+      timeout-seconds: 5

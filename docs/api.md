@@ -705,3 +705,51 @@ The stored snapshots of a session (one per interval while the session was open),
 
 The Today header (`GET /api/v1/today`) now carries `regime` (the trend label), `regimeLabels` (all six dimensions) and
 `breadth` from the regime snapshot; `UNKNOWN` when the engine has no data.
+
+## Events and event risk (Phase 3, M3.3)
+
+See `docs/events.md`.
+
+### `GET /api/v1/events?from=2026-10-01&to=2026-10-31&instrumentId=&all=`
+
+Scope: `market:read`. Market events plus the instrument's (and, for a derivative, its underlying's); `all=true` (the
+default when no `from` and no instrument are given: the next 7 days) returns every event.
+
+```json
+[ { "id": "...", "type": "RBI_POLICY", "scope": "MARKET", "symbol": null, "title": "RBI MPC decision", "startsAt": "2026-10-07T04:30:00Z", "endsAt": null,
+    "allDay": false, "source": "curated", "externalKey": "RBI_POLICY|MARKET||2026-10-07|rbi mpc decision", "confidence": 0.95, "raw": { "...": "..." }, "importedAt": "..." },
+  { "id": "...", "type": "RESULTS", "scope": "INSTRUMENT", "instrumentId": "...", "symbol": "NSE:INFY", "title": "Q2 results", "startsAt": "2026-10-16T10:30:00Z", "allDay": false, "source": "manual", "...": "..." } ]
+```
+
+### `GET /api/v1/events/risk?instrumentId=`
+
+Scope: `market:read`. Market-level when no instrument.
+
+```json
+{ "level": "HIGH", "nextEvent": { "type": "RBI_POLICY", "title": "RBI MPC decision", "startsAt": "2026-10-07T04:30:00Z", "...": "..." }, "minutesTo": 45,
+  "evidence": [ "RBI MPC decision (2026-10-07 10:00, in 45 min) → HIGH" ], "available": true }
+```
+
+### `POST /api/v1/events`
+
+Scope: `strategies:write`. 201 with the event. `symbol` optional (a resolving symbol makes an INSTRUMENT event); `time`
+optional (all-day otherwise).
+
+```json
+{ "type": "RESULTS", "symbol": "NSE:INFY", "title": "Q2 results", "date": "2026-10-16", "time": "16:00", "endDate": null, "confidence": 1.0 }
+```
+
+### `POST /api/v1/events/import` (`Content-Type: text/csv`)
+
+Scope: `strategies:write`. Body: `type,symbol,title,date,time,end_date,confidence` rows. Response
+`{ "imported": 12, "updated": 3, "errors": [ "line 4: unknown symbol NSE:NOPE" ] }`.
+
+### `POST /api/v1/events/refresh?from=&to=`
+
+Scope: `admin`. Pulls every enabled source (default window: a week back to the horizon ahead).
+`{ "from": "...", "to": "...", "bySource": { "computed": 14, "curated": 31 }, "inserted": 45 }`.
+
+Recommendations (`GET /api/v1/today`) now carry `eventRisk` (`LOW | MEDIUM | HIGH | UNKNOWN`), `nextEvent` ("Q2 results —
+Today 16:00"), `regime` (trend × volatility) and may be `TRADE_WITH_CAUTION`; the header carries the market-level
+`eventRisk` and `nextEvent`. `POST /signals/{id}/execute` of a signal whose strategy blocks on the event is rejected by
+the risk pipeline (`eventRule` check).

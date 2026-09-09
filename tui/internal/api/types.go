@@ -116,6 +116,7 @@ type Recommendation struct {
 	RiskRupees           *float64       `json:"riskRupees"`
 	ExpectedRewardRupees *float64       `json:"expectedRewardRupees"`
 	EventRisk            string         `json:"eventRisk"`
+	NextEvent            string         `json:"nextEvent"`
 	HardBlocks           []string       `json:"hardBlocks"`
 	SupportingEvidence   []string       `json:"supportingEvidence"`
 	Risks                []string       `json:"risks"`

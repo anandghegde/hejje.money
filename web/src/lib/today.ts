@@ -2,7 +2,7 @@ import { Recommendation } from '../api/types';
 
 /** Colour for a PRD 15 decision. */
 export function decisionColor(decision: Recommendation['decision']): string {
-  return decision === 'TRADE' ? '#1a9f57' : decision === 'AVOID' ? '#c0392b' : '#b7791f';
+  return decision === 'TRADE' ? '#1a9f57' : decision === 'TRADE_WITH_CAUTION' ? '#d97706' : decision === 'AVOID' ? '#c0392b' : '#b7791f';
 }
 
 /** Reward:risk of a recommendation from its levels, or null when a level is missing. */

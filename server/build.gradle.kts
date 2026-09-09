@@ -72,7 +72,11 @@ tasks.processResources {
     }
     // Context config (regime thresholds, universes) ships inside the jar as the fallback for config/ overrides.
     from("../config") {
-        include("regime.yaml", "pulse.yaml")
+        include("regime.yaml", "pulse.yaml", "events.yaml")
+    }
+    from("../config/events") {
+        into("events")
+        include("*.yaml")
     }
     from("../config/universe") {
         into("universe")

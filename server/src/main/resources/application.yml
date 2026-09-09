@@ -12,6 +12,9 @@ spring:
       - optional:file:./config/pulse.yaml
       - optional:file:../config/pulse.yaml
       - optional:classpath:pulse.yaml
+      - optional:file:./config/events.yaml
+      - optional:file:../config/events.yaml
+      - optional:classpath:events.yaml
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   profiles:
@@ -164,6 +167,8 @@ hejje:
   regime:
     label-on-startup: false
     universe: classpath:regime/universe-test.yaml   # five fixture equities (test resources)
+  events:
+    refresh-on-startup: false
   strategy:
     load-bundled: false
     allow-forced-status: true

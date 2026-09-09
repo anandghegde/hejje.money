@@ -16,6 +16,9 @@ import money.hejje.common.Ids;
 import money.hejje.common.Side;
 import money.hejje.common.config.HejjeProperties;
 import money.hejje.common.time.HejjeClock;
+import money.hejje.events.EventRisk;
+import money.hejje.events.EventRuleOutcome;
+import money.hejje.events.EventService;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.market.MarketProperties;
@@ -57,12 +60,14 @@ public class RecommendationService {
     private final RecommendProperties properties;
     private final HejjeProperties hejje;
     private final RegimeService regime;
+    private final EventService events;
     private final HejjeClock clock;
 
     RecommendationService(StrategyService strategies, SignalService signals, ScoringService scoring, BacktestService backtests, InstrumentService instruments,
             MarketService market, MarketProperties marketProperties, RecommendationStore store, RecommendProperties properties, HejjeProperties hejje,
-            RegimeService regime, HejjeClock clock) {
+            RegimeService regime, EventService events, HejjeClock clock) {
         this.regime = regime;
+        this.events = events;
         this.strategies = strategies;
         this.signals = signals;
         this.scoring = scoring;
@@ -78,7 +83,7 @@ public class RecommendationService {
 
     public TodayView today() {
         List<Recommendation> ranked = rank();
-        Recommendation best = ranked.stream().filter(r -> r.decision() == Decision.TRADE).findFirst().orElse(null);
+        Recommendation best = ranked.stream().filter(r -> r.decision() == Decision.TRADE || r.decision() == Decision.TRADE_WITH_CAUTION).findFirst().orElse(null);
         String noTrade = best != null ? null : ranked.isEmpty()
                 ? "No strategies deployed. Deploy a validated strategy to see recommendations."
                 : "No strategy currently meets your minimum quality threshold (" + properties.minScore() + ").";
@@ -119,6 +124,9 @@ public class RecommendationService {
         List<String> risks = new ArrayList<>();
         List<String> hardBlocks = new ArrayList<>();
         Map<String, Object> backtest = backtestSummary(version.id());
+        EventRisk eventRisk = events.risk(instrumentId);
+        EventRuleOutcome eventRule = money.hejje.events.EventRules.apply(version.definition().eventRules(), eventRisk);
+        String nextEvent = events.nextEventLine(eventRisk);
 
         Decision decision;
         Integer quantity = null;
@@ -166,6 +174,16 @@ public class RecommendationService {
             } else {
                 decision = Decision.TRADE;
             }
+            // strategy event rules (PRD 18.3): block is already a hard block through the risk pipeline's eventRule check; caution downgrades
+            if (eventRule.cautions()) {
+                risks.add("⚠ " + eventRule.reason());
+                if (decision == Decision.TRADE) {
+                    decision = Decision.TRADE_WITH_CAUTION;
+                }
+            } else if (eventRule.blocks() && decision != Decision.AVOID) {
+                hardBlocks.add("eventRule: " + eventRule.reason());
+                decision = Decision.AVOID;
+            }
         }
         score.ifPresent(s -> {
             for (Adjustment a : s.adjustments()) {
@@ -193,7 +211,17 @@ public class RecommendationService {
         return new Recommendation(version.id(), version.strategyId(), strategy == null ? version.definition().name() : strategy.slug(), version.version(), d.id(),
                 instrumentId, symbol, finalScore, decision, signal == null ? null : signal.side(), signal == null ? null : signal.id(),
                 signal == null ? null : signal.status().name(), signal == null ? null : signal.validUntil(), entry, signal == null ? null : signal.stop(),
-                signal == null ? null : signal.target(), quantity, riskRupees, reward, null, null, "UNKNOWN", hardBlocks, evidence, risks, backtest, breakdown);
+                signal == null ? null : signal.target(), quantity, riskRupees, reward, regimeLabel(), null, eventRisk.available() ? eventRisk.level().name() : "UNKNOWN",
+                nextEvent, hardBlocks, evidence, risks, backtest, breakdown);
+    }
+
+    private String regimeLabel() {
+        try {
+            RegimeSnapshot s = regime.current();
+            return s.isUnknown() ? "UNKNOWN" : s.key();
+        } catch (RuntimeException e) {
+            return "UNKNOWN";
+        }
     }
 
     private Map<String, Object> backtestSummary(UUID versionId) {
@@ -229,7 +257,9 @@ public class RecommendationService {
         header.put("regime", snapshot == null ? "UNKNOWN" : snapshot.trend().name());
         header.put("regimeLabels", snapshot == null ? null : RegimeService.labelsOf(snapshot));
         header.put("breadth", snapshot == null ? "UNKNOWN" : snapshot.breadth().name());
-        header.put("eventRisk", null);
+        EventRisk marketRisk = events.risk(null);
+        header.put("eventRisk", marketRisk.available() ? marketRisk.level().name() : "UNKNOWN");
+        header.put("nextEvent", events.nextEventLine(marketRisk));
         header.put("mode", hejje.mode().name());
         header.put("time", clock.now().toString());
         return header;

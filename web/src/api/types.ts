@@ -122,14 +122,14 @@ export interface PreparedOrder {
 
 export interface Recommendation {
   versionId: string; strategyId: string; strategy: string; version: number; deploymentId: string; instrumentId: string; instrument: string;
-  score?: number; decision: 'TRADE' | 'WAIT' | 'AVOID'; direction?: 'BUY' | 'SELL'; signalId?: string; signalStatus?: string; signalValidUntil?: string;
+  score?: number; decision: 'TRADE' | 'TRADE_WITH_CAUTION' | 'WAIT' | 'AVOID'; direction?: 'BUY' | 'SELL'; signalId?: string; signalStatus?: string; signalValidUntil?: string;
   entry?: number; stop?: number; target?: number; quantity?: number; riskRupees?: number; expectedRewardRupees?: number; regime?: string;
-  newsBias?: number; eventRisk: string; hardBlocks: string[]; supportingEvidence: string[]; risks: string[];
+  newsBias?: number; eventRisk: string; nextEvent?: string; hardBlocks: string[]; supportingEvidence: string[]; risks: string[];
   backtest: Record<string, unknown>; scoreBreakdown: Record<string, unknown>;
 }
 
 export interface TodayView {
-  header: { indexQuotes: Record<string, { lastPrice: number; stale: boolean }>; vix?: number; regime?: string; breadth?: string; eventRisk?: string; mode: string };
+  header: { indexQuotes: Record<string, { lastPrice: number; stale: boolean }>; vix?: number; regime?: string; breadth?: string; eventRisk?: string; nextEvent?: string; mode: string };
   best?: Recommendation; ranked: Recommendation[]; noTrade?: string;
 }
 
@@ -151,3 +151,10 @@ export interface MarketPulse { regime: string; volatility: string; breadth: stri
 export interface PulseSnapshot { date: string; asOf: string; technical: TechnicalPulse; market: MarketPulse }
 export interface Instrument { id: string; symbol: string; name: string; exchange: string; type: string }
 export interface Candle { instrumentId: string; timeframe: string; openTime: string; open: number; high: number; low: number; close: number; volume: number }
+
+// --- Phase 3 (M3.3) ---
+export interface MarketEvent {
+  id: string; type: string; scope: string; instrumentId?: string; symbol?: string; title: string; startsAt: string; endsAt?: string; allDay: boolean;
+  source: string; confidence: number;
+}
+export interface EventRisk { level: string; nextEvent?: MarketEvent; minutesTo?: number; evidence: string[]; available: boolean }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../api/client';
-import { Backtest, BacktestTrade, Deployment, RegimeBreakdown, ScoreView, Strategy, StrategyVersion } from '../api/types';
+import { Backtest, BacktestTrade, Deployment, EventRisk, RegimeBreakdown, ScoreView, Strategy, StrategyVersion } from '../api/types';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
 import { EquityChart } from '../components/EquityChart';
@@ -75,6 +75,9 @@ export function StrategyDetail() {
     queryFn: () => request<Backtest[]>(`/backtests?versionId=${version!.id}`), refetchInterval: 5000 });
   const { data: deployments } = useQuery({ queryKey: ['deployments', version?.id], enabled: !!version,
     queryFn: () => request<Deployment[]>(`/deployments?versionId=${version!.id}`) });
+  const firstInstrument = deployments?.find((d) => d.instrumentIds.length > 0)?.instrumentIds[0];
+  const { data: eventRisk } = useQuery({ queryKey: ['event-risk', firstInstrument], enabled: !!firstInstrument,
+    queryFn: () => request<EventRisk>(`/events/risk?instrumentId=${firstInstrument}`), refetchInterval: 60_000 });
   const shown = backtests?.find((b) => b.id === backtestId) ?? backtests?.[0];
   const { data: trades } = useQuery({ queryKey: ['backtest-trades', shown?.id], enabled: !!shown && shown.status === 'DONE',
     queryFn: () => request<BacktestTrade[]>(`/backtests/${shown!.id}/trades`) });
@@ -135,6 +138,12 @@ export function StrategyDetail() {
                 <tr><td><b>Final</b></td><td></td><td></td><td><b>{score.breakdown.finalScore}</b></td></tr>
               </tbody>
             </table>
+          )}
+          {eventRisk && (
+            <p data-testid="next-event">
+              Event risk <b>{eventRisk.level}</b>
+              {eventRisk.nextEvent ? <> · Next event — {eventRisk.nextEvent.title} {eventRisk.nextEvent.allDay ? new Date(eventRisk.nextEvent.startsAt).toLocaleDateString() : new Date(eventRisk.nextEvent.startsAt).toLocaleString()}</> : ' · no scheduled events'}
+            </p>
           )}
           <h3>Deployments</h3>
           <button onClick={deploy} disabled={!['PAPER', 'LIVE'].includes(version.status)}>Deploy (PAPER, ₹2,000 risk)</button>

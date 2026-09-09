@@ -95,3 +95,10 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.pulse.weights.*` | — | see `config/pulse.yaml` | Rule weights (`index_trend 20, index_vs_vwap 15, day_change 10, momentum 10, breadth 15, relative_volume 5, vix 10, sectors 10, futures_basis 5, gap 5`). |
 | `hejje.pulse.thresholds.*` | — | see `config/pulse.yaml` | Rule thresholds and the direction/strength cut-offs (`docs/pulse.md`). |
 | `hejje.market.watchlist` | — | NIFTY 50, NIFTY BANK, INDIA VIX and the sector indices of `config/universe/sectors.yaml` | Symbols streamed in FULL mode (M3.2 added the sector indices). |
+| `hejje.events.enabled` | — | `true` | Event calendar and event risk (plan M3.3, `docs/events.md`). Off: no events, risk `LOW` with an "unavailable" line, rules not applied. |
+| `hejje.events.refresh-on-startup` | — | `true` (`false` in `test`) | Pull every enabled source after boot (also daily at 07:00 IST). |
+| `hejje.events.horizon-days` | — | `60` | Refresh window ahead and the next-event search horizon. |
+| `hejje.events.risk.macro-high-within-minutes` / `macro-in-progress-minutes` / `earnings-heavy-count` | — | `60` / `30` / `5` | Proximity thresholds (`docs/events.md`). |
+| `hejje.events.computed.enabled` / `expiry-underlyings` / `index-rebalance-dates` | — | `true` / `NIFTY, BANKNIFTY` / (empty) | Holidays, expiries and rebalance dates. |
+| `hejje.events.curated.enabled` / `files` | — | `true` / `classpath:events/macro-2026.yaml` | Curated macro calendars (`file:` paths override the bundled copy). |
+| `hejje.events.nse.enabled` / `base-url` / `timeout-seconds` | — | `false` / `https://www.nseindia.com` / `5` | Optional best-effort NSE corporate-action fetcher. |

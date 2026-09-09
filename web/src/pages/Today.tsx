@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ApiError, request } from '../api/client';
-import { PreparedOrder, Recommendation, TodayView } from '../api/types';
+import { MarketEvent, PreparedOrder, Recommendation, TodayView } from '../api/types';
 import { decisionColor, formatR, rewardRisk, secondsLeft } from '../lib/today';
 
 function Header({ view }: { view: TodayView }) {
@@ -15,7 +15,30 @@ function Header({ view }: { view: TodayView }) {
       {Object.keys(q).length === 0 && <div>No index quotes (market stream off)</div>}
       <div>Regime <b>{view.header.regime ?? '—'}</b></div>
       <div>Breadth <b>{view.header.breadth ?? '—'}</b></div>
-      <div>Event risk <b>{view.header.eventRisk ?? '—'}</b></div>
+      <div>Event risk <b>{view.header.eventRisk ?? '—'}</b>{view.header.nextEvent ? <> · {view.header.nextEvent}</> : null}</div>
+    </div>
+  );
+}
+
+/** The next seven days of the calendar (PRD 18): market events plus every instrument event. */
+function Calendar() {
+  const { data } = useQuery({ queryKey: ['events-week'], queryFn: () => request<MarketEvent[]>('/events?all=true'), refetchInterval: 300_000 });
+  if (!data) return null;
+  return (
+    <div data-testid="event-calendar" style={{ marginTop: 16 }}>
+      <h3>Events (next 7 days)</h3>
+      {data.length === 0 ? <p>No scheduled events.</p> : (
+        <table>
+          <tbody>
+            {data.slice(0, 30).map((e) => (
+              <tr key={e.id}>
+                <td>{e.allDay ? new Date(e.startsAt).toLocaleDateString() : new Date(e.startsAt).toLocaleString()}</td>
+                <td>{e.type}</td><td>{e.symbol ?? 'Market'}</td><td>{e.title}</td><td style={{ color: '#888' }}>{e.source}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -101,6 +124,7 @@ function BestCard({ rec, onExecute, onSkip }: { rec: Recommendation; onExecute: 
           <tr><td>Target</td><td>{rec.target ?? '—'} {rr != null && `(${rr}R)`}</td></tr>
           <tr><td>Risk</td><td>₹{rec.riskRupees}</td></tr>
           <tr><td>Expected reward</td><td>{rec.expectedRewardRupees != null ? `₹${rec.expectedRewardRupees}` : '—'}</td></tr>
+          <tr><td>Event risk</td><td>{rec.eventRisk}{rec.nextEvent ? ` — ${rec.nextEvent}` : ''}</td></tr>
         </tbody>
       </table>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -161,6 +185,7 @@ export function Today() {
           ))}
         </tbody>
       </table>
+      <Calendar />
     </div>
   );
 }

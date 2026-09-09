@@ -85,6 +85,10 @@ func RenderBest(t api.TodayView) string {
 	b.WriteString(fmt.Sprintf("  Target                 %s\n", num(r.Target)))
 	b.WriteString(fmt.Sprintf("  Risk                   %s\n", rupees(r.RiskRupees)))
 	b.WriteString(fmt.Sprintf("  Expected reward        %s\n", rupees(r.ExpectedRewardRupees)))
+	b.WriteString(fmt.Sprintf("  Event risk             %s\n", dash(r.EventRisk)))
+	if r.NextEvent != "" {
+		b.WriteString(fmt.Sprintf("  Next event             %s\n", r.NextEvent))
+	}
 	b.WriteString(fmt.Sprintf("  Signal id              %s\n", r.SignalID))
 	return b.String()
 }
@@ -166,4 +170,11 @@ func orDash(s string) string {
 		return "—"
 	}
 	return s
+}
+
+func dash(v string) string {
+	if v == "" {
+		return "—"
+	}
+	return v
 }

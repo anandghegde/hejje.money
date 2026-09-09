@@ -77,6 +77,11 @@ public class InstrumentService {
         return store.optionExpiries(underlying.trim().toUpperCase(), clock.today());
     }
 
+    /** Option expiries of {@code underlying} on or after {@code asOf} (for calendars that look back). */
+    public List<LocalDate> weeklyExpiries(String underlying, LocalDate asOf) {
+        return store.optionExpiries(underlying.trim().toUpperCase(), asOf);
+    }
+
     public Optional<BrokerInstrumentMapping> mapping(UUID instrumentId, String broker) {
         return store.findMapping(instrumentId, broker);
     }

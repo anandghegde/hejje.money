@@ -40,10 +40,13 @@ public class RiskEngineImpl implements RiskEngine {
     private final money.hejje.system.ExecutionReadiness readiness;
     private final HejjeClock clock;
     private final RiskService riskService;
+    private final java.util.List<money.hejje.risk.RiskCheckContributor> contributors;
 
     RiskEngineImpl(RiskLimitsStore limitsStore, KillSwitchStore killSwitchStore, AccountSnapshotBuilder snapshots,
             InstrumentService instruments, MarketService market, OrderService orders, BrokerAdapter broker,
-            money.hejje.system.ExecutionReadiness readiness, HejjeClock clock, RiskService riskService) {
+            money.hejje.system.ExecutionReadiness readiness, HejjeClock clock, RiskService riskService,
+            java.util.List<money.hejje.risk.RiskCheckContributor> contributors) {
+        this.contributors = contributors;
         this.limitsStore = limitsStore;
         this.killSwitchStore = killSwitchStore;
         this.snapshots = snapshots;
@@ -88,6 +91,13 @@ public class RiskEngineImpl implements RiskEngine {
             checks.add(RiskControls.averagingDown(in));
             checks.add(RiskControls.reentryCooldown(in, clock.now()));
             checks.add(RiskControls.consecutiveLosses(in));
+            for (money.hejje.risk.RiskCheckContributor contributor : contributors) {
+                try {
+                    checks.addAll(contributor.contribute(intent));
+                } catch (RuntimeException e) {
+                    checks.add(RiskCheck.pass(contributor.getClass().getSimpleName(), "contributor failed (" + e.getMessage() + "); not blocking"));
+                }
+            }
         }
         boolean approved = checks.stream().allMatch(RiskCheck::passed);
         return approved ? RiskDecision.approved(checks) : RiskDecision.rejected(checks);

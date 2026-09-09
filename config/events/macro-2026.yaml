@@ -1,0 +1,33 @@
+# Curated macro calendar for 2026 (PRD 18.2). Times are IST; omit `time` for all-day events. `confidence` < 0.9 marks
+# dates that follow the usual pattern but were not confirmed against the issuer's calendar. Maintenance: docs/events.md.
+events:
+  # India
+  - { type: BUDGET, title: Union Budget 2026-27, date: 2026-02-01, time: "11:00", confidence: 1.0 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-02-06, time: "10:00", confidence: 0.95 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-04-08, time: "10:00", confidence: 0.95 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-06-05, time: "10:00", confidence: 0.95 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-08-05, time: "10:00", confidence: 0.95 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-10-07, time: "10:00", confidence: 0.95 }
+  - { type: RBI_POLICY, title: RBI MPC decision, date: 2026-12-04, time: "10:00", confidence: 0.95 }
+  - { type: INDIA_CPI, title: India CPI (MoSPI), date: 2026-09-14, time: "16:00", confidence: 0.7 }
+  - { type: INDIA_CPI, title: India CPI (MoSPI), date: 2026-10-12, time: "16:00", confidence: 0.7 }
+  - { type: INDIA_CPI, title: India CPI (MoSPI), date: 2026-11-12, time: "16:00", confidence: 0.7 }
+  - { type: INDIA_CPI, title: India CPI (MoSPI), date: 2026-12-14, time: "16:00", confidence: 0.7 }
+  # United States (FOMC statements 14:00 ET = 00:30 IST the next day; the Indian session reacts the following morning)
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-01-29, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-03-19, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-04-30, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-06-18, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-07-30, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-09-17, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-10-29, time: "00:30", confidence: 1.0 }
+  - { type: FED_DECISION, title: FOMC decision (overnight), date: 2026-12-10, time: "00:30", confidence: 1.0 }
+  # US CPI and jobs report land at 08:30 ET = 18:00 IST (19:00 IST in winter), after the Indian close; listed so the next session's environment shows them
+  - { type: US_CPI, title: US CPI (BLS), date: 2026-07-14, time: "18:00", confidence: 1.0 }
+  - { type: US_CPI, title: US CPI (BLS), date: 2026-09-11, time: "18:00", confidence: 0.6 }
+  - { type: US_CPI, title: US CPI (BLS), date: 2026-10-14, time: "18:00", confidence: 0.6 }
+  - { type: US_CPI, title: US CPI (BLS), date: 2026-11-12, time: "19:00", confidence: 0.6 }
+  - { type: US_CPI, title: US CPI (BLS), date: 2026-12-10, time: "19:00", confidence: 0.6 }
+  - { type: EMPLOYMENT_DATA, title: US jobs report (BLS), date: 2026-10-02, time: "18:00", confidence: 0.7 }
+  - { type: EMPLOYMENT_DATA, title: US jobs report (BLS), date: 2026-11-06, time: "19:00", confidence: 0.7 }
+  - { type: EMPLOYMENT_DATA, title: US jobs report (BLS), date: 2026-12-04, time: "19:00", confidence: 0.7 }

@@ -8,8 +8,8 @@ import java.util.UUID;
 import money.hejje.common.Side;
 
 /**
- * The PRD section 29 decision object plus the PRD section 20 evidence. {@code regime}, {@code newsBias} and
- * {@code eventRisk} are placeholders until Phase 3.
+ * The PRD section 29 decision object plus the PRD section 20 evidence. {@code regime} carries the trend label, {@code eventRisk}
+ * the PRD 18 level and {@code nextEvent} the "Q2 Results — Today 16:00" line; {@code newsBias} arrives with M3.4.
  *
  * @param score            latest Hejje Score for the version on the instrument (null when never scored)
  * @param hardBlocks       reasons execution is impossible right now (risk rejection, kill switch, readiness)
@@ -20,7 +20,7 @@ import money.hejje.common.Side;
 public record Recommendation(UUID versionId, UUID strategyId, String strategy, int version, UUID deploymentId, UUID instrumentId, String instrument,
         Integer score, Decision decision, Side direction, UUID signalId, String signalStatus, Instant signalValidUntil, BigDecimal entry, BigDecimal stop,
         BigDecimal target, Integer quantity, BigDecimal riskRupees, BigDecimal expectedRewardRupees, String regime, Double newsBias, String eventRisk,
-        List<String> hardBlocks, List<String> supportingEvidence, List<String> risks, Map<String, Object> backtest, Map<String, Object> scoreBreakdown) {
+        String nextEvent, List<String> hardBlocks, List<String> supportingEvidence, List<String> risks, Map<String, Object> backtest, Map<String, Object> scoreBreakdown) {
 
     public Recommendation {
         hardBlocks = hardBlocks == null ? List.of() : List.copyOf(hardBlocks);

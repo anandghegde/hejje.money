@@ -11,11 +11,11 @@ func TestRenderBestAndNoTrade(t *testing.T) {
 	score := 87
 	entry, stop, target, risk, reward := 1507.5, 1495.0, 1531.0, 2000.0, 4000.0
 	best := api.Recommendation{Instrument: "NSE:INFY", Strategy: "orb", Version: 3, Score: &score, Decision: "TRADE", Direction: "BUY", SignalID: "s1",
-		SignalStatus: "ACTIVE", Entry: &entry, Stop: &stop, Target: &target, RiskRupees: &risk, ExpectedRewardRupees: &reward,
+		SignalStatus: "ACTIVE", Entry: &entry, Stop: &stop, Target: &target, RiskRupees: &risk, ExpectedRewardRupees: &reward, EventRisk: "HIGH", NextEvent: "Q2 results — Today 16:00",
 		Backtest: map[string]any{"expectancyR": 0.42, "winRatePct": 61}, ScoreBreakdown: map[string]any{"adjustments": []any{map[string]any{"name": "Technical compatibility", "delta": 8}}}}
 	out := RenderBest(api.TodayView{Best: &best})
 	for _, want := range []string{"NSE:INFY — orb v3", "HEJJE SCORE            87 / 100", "LONG", "Entry                  1507.50", "Stop                   1495.00",
-		"Target                 1531.00", "Risk                   ₹2000", "Expected reward        ₹4000", "Technical compatibility +8", "0.42 R", "61%"} {
+		"Target                 1531.00", "Risk                   ₹2000", "Expected reward        ₹4000", "Technical compatibility +8", "0.42 R", "61%", "Event risk             HIGH", "Next event             Q2 results — Today 16:00"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in\n%s", want, out)
 		}

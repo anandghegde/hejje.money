@@ -1,79 +1,72 @@
-# Events
+# Event calendar and event risk (PRD §18, plan M3.3)
 
-Hejje uses two in-process event channels. Both live in `money.hejje.common.event`.
+Events are structured, dated facts (results, ex-dates, RBI, FOMC, expiries, holidays), kept apart from news
+sentiment (M3.4). The `events` module stores them in `market_event`, derives a proximity-based **event risk** per
+instrument, applies each strategy's `event_rules`, and feeds the regime's event environment. It is optional: with
+`hejje.events.enabled=false` (or when the store fails) the risk is `LOW` with an "unavailable" evidence line,
+`available=false`, and nothing else in the trading path changes.
 
-## 1. Durable domain events
+## Sources
 
-Used for anything that changes trading state: orders, signals, positions, risk decisions, readiness changes.
-
-- Events are immutable records implementing `HejjeEvent` (`id`, `occurredAt`, `correlationId`). Embed an
-  `EventMeta` component created with `EventMeta.create(clock)` to satisfy the contract.
-- Publish with Spring's `ApplicationEventPublisher` from inside the transaction that made the change.
-- Consume with `@ApplicationModuleListener` (Spring Modulith). The listener runs asynchronously after the
-  publishing transaction commits, in its own transaction.
-- Spring Modulith's event publication registry persists every publication in `event_publication`
-  (created by `V1__baseline.sql`). Incomplete publications are re-delivered on restart
-  (`spring.modulith.events.republish-outstanding-events-on-restart=true`), so listeners must be idempotent.
-- Events cross module boundaries; they are the only way for one module to react to another without a
-  direct dependency on its API.
-
-## 2. High-volume market events
-
-Used for ticks and candles, thousands per second during the session.
-
-- Payloads implement `MarketEvent` (`occurredAt`).
-- Delivered through `TickBus` (`publish`, `subscribe`), a plain in-memory listener registry with no
-  persistence and no transactions. Listeners run on the publisher's thread and must be fast and non-blocking.
-- The implementation arrives with the market data module in M1.3. Modules code against the interface now.
-
-## Correlation
-
-Every HTTP request carries `X-Correlation-Id` (a UUID; generated when absent or invalid, echoed back on
-the response). It is bound to the logging MDC as `correlationId`, appears on every log line, defaults into
-every audit event and should be copied into every domain event via `EventMeta.create(...)`.
-
-## Event catalogue (Phase 1)
-
-| Event | Module | When |
+| Source (`market_event.source`) | Flag | What it produces |
 |---|---|---|
-| `EgressIpStatusChanged` | system | egress IP verification result changes |
-| `BrokerSessionChanged(broker, previous, current, detail)` | broker | login, logout, expiry, broker-side rejection |
+| `computed` | `hejje.events.computed.enabled` (true) | `HOLIDAY` from the exchange holiday calendar; `FNO_EXPIRY` from the option expiries of `expiry-underlyings` (the last expiry of a month is the monthly one); `INDEX_REBALANCE` from `index-rebalance-dates` |
+| `curated` | `hejje.events.curated.enabled` (true) | `config/events/macro-2026.yaml`: RBI MPC, FOMC, India/US CPI, US jobs, Budget (`events: [{type, title, date, time?, end_date?, confidence?, symbol?}]`, IST times, all-day when `time` is absent; a resolving `symbol` makes it an instrument event) |
+| `csv` | always | `POST /api/v1/events/import` with a `text/csv` body: header `type,symbol,title,date,time,end_date,confidence` (symbol/time/end_date/confidence optional, any order, quoted fields allowed). The manual path that always works for corporate actions, board meetings (with purpose) and results dates |
+| `manual` | always | `POST /api/v1/events` (`strategies:write`) |
+| `nse` | `hejje.events.nse.enabled` (**false**) | best-effort fetch of NSE's corporate-action and board-meeting JSON feeds (ex-dates classified into `EX_DIVIDEND | BONUS | SPLIT | BUYBACK | AGM | CORPORATE_ACTION`, board meetings mentioning results into `RESULTS`). Any failure (the site often blocks automated clients) logs once and yields nothing; use the CSV import instead |
 
-## Broker order updates
+Every source upserts by `(source, external_key)` where the key is `type|scope|symbol|date|title`, so refreshes never
+duplicate and edits to a curated file replace the old row. Refresh runs after boot (`refresh-on-startup`), daily at
+07:00 IST, and on `POST /api/v1/events/refresh?from=&to=` (`admin`); the default window is a week back to
+`horizon-days` (60) ahead.
 
-`BrokerOrderUpdate`s (order state changes from the broker WebSocket, postback, poll or simulation) are not domain events:
-they are fanned out in-process through `money.hejje.broker.BrokerOrderUpdates` (`subscribe`, `publish`) on the producing
-thread. The execution module turns them into durable `OrderStateChangedEvent`s after applying them to the order state machine.
+### Curated calendar maintenance (quarterly)
 
-## Market events (Phase 1, M1.3)
+1. Copy `config/events/macro-2026.yaml` forward (or add a file and list it under `hejje.events.curated.files`).
+2. RBI: the MPC schedule press release for the financial year (rbi.org.in). FOMC: federalreserve.gov meeting
+   calendar; statements land at 14:00 ET, i.e. 00:30 IST the next day, so the Indian session reacts the morning
+   after and the entry is dated that morning. India CPI: MoSPI, 16:00 IST on the 12th or the next working day.
+   US CPI / jobs: bls.gov schedules (after the Indian close; listed so the next session's environment shows them).
+3. Set `confidence` below 0.9 for dates that follow the pattern but are not yet confirmed by the issuer.
+4. `POST /api/v1/events/refresh` (or restart) and check `GET /api/v1/events?from=&to=`.
 
-`MarketTick` and `CandleClosedEvent` are `MarketEvent`s delivered on the in-process `TickBus`
-(`money.hejje.market.internal.InProcessTickBus`): a bounded queue with one dispatcher thread that guarantees total
-ordering; on overflow the oldest event is dropped and `hejje_tick_bus_dropped_total` is incremented. The client market
-WebSocket and the candle builder subscribe here. These are never persisted.
+## Event risk (`EventRiskEvaluator`)
 
-## Order and position events (Phase 1, M1.4)
+For an instrument (market-only when none), over today's events plus the horizon:
 
-Durable domain events published inside the execution transaction and consumed with `@ApplicationModuleListener`:
-`OrderIntentCreatedEvent`, `OrderSubmittedEvent`, `OrderStateChangedEvent`, `OrderFilledEvent`, `PositionChangedEvent`.
-Broker order updates (WebSocket, postback, poll, simulation) arrive on the in-process `BrokerOrderUpdates` bus and are
-turned into these durable events by `OrderService.applyBrokerUpdate` after the state machine runs. Order transitions and
-fills are serialized per order id, so updates racing ahead of the local acknowledgement never corrupt state.
+| Situation | Level |
+|---|---|
+| results / earnings call today for the instrument | `HIGH` |
+| macro event starting within `macro-high-within-minutes` (60) or in progress (`macro-in-progress-minutes`, 30, after a timed start; all day for all-day events) | `HIGH` |
+| any other macro event today | `MEDIUM` |
+| F&O expiry day when the instrument is a derivative of that underlying | `MEDIUM` |
+| ex-date (dividend / bonus / split) or board meeting today for the instrument | `MEDIUM` |
+| otherwise | `LOW` |
 
-## Strategy events (Phase 2, M2.1)
+The highest matching rule wins; each match is one evidence line ("RBI MPC decision (2026-10-07 10:00, in 45 min)
+→ HIGH"). Instrument events count for the instrument itself and, for derivatives, for their underlying's symbol.
+`nextEvent` is the most imminent relevant event still ahead (or in progress), `minutesTo` its distance; the Today
+card renders it as "Q2 Results — Today 16:00".
 
-`StrategyVersionStatusChanged(strategyId, versionId, from, to)` and `DeploymentChanged(deploymentId, versionId, enabled)`
-are durable events from the strategy module. The signal engine (M2.6) starts and stops runners on `DeploymentChanged`.
+## Strategy event rules
 
-## Backtest, score and signal events (Phase 2)
+`event_rules: { high_risk_event_within_minutes: N, action: block | caution | allow }` (docs/strategy-dsl.md). The rule
+triggers when the instrument's risk is `HIGH` and the HIGH event is within N minutes (any HIGH event today when N is
+absent; all-day events count as 0 minutes away). Then:
 
-- `BacktestFinished(backtestId, versionId)` (backtest): a run reached DONE; the scoring module rescored the version on it.
-- `SignalGeneratedEvent(signalId, versionId, instrumentId)` (signals): a runner produced a signal.
-- The signals module consumes `OrderFilledEvent`, `OrderStateChangedEvent` (to drive positions, stops and exits) and
-  `DeploymentChanged` (to start/pause runners). Order events are matched to positions by order id or, when the fill
-  beats the write-back, through the order's intent and signal.
-- New audit types: `SIGNAL_EXPIRED`, `SIGNAL_SKIPPED`, `SIGNAL_PREPARED`, `STRATEGY_STOP_PLACED`, `STRATEGY_EXIT_TRIGGERED`,
-  `STOP_MISSING` (plus the PRD 47 `SIGNAL_CREATED`, `STRATEGY_RECOMMENDED`, `USER_APPROVED`, `STOP_MODIFIED`, `POSITION_CLOSED`).
-- `OrderReason.STRATEGY_STOP` maps to `OrderRole.STOP` and counts as exposure-reducing.
-- The analytics module consumes `PositionChangedEvent` (net 0) to write the post-trade review; the recommendation
-  history table is written from `GET /today` when a signal's decision or score changes.
+- `block` → the recommendation is `AVOID` with the hard block `eventRule: …`, and the risk pipeline's `eventRule`
+  control rejects any `STRATEGY_SIGNAL` intent for that signal (so a manual execute fails deterministically; closing
+  orders are never affected).
+- `caution` → a `TRADE` recommendation becomes `TRADE_WITH_CAUTION` with the reason under risks; execution is allowed.
+- `allow` → nothing.
+
+When the event service is unavailable the rule is not applied (evidence says so).
+
+## Where it shows
+
+- Score adjuster "Event risk" (docs/hejje-score.md): HIGH −8, MEDIUM −3, LOW 0.
+- Today header `eventRisk` (market level) and `nextEvent`; every recommendation carries `eventRisk` and `nextEvent`.
+- Regime `eventEnvironment`: BUDGET > RBI > FED > MACRO_EVENT_SESSION > EARNINGS_HEAVY (≥ `earnings-heavy-count`
+  results events) > EXPIRY_SESSION > NORMAL.
+- Web: calendar widget on Today (next 7 days) and the Next Event line on the strategy page; TUI best card.
