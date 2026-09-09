@@ -53,7 +53,7 @@ strategy) gets a `trade_review` (idempotent per entry order):
 | `entrySlippageBps` | fill vs the signal's reference price (positive = worse) | null |
 | `exitSlippageBps` | fill vs the planned level (stop for STOP/TRAILING/SOFTWARE_STOP, target for TARGET), 0 for market exits | null |
 | `ruleAdherencePct` | 50 for a valid entry + 50 for a rule-driven exit | 50 when the selected strategy's entry rules held; null otherwise |
-| `context` | regime / breadth / news / event = `UNKNOWN` until Phase 3 | same |
+| `context` | `regime` (`trend × volatility` of the session, from the stored final label or the live snapshot when the trip closed today) and `breadth`; `news` / `event` = `UNKNOWN` until M3.3/M3.4 | same |
 
 `GET /reviews`, `GET /reviews/{id}`, `GET /reviews/by-order/{entryOrderId}`; `POST /reviews/positions/{positionId}` (admin)
 re-runs one.

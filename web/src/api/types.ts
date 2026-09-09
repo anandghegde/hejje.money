@@ -83,6 +83,12 @@ export interface Backtest {
   sessionsExpected: number; sessionsWithData: number; resultHash?: string; error?: string;
 }
 
+export interface RegimeBucket { key: string; trades: number; winRate: number; expectancyR: number; profitFactor?: number; netPnl: Money }
+export interface RegimeBreakdown {
+  dims: string[]; byRegime: RegimeBucket[];
+  similar?: RegimeBucket & { current: string; overallTrades: number; overallExpectancyR: number }; note?: string;
+}
+
 export interface BacktestTrade {
   id: string; instrumentId: string; split: string; entryTime: string; exitTime: string; side: string; qty: number; entryPrice: number;
   exitPrice: number; stop?: number; target?: number; grossPnl: Money; costs: Money; netPnl: Money; rMultiple: number; exitReason: string;

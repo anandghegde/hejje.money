@@ -69,6 +69,14 @@ tasks.processResources {
         into("strategies")
         include("*.yaml")
     }
+    // Context config (regime thresholds, universes) ships inside the jar as the fallback for config/ overrides.
+    from("../config") {
+        include("regime.yaml")
+    }
+    from("../config/universe") {
+        into("universe")
+        include("*.yaml")
+    }
 }
 
 tasks.withType<Test> {

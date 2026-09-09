@@ -19,11 +19,20 @@ public final class Comparisons {
     private Comparisons() {
     }
 
-    public static ComparisonRow row(Strategy strategy, StrategyVersion version, Optional<Backtest> base, Integer score) {
+    /** "0.42R over 34 trades in UP × NORMAL (0.25R overall)" or the reason there is no similar-regime figure. */
+    public static String similarRegime(money.hejje.backtest.RegimeBreakdown regimes) {
+        if (regimes.similar() == null) {
+            return regimes.note() == null ? "n/a" : regimes.note();
+        }
+        var s = regimes.similar();
+        return String.format(java.util.Locale.ROOT, "%.2fR over %d trades in %s (%.2fR overall)", s.expectancyR(), s.trades(), s.current(), s.overallExpectancyR());
+    }
+
+    public static ComparisonRow row(Strategy strategy, StrategyVersion version, Optional<Backtest> base, String similarRegime, Integer score) {
         BacktestMetrics m = base.map(Backtest::metrics).orElse(null);
         return new ComparisonRow(version.id(), strategy.id(), strategy.slug(), version.version(), version.status().name(), base.map(Backtest::id).orElse(null),
                 m == null ? null : m.totalTrades(), m == null ? null : m.winRate(), m == null ? null : m.profitFactor(), m == null ? null : m.expectancyR(),
-                m == null ? null : m.maxDrawdownR(), "n/a until Phase 3", score);
+                m == null ? null : m.maxDrawdownR(), similarRegime, score);
     }
 
     public static VersionComparison versions(ComparisonRow a, ComparisonRow b) {

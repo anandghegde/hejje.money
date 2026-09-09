@@ -45,11 +45,13 @@ public class ReviewService {
     private final StrategyService strategies;
     private final MarketService market;
     private final ReviewStore store;
+    private final money.hejje.regime.RegimeService regime;
     private final HejjeClock clock;
 
     ReviewService(AnalyticsService analytics, OrderService orders, SignalService signals, StrategyService strategies, MarketService market, ReviewStore store,
-            HejjeClock clock) {
+            money.hejje.regime.RegimeService regime, HejjeClock clock) {
         this.analytics = analytics;
+        this.regime = regime;
         this.orders = orders;
         this.signals = signals;
         this.strategies = strategies;
@@ -116,9 +118,10 @@ public class ReviewService {
         } else if (version.isPresent()) {
             adherence = Boolean.TRUE.equals(setupValid) ? 50 : 0;
         }
-        Map<String, Object> context = new LinkedHashMap<>(); // Phase 3 fills these in; UNKNOWN survives JSON non-null serialisation
-        context.put("regime", "UNKNOWN");
-        context.put("breadth", "UNKNOWN");
+        Map<String, Object> context = new LinkedHashMap<>(); // news and event arrive with M3.3/M3.4; UNKNOWN survives JSON non-null serialisation
+        money.hejje.regime.RegimeSnapshot regimeAtClose = regimeAt(trip.closedAt());
+        context.put("regime", regimeAtClose == null ? "UNKNOWN" : regimeAtClose.key());
+        context.put("breadth", regimeAtClose == null ? "UNKNOWN" : regimeAtClose.breadth().name());
         context.put("news", "UNKNOWN");
         context.put("event", "UNKNOWN");
         String notes = sp.isPresent() ? "strategy trade" : version.isPresent() ? "manual trade compared against " + version.get().definition().name() : "manual trade";
@@ -155,5 +158,18 @@ public class ReviewService {
         }
         BigDecimal diff = buying ? actual.subtract(planned) : planned.subtract(actual);
         return diff.divide(planned, 8, RoundingMode.HALF_UP).movePointRight(4).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+    /** The session's final regime label when stored, else the live snapshot when the trip closed today. */
+    private money.hejje.regime.RegimeSnapshot regimeAt(Instant closedAt) {
+        java.time.LocalDate date = closedAt.atZone(clock.zone()).toLocalDate();
+        try {
+            return regime.forDate(date).orElseGet(() -> {
+                money.hejje.regime.RegimeSnapshot now = regime.current();
+                return now.date().equals(date) ? now : null;
+            });
+        } catch (RuntimeException e) {
+            log.warn("Regime lookup for review failed: {}", e.getMessage());
+            return null;
+        }
     }
 }

@@ -1,0 +1,55 @@
+# Market regime engine thresholds (plan M3.1, docs/regime.md). Loaded by the server (spring.config.import) when present
+# next to the working directory or one level up; the copy inside the jar is the fallback. Bump classifier-version
+# whenever a rule or threshold changes so stored labels are recomputed.
+hejje:
+  regime:
+    enabled: true
+    classifier-version: "1"
+    label-on-startup: true
+    index-symbol: "INDEX:NIFTY 50"
+    vix-symbol: "INDEX:INDIA VIX"
+    universe: classpath:universe/nifty50.yaml   # or file:./config/universe/nifty50.yaml
+    lookback-sessions: 250                       # percentile window (about one trading year)
+    min-sessions: 60                             # fewer daily bars than this -> volatility UNKNOWN
+    intraday-snapshot: PT5M
+    trend:
+      ema-fast: 20
+      ema-slow: 50
+      adx-period: 14
+      slope-sessions: 5
+      trend-adx: 18          # EMA structure + ADX >= this -> UP / DOWN, else RANGE
+      strong-adx: 25         # with the slope below -> STRONG_UP / STRONG_DOWN
+      strong-slope-pct: 1.0  # EMA20 change over slope-sessions, percent
+    volatility:
+      atr-period: 14
+      very-low-pct: 10       # combined percentile < 10 -> VERY_LOW
+      low-pct: 30            # < 30 -> LOW, < 70 -> NORMAL
+      high-pct: 70           # >= 70 -> HIGH
+      extreme-pct: 90        # >= 90 -> EXTREME
+    opening:
+      flat-gap-pct: 0.2
+      opening-range-minutes: 15
+      rejection-fraction: 0.5
+    breadth:
+      min-coverage: 0.6
+      strong-positive: 0.75
+      positive: 0.6
+      negative: 0.4
+      strong-negative: 0.25
+    structure:
+      min-bars: 6
+      opening-range-minutes: 15
+      trend-range-expansion: 2.0
+      trend-close-position: 0.8
+      trend-max-vwap-crosses: 2
+      chop-min-vwap-crosses: 4
+      chop-min-range-atr: 1.0
+      compression-max-range-atr: 0.5
+      reversal-min-range-atr: 0.8
+      reversal-min-excursion: 0.5
+    adjuster:
+      preferred-points: 3
+      avoid-points: 6
+      similar-full-points: 7
+      similar-full-diff-r: 0.5
+      min-similar-trades: 10

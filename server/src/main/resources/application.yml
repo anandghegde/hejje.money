@@ -6,6 +6,9 @@ spring:
       - optional:file:./config/costs.yaml
       - optional:file:../config/costs.yaml
       - optional:classpath:costs.yaml
+      - optional:file:./config/regime.yaml
+      - optional:file:../config/regime.yaml
+      - optional:classpath:regime.yaml
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   profiles:
@@ -147,6 +150,9 @@ spring:
     activate:
       on-profile: test
 hejje:
+  regime:
+    label-on-startup: false
+    universe: classpath:regime/universe-test.yaml   # five fixture equities (test resources)
   strategy:
     load-bundled: false
     allow-forced-status: true

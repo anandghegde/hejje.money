@@ -40,11 +40,13 @@ public class AnalyticsService {
     private final InstrumentService instruments;
     private final ReviewStore reviews;
     private final HejjeProperties properties;
+    private final money.hejje.regime.RegimeService regime;
     private final HejjeClock clock;
 
     AnalyticsService(OrderService orders, SignalService signals, StrategyService strategies, InstrumentService instruments, ReviewStore reviews,
-            HejjeProperties properties, HejjeClock clock) {
+            HejjeProperties properties, money.hejje.regime.RegimeService regime, HejjeClock clock) {
         this.orders = orders;
+        this.regime = regime;
         this.signals = signals;
         this.strategies = strategies;
         this.instruments = instruments;
@@ -116,9 +118,13 @@ public class AnalyticsService {
         return signals.positionForOrder(entryOrderId);
     }
 
-    /** PRD 53 breakdown. {@code groupBy}: strategy | version | instrument | weekday | hour | regime (single UNKNOWN bucket until Phase 3). */
+    /** PRD 53 breakdown. {@code groupBy}: strategy | version | instrument | weekday | hour | regime (trend × volatility label of the entry session; UNKNOWN when unlabelled). */
     public List<PnlBucket> pnl(String groupBy, ExecutionMode mode, Instant from, Instant to) {
         List<RoundTrip> trips = roundTrips(mode, from, to);
+        Map<java.time.LocalDate, money.hejje.regime.RegimeSnapshot> regimeLabels = "regime".equalsIgnoreCase(groupBy) && !trips.isEmpty()
+                ? regime.labels(trips.stream().map(t -> t.openedAt().atZone(clock.zone()).toLocalDate()).min(java.util.Comparator.naturalOrder()).orElseThrow(),
+                        trips.stream().map(t -> t.openedAt().atZone(clock.zone()).toLocalDate()).max(java.util.Comparator.naturalOrder()).orElseThrow())
+                : Map.of();
         Map<String, List<RoundTrip>> grouped = new TreeMap<>();
         Map<String, String> labels = new HashMap<>();
         for (RoundTrip r : trips) {
@@ -144,8 +150,9 @@ public class AnalyticsService {
                     label = key + ":00";
                 }
                 case "regime" -> {
-                    key = "UNKNOWN";
-                    label = "UNKNOWN (regime engine arrives in Phase 3)";
+                    money.hejje.regime.RegimeSnapshot snapshot = regimeLabels.get(r.openedAt().atZone(clock.zone()).toLocalDate());
+                    key = snapshot == null ? "UNKNOWN × UNKNOWN" : snapshot.key();
+                    label = key;
                 }
                 default -> {
                     key = r.strategyId() == null ? MANUAL : r.strategyId().toString();

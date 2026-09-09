@@ -79,3 +79,12 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.market.dev-candles` | — | `false` (`true` in `dev`/`test`) | Enable `POST /market/dev/candles` (scripted sessions for development). |
 | `hejje.strategy.allow-forced-status` | — | `false` (`true` in `dev`/`test`) | Honour `force: true` on version status changes (bypasses lifecycle evidence; audited as forced). |
 | `hejje.execution.allow-off-session-paper` | — | `false` (`true` in `dev`) | Let PAPER-mode intents through outside market hours. Live modes are never exempt. |
+| `hejje.regime.enabled` | — | `true` | Regime engine (plan M3.1, `docs/regime.md`). Off: every label `UNKNOWN`, nothing stored, adjuster 0. |
+| `hejje.regime.classifier-version` | — | `1` | Stored with every label; bump after changing a rule or threshold to relabel history. |
+| `hejje.regime.label-on-startup` | — | `true` (`false` in `test`) | Label sessions of the daily history that have no label under the current version after boot. |
+| `hejje.regime.index-symbol` / `vix-symbol` | — | `INDEX:NIFTY 50` / `INDEX:INDIA VIX` | Instruments the trend/opening/structure and volatility rules read. |
+| `hejje.regime.universe` | — | `classpath:universe/nifty50.yaml` | YAML with a `symbols:` list for breadth (a `file:` path overrides the bundled copy). |
+| `hejje.regime.lookback-sessions` / `min-sessions` | — | `250` / `60` | Percentile window and the minimum history before volatility is labelled. |
+| `hejje.regime.intraday-snapshot` | — | `PT5M` | Snapshot cache lifetime and the interval of stored intraday snapshots during the session. |
+| `hejje.regime.trend.*`, `volatility.*`, `opening.*`, `breadth.*`, `structure.*` | — | see `config/regime.yaml` | Rule thresholds, documented in `docs/regime.md`. |
+| `hejje.regime.adjuster.*` | — | `preferred-points 3`, `avoid-points 6`, `similar-full-points 7`, `similar-full-diff-r 0.5`, `min-similar-trades 10` | Points of the "Current regime" score adjuster (`docs/hejje-score.md`). |

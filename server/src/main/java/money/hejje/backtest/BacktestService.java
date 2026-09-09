@@ -21,6 +21,8 @@ import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.market.Candle;
 import money.hejje.market.MarketService;
+import money.hejje.regime.RegimeService;
+import money.hejje.regime.RegimeSnapshot;
 import money.hejje.strategy.StrategyDefinition;
 import money.hejje.strategy.StrategyService;
 import money.hejje.strategy.StrategyVersion;
@@ -37,13 +39,14 @@ public class BacktestService {
     private final InstrumentService instruments;
     private final MarketService market;
     private final BacktestProperties properties;
+    private final RegimeService regime;
     private final HejjeClock clock;
     private final org.springframework.context.ApplicationEventPublisher events;
     private final org.springframework.transaction.support.TransactionTemplate tx;
 
     BacktestService(BacktestStore store, BacktestEngine engine, BacktestRunner runner, StrategyService strategies, InstrumentService instruments,
-            MarketService market, BacktestProperties properties, HejjeClock clock, org.springframework.context.ApplicationEventPublisher events,
-            org.springframework.transaction.PlatformTransactionManager txManager) {
+            MarketService market, BacktestProperties properties, RegimeService regime, HejjeClock clock,
+            org.springframework.context.ApplicationEventPublisher events, org.springframework.transaction.PlatformTransactionManager txManager) {
         this.store = store;
         this.engine = engine;
         this.runner = runner;
@@ -51,6 +54,7 @@ public class BacktestService {
         this.instruments = instruments;
         this.market = market;
         this.properties = properties;
+        this.regime = regime;
         this.clock = clock;
         this.events = events;
         this.tx = new org.springframework.transaction.support.TransactionTemplate(txManager);
@@ -210,6 +214,23 @@ public class BacktestService {
     public List<BacktestTrade> trades(UUID id, Split split) {
         store.find(id).orElseThrow(() -> new BacktestException("Backtest " + id + " not found"));
         return store.findTrades(id, split);
+    }
+
+    /**
+     * Regime-conditional statistics (plan M3.1): trades grouped by the regime labels of their entry sessions along
+     * {@code dims} (default trend × volatility) and the group matching the current snapshot. Computed on read from
+     * the stored labels, so relabelling the past changes it without re-running the backtest.
+     */
+    public RegimeBreakdown regimeBreakdown(UUID id, List<String> dims) {
+        Backtest b = store.find(id).orElseThrow(() -> new BacktestException("Backtest " + id + " not found"));
+        List<BacktestTrade> trades = store.findTrades(id, null);
+        Map<LocalDate, RegimeSnapshot> labels = regime.labels(b.spec().from(), b.spec().to());
+        RegimeSnapshot current = regime.current();
+        try {
+            return money.hejje.backtest.internal.RegimeGrouping.group(trades, labels, current, dims, clock.zone());
+        } catch (IllegalArgumentException e) {
+            throw new BacktestException(e.getMessage());
+        }
     }
 
     /** Cancels a queued/running backtest (marks it CANCELLED); deletes a finished one. */

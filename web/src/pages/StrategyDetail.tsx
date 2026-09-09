@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../api/client';
-import { Backtest, BacktestTrade, Deployment, ScoreView, Strategy, StrategyVersion } from '../api/types';
+import { Backtest, BacktestTrade, Deployment, RegimeBreakdown, ScoreView, Strategy, StrategyVersion } from '../api/types';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
 import { EquityChart } from '../components/EquityChart';
@@ -36,6 +36,30 @@ function Metrics({ b }: { b: Backtest }) {
   );
 }
 
+function Regimes({ r }: { r: RegimeBreakdown }) {
+  return (
+    <div data-testid="regime-breakdown">
+      <h4>By regime ({r.dims.join(' × ')})</h4>
+      <p>
+        {r.similar
+          ? <>Similar regime <b>{r.similar.current}</b>: {r.similar.trades} trades, {formatR(r.similar.expectancyR)} expectancy vs {formatR(r.similar.overallExpectancyR)} overall</>
+          : <>Similar regime: {r.note ?? 'n/a'}</>}
+      </p>
+      <table>
+        <thead><tr><th>Regime</th><th>Trades</th><th>Win rate</th><th>Expectancy</th><th>PF</th><th>Net</th></tr></thead>
+        <tbody>
+          {r.byRegime.map((b) => (
+            <tr key={b.key}>
+              <td>{b.key}</td><td>{b.trades}</td><td>{Math.round(b.winRate * 100)}%</td><td>{formatR(b.expectancyR)}</td>
+              <td>{b.profitFactor?.toFixed(2) ?? '—'}</td><td>{formatPaise(b.netPnl.paise)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function StrategyDetail() {
   const { id } = useParams();
   const qc = useQueryClient();
@@ -54,6 +78,8 @@ export function StrategyDetail() {
   const shown = backtests?.find((b) => b.id === backtestId) ?? backtests?.[0];
   const { data: trades } = useQuery({ queryKey: ['backtest-trades', shown?.id], enabled: !!shown && shown.status === 'DONE',
     queryFn: () => request<BacktestTrade[]>(`/backtests/${shown!.id}/trades`) });
+  const { data: regimes } = useQuery({ queryKey: ['backtest-regimes', shown?.id], enabled: !!shown && shown.status === 'DONE',
+    queryFn: () => request<RegimeBreakdown>(`/backtests/${shown!.id}/regimes`) });
   const { data: comparison } = useQuery({ queryKey: ['compare', id, compareA, version?.version], enabled: compareA != null && !!version,
     queryFn: () => request<any>(`/strategies/${id}/versions/compare?a=${compareA}&b=${version!.version}`) });
 
@@ -123,6 +149,7 @@ export function StrategyDetail() {
             {(backtests ?? []).map((b) => <option key={b.id} value={b.id}>{new Date(b.createdAt).toLocaleString()} — {b.status} {b.progressPct}%</option>)}
           </select>
           {shown && <Metrics b={shown} />}
+          {regimes && <Regimes r={regimes} />}
           {shown?.metrics && <EquityChart points={shown.metrics.equityCurve} />}
           {shown?.warnings?.length ? <ul>{shown.warnings.map((w) => <li key={w.code} style={{ color: w.severity === 'FAIL' ? '#c0392b' : '#b7791f' }}>{w.code}: {w.message}</li>)}</ul> : null}
           {trades && (

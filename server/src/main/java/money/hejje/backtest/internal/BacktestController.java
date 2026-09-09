@@ -2,12 +2,14 @@ package money.hejje.backtest.internal;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import money.hejje.backtest.Backtest;
 import money.hejje.backtest.BacktestException;
 import money.hejje.backtest.BacktestService;
 import money.hejje.backtest.BacktestSpec;
 import money.hejje.backtest.BacktestTrade;
+import money.hejje.backtest.RegimeBreakdown;
 import money.hejje.backtest.FillModel;
 import money.hejje.backtest.Split;
 import money.hejje.backtest.Splits;
@@ -37,8 +39,11 @@ class BacktestController {
     private final StrategyService strategies;
     private final InstrumentService instruments;
     private final money.hejje.market.MarketService market;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
-    BacktestController(BacktestService backtests, StrategyService strategies, InstrumentService instruments, money.hejje.market.MarketService market) {
+    BacktestController(BacktestService backtests, StrategyService strategies, InstrumentService instruments, money.hejje.market.MarketService market,
+            com.fasterxml.jackson.databind.ObjectMapper json) {
+        this.json = json;
         this.backtests = backtests;
         this.strategies = strategies;
         this.instruments = instruments;
@@ -83,10 +88,25 @@ class BacktestController {
         return backtests.list(versionId);
     }
 
+    /** The backtest plus its regime-conditional statistics ({@code byRegime}, {@code similarRegime}; plan M3.1). */
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('SCOPE_strategies:read')")
-    Backtest get(@PathVariable UUID id) {
-        return backtests.get(id).orElseThrow(() -> new BacktestException("Backtest " + id + " not found"));
+    Map<String, Object> get(@PathVariable UUID id) {
+        Backtest backtest = backtests.get(id).orElseThrow(() -> new BacktestException("Backtest " + id + " not found"));
+        Map<String, Object> view = json.convertValue(backtest, new com.fasterxml.jackson.core.type.TypeReference<java.util.LinkedHashMap<String, Object>>() {});
+        if (backtest.status() == money.hejje.backtest.BacktestStatus.DONE) {
+            RegimeBreakdown regimes = backtests.regimeBreakdown(id, null);
+            view.put("byRegime", regimes.byRegime());
+            view.put("similarRegime", regimes.similar());
+            view.put("similarRegimeNote", regimes.note());
+        }
+        return view;
+    }
+
+    @GetMapping("/{id}/regimes")
+    @PreAuthorize("hasAuthority('SCOPE_strategies:read')")
+    RegimeBreakdown regimes(@PathVariable UUID id, @RequestParam(required = false) List<String> dims) {
+        return backtests.regimeBreakdown(id, dims);
     }
 
     @GetMapping("/{id}/trades")

@@ -126,7 +126,8 @@ public class ScoringService {
                 .orElseThrow(() -> new StrategyException.NotFound("Strategy version " + versionId + " not found"));
         Strategy strategy = strategies.find(version.strategyId()).orElseThrow();
         Optional<Backtest> base = backtests.baseBacktest(versionId);
-        return Comparisons.row(strategy, version, base, headline(versionId).orElse(null));
+        String similar = base.map(b -> Comparisons.similarRegime(backtests.regimeBreakdown(b.id(), null))).orElse("n/a");
+        return Comparisons.row(strategy, version, base, similar, headline(versionId).orElse(null));
     }
 
     /** Snapshot of the latest scores keyed by instrument (for callers such as the Today screen). */

@@ -121,14 +121,14 @@ class ScoringIT extends AbstractIntegrationTest {
         String cap = (String) breakdown.get("cap");
         assertThat(cap == null || cap.contains("out-of-sample")).as("cap: " + cap).isTrue();
         List<Map<?, ?>> adjustments = (List<Map<?, ?>>) breakdown.get("adjustments");
-        assertThat(adjustments).extracting(a -> (Object) a.get("name")).containsExactly("Technical compatibility", "Recent paper/live performance");
+        assertThat(adjustments).extracting(a -> (Object) a.get("name")).containsExactly("Technical compatibility", "Current regime", "Recent paper/live performance");
         int deltaSum = adjustments.stream().mapToInt(a -> ((Number) a.get("delta")).intValue()).sum();
         assertThat(((Number) breakdown.get("finalScore")).intValue()).isEqualTo((int) Math.max(0, Math.min(100, Math.round(base) + deltaSum)));
         // technical adjuster saw candles: the last bar closed below the opening range after the losing day -> condition fails
         Map<?, ?> technical = adjustments.get(0);
         assertThat(((Number) technical.get("delta")).intValue()).isBetween(-10, 8);
         assertThat((List<String>) technical.get("evidence")).anySatisfy(e -> assertThat(e).contains("entry conditions pass"));
-        Map<?, ?> recent = adjustments.get(1);
+        Map<?, ?> recent = adjustments.get(2);
         assertThat(((Number) recent.get("delta")).intValue()).isZero();
         assertThat((List<String>) recent.get("evidence")).anySatisfy(e -> assertThat(e).contains("no paper/live round trips"));
         // slippage sensitivity was evaluated (2x slippage re-run) and recorded
@@ -141,7 +141,7 @@ class ScoringIT extends AbstractIntegrationTest {
         assertThat(row.get("slug")).isEqualTo("it_score_orb");
         assertThat(row.get("trades")).isEqualTo(5);
         assertThat(row.get("hejjeScore")).isEqualTo(((Number) breakdown.get("finalScore")).intValue());
-        assertThat(row.get("similarRegimePerformance")).isEqualTo("n/a until Phase 3");
+        assertThat((String) row.get("similarRegimePerformance")).contains("current regime unknown"); // no index history seeded here
 
         // a second version with a 3R target changes nothing on winners here but yields a valid comparison and verdict
         StrategyVersion v2 = strategies.addVersion(v1.strategyId(), YAML.replace("value: 2", "value: 1"), "1R target", "admin");

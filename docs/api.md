@@ -622,3 +622,61 @@ Scope: `market:read`.
      "candles": [ { "openTime": "2026-09-10T09:15:00+05:30", "open": 1500, "high": 1505, "low": 1495, "close": 1500, "volume": 50000 } ] }`.
 - `POST /api/v1/broker/dev/quote` (scope `admin`, 404 unless the fake broker is active): `{ "instrumentId": "...", "price": 1507.5 }`.
 - `POST /api/v1/strategies/{id}/versions/{v}/status` accepts `"force": true` when `hejje.strategy.allow-forced-status=true`.
+
+## Context: market regime (Phase 3, M3.1)
+
+See `docs/regime.md` for the rules. Scope: `market:read` unless noted.
+
+### `GET /api/v1/context/regime`
+
+The current session's snapshot (cached for `hejje.regime.intraday-snapshot`).
+
+```json
+{ "date": "2026-09-08", "asOf": "2026-09-08T10:01:00Z", "trend": "STRONG_UP", "volatility": "LOW", "opening": "GAP_CONTINUATION",
+  "breadth": "STRONG_POSITIVE", "intradayStructure": "TREND_DAY", "eventEnvironment": "NORMAL",
+  "features": { "close": 29480.2, "emaFast": 29210.5, "emaSlow": 28840.1, "emaSlopePct": 1.52, "adx": 41.3, "vix": 13.8, "vixPercentile": 22.0,
+                "volatilityPercentile": 24.5, "gapPct": 0.5, "openingRangeClose": 29360.0, "advances": 41, "declines": 7, "breadthRatio": 0.83,
+                "intradayBars": 9, "rangeExpansion": 3.4, "closePosition": 0.97, "rangeAtr": 1.1, "vwapCrosses": 0 },
+  "evidence": [ "Trend STRONG_UP: close 29480.20 vs EMA20 29210.50 / EMA50 28840.10 (close above rising EMAs), EMA20 slope +1.52% over 5 sessions, ADX 41.3",
+                "Volatility LOW: VIX 13.80 at the 22nd percentile, ATR14/close at the 27th percentile (combined 24 over 250 sessions)",
+                "Opening GAP_CONTINUATION: open 29360.00 vs previous close 29214.00 (gap +0.50%), 15-minute close 29390.00",
+                "Breadth STRONG_POSITIVE: 41 advances / 7 declines, 40 of 48 above VWAP (83% positive, 48 of 50 constituents)",
+                "Intraday structure TREND_DAY (progressive, 9 bars): range 3.4x the opening range, close at 97% of the day range, 0 VWAP crosses",
+                "Event environment NORMAL" ],
+  "classifierVersion": "1", "finalLabel": false }
+```
+
+Every dimension is `UNKNOWN` (with the reason in `evidence`) when its inputs are missing or the engine is disabled.
+
+### `GET /api/v1/context/regime/history?from=2026-06-01&to=2026-09-08`
+
+Stored final labels (same shape, `finalLabel: true`) for the sessions in the range under the current classifier version.
+
+### `GET /api/v1/context/regime/intraday?date=2026-09-08`
+
+Stored intraday snapshots of one session, oldest first.
+
+### `POST /api/v1/context/regime/label?from=2023-09-01&to=2026-09-08`
+
+Scope: `admin`. Labels every session in the range with index data and upserts the final rows.
+
+```json
+{ "from": "2023-09-01", "to": "2026-09-08", "classifierVersion": "1", "sessions": 742, "labelled": 740, "hash": "9f3c…" }
+```
+
+### Regime-conditional backtest statistics
+
+`GET /api/v1/backtests/{id}` now carries `byRegime`, `similarRegime` and `similarRegimeNote` for DONE runs;
+`GET /api/v1/backtests/{id}/regimes?dims=trend,volatility` (scope `strategies:read`) returns the block alone along
+any of `trend, volatility, opening, breadth, structure, event`.
+
+```json
+{ "dims": ["trend", "volatility"],
+  "byRegime": [ { "key": "RANGE × NORMAL", "trades": 88, "winRate": 0.39, "expectancyR": 0.12, "profitFactor": 1.21, "netPnl": { "paise": 812000 } },
+                { "key": "UP × LOW", "trades": 61, "winRate": 0.52, "expectancyR": 0.48, "profitFactor": 1.9, "netPnl": { "paise": 2410000 } } ],
+  "similarRegime": { "current": "UP × LOW", "trades": 61, "winRate": 0.52, "expectancyR": 0.48, "profitFactor": 1.9, "netPnl": { "paise": 2410000 },
+                     "overallTrades": 212, "overallExpectancyR": 0.31 },
+  "note": null }
+```
+
+`similarRegime` is null with `note` explaining why (current regime unknown along the dimensions, or no trades in it).

@@ -1,0 +1,8 @@
+# Breadth universe for integration tests: NSE equities present in the fake broker's instrument fixture.
+name: test
+symbols:
+  - NSE:RELIANCE
+  - NSE:INFY
+  - NSE:TCS
+  - NSE:HDFCBANK
+  - NSE:SBIN
