@@ -23,6 +23,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.Order;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
@@ -99,6 +100,18 @@ class ExecutorBootstrap implements ReadinessCheck {
                     log.debug("Restore of order {} failed ({})", order.id(), e.kind());
                 }
             }
+        }
+    }
+
+    /**
+     * The lease of a just-stopped predecessor (rolling restart) can outlive it by up to its TTL, so a startup that found
+     * it held retries once the heartbeat has taken the lease over.
+     */
+    @Scheduled(fixedDelay = 10000)
+    void retryIfWaitingForLease() {
+        if (!complete && lease.isHeld()) {
+            log.info("Executor lease acquired after startup; running bootstrap");
+            run();
         }
     }
 

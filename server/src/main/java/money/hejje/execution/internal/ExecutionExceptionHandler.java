@@ -2,12 +2,18 @@ package money.hejje.execution.internal;
 
 import java.net.URI;
 import money.hejje.execution.ExecutionException;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** Maps execution pipeline rejections to RFC 7807 problems. */
+/**
+ * Maps execution pipeline rejections to RFC 7807 problems. Ordered ahead of the common catch-all advice, which would
+ * otherwise turn these into a 500 "Unexpected error".
+ */
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice
 class ExecutionExceptionHandler {
 

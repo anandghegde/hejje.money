@@ -19,13 +19,17 @@ import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 /**
  * Turns every error into RFC 7807 {@code application/problem+json}. Validation failures list one entry per
- * field under {@code errors}. Every problem carries the request's {@code correlationId}.
+ * field under {@code errors}. Every problem carries the request's {@code correlationId}. Lowest precedence so module
+ * advices (for example the execution pipeline's) map their own exceptions before the catch-all here.
  */
+@Order(Ordered.LOWEST_PRECEDENCE)
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 

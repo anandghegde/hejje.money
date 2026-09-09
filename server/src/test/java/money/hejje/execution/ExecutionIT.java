@@ -33,6 +33,11 @@ import money.hejje.orders.OrderState;
 import money.hejje.orders.Position;
 import money.hejje.orders.Trade;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -199,5 +204,18 @@ class ExecutionIT extends AbstractIntegrationTest {
         engine.cancel(order.id());
         fake.flush();
         assertThat(orders.findById(order.id()).orElseThrow().state()).isEqualTo(OrderState.CANCELLED);
+    }
+    @Test
+    @SuppressWarnings("unchecked")
+    void httpIntentRejectedByPipelineIsA422ProblemWithReasons() {
+        fake.injectQuote(infy, "1500.00");
+        HttpHeaders headers = bearer(adminAccessToken());
+        headers.set("Idempotency-Key", UUID.randomUUID().toString());
+        Map<String, Object> body = Map.of("instrumentId", infy.toString(), "side", "BUY", "quantity", 10, "orderType", "LIMIT",
+                "product", "MIS", "limitPrice", "1500.03"); // off tick size
+        ResponseEntity<Map> response = rest.exchange("/api/v1/orders/intents", HttpMethod.POST, new HttpEntity<>(body, headers), Map.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(response.getBody().get("title")).isEqualTo("Order validation failed");
+        assertThat((List<String>) response.getBody().get("reasons")).anyMatch(r -> r.contains("tick size"));
     }
 }

@@ -155,6 +155,14 @@ public class MarketDataStreamer implements MarketDataListener {
         if (!enabled || broker.sessionState() != BrokerSessionState.CONNECTED) {
             return;
         }
+        if (watched.isEmpty()) {
+            // the instrument catalog may have been empty at startup (first deploy: sync runs later); retry until it resolves
+            resolveWatchlist();
+            if (!watched.isEmpty() && stream != null && stream.isConnected()) {
+                log.info("Watchlist resolved after startup; subscribing {} instruments", watched.size());
+                resubscribe();
+            }
+        }
         if (stream == null || !stream.isConnected()) {
             log.info("Reconnecting market stream (backoff {} ms)", backoffMs);
             try {
