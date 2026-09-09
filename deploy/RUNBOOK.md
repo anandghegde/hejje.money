@@ -41,6 +41,25 @@ disabled: fix the VM egress or `HEJJE_EXECUTION_EXPECTED_IPS`.
 
 Create API keys for the TUI and agents with `POST /api/v1/auth/clients` (see `docs/api.md`).
 
+## 3a. Existing reverse proxy on the host (hejje.malgudi.app)
+
+When nginx (or anything else) already owns ports 80/443 on the VM, do not start Caddy. Keep an untracked
+`deploy/docker-compose.host.yml` on the VM:
+
+```yaml
+# Local to this VM. nginx terminates TLS; do not start Caddy on 80/443.
+services:
+  caddy:
+    profiles: ["caddy"]
+  hejje:
+    ports:
+      - "127.0.0.1:8090:8080"
+```
+
+and pass both files: `docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.host.yml up -d --build`.
+The host proxy terminates TLS for `HEJJE_DOMAIN`, serves `web/dist`, and proxies `/api` and `/ws` (with
+WebSocket upgrade headers) to `127.0.0.1:8090`. Port 8081 must stay unpublished.
+
 ## 4. Required environment variables
 
 See `deploy/.env.example` and `docs/config.md`. In `prod` the server refuses to start without

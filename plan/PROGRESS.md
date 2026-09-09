@@ -25,8 +25,10 @@ One entry per completed milestone. Newest at the bottom.
 ## Phase 0 exit
 
 - All four milestones implemented; `cd server && ./gradlew clean build` green (61 tests) on 2026-09-08. CI workflow present but not yet run on GitHub (repository has no remote yet).
-- VM hostname: **not provisioned yet**. Expected egress IPs (`HEJJE_EXECUTION_EXPECTED_IPS`): **to be filled after provisioning**.
-- Kite app redirect URL: `https://<HEJJE_DOMAIN>/api/v1/broker/callback` (endpoint arrives in M1.1).
+- VM hostname: **hejje.malgudi.app** (Ubuntu 24.04, 6 vCPU / 16 GB, Docker 29 + compose v5, provisioned 2026-09-08). Expected egress IP (`HEJJE_EXECUTION_EXPECTED_IPS`): **172.235.15.109** (also the DNS A record).
+- Kite app redirect URL: `https://hejje.malgudi.app/api/v1/broker/callback`.
+- Deployment deviates from the compose-only runbook: the VM already runs nginx on 80/443 for other sites, so nginx terminates TLS (Let's Encrypt) and proxies to `127.0.0.1:8090`; an untracked `deploy/docker-compose.host.yml` override on the VM disables the Caddy service (`profiles: ["caddy"]`) and publishes `hejje` on `127.0.0.1:8090`. Nightly `backup.sh` cron at 14:30 UTC on weekdays (see RUNBOOK §3a).
+- Verified 2026-09-08 (from the VM logs and public endpoints): `/api/v1/server/ping` UP over TLS, egress IP `UNKNOWN -> VERIFIED (172.235.15.109)`, clock sync `HEALTHY` (drift 722 ms), `hejje` and `hejje-postgres` containers healthy.
 - Local toolchain note: Gradle 8.14.5 runs on JDK 17 and provisions the Java 21 toolchain via foojay; the wrapper distribution download timed out from this machine, so builds here used a locally unpacked Gradle 8.14.5.
 
 ## Phase 1 exit
