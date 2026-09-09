@@ -89,6 +89,12 @@ hejje:
     workers: 2
     warmup-days: 20
     default-risk-rupees: 2000
+  signals:
+    enabled: true
+    warmup-days: 10
+    default-validity-minutes: 0
+    expiry-sweep: 30s
+    inline-dispatch: false
   instruments:
     sync-on-startup: false
     sync-cron: "0 0 8 * * MON-FRI"
@@ -136,6 +142,8 @@ spring:
 hejje:
   strategy:
     load-bundled: false
+  signals:
+    inline-dispatch: true
   system:
     egress:
       enabled: false

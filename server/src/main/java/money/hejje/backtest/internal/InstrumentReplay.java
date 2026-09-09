@@ -17,6 +17,7 @@ import money.hejje.backtest.BacktestTrade;
 import money.hejje.backtest.ExitReason;
 import money.hejje.backtest.FillModel;
 import money.hejje.backtest.InstrumentMeta;
+import money.hejje.backtest.Levels;
 import money.hejje.common.Ids;
 import money.hejje.common.Money;
 import money.hejje.common.Price;
@@ -43,8 +44,6 @@ import money.hejje.strategy.dsl.EvalStatus;
  */
 public final class InstrumentReplay {
 
-    static final int SWING_LOOKBACK = 10;
-    static final int ATR_PERIOD = 14;
 
     private final StrategyDefinition def;
     private final BacktestSpec spec;
@@ -187,7 +186,8 @@ public final class InstrumentReplay {
         BigDecimal riskPerUnit = entry.subtract(stop).abs();
         BigDecimal target = Levels.target(def, side, entry, riskPerUnit, ctx, meta.tickSize());
         Money entryCost = costs.compute(new CostFill(meta.type(), def.product(), side, qty, entry)).total();
-        open = new OpenTrade(signal, bar.openTime(), entry, stop, stop, target, qty, riskPerUnit, entryCost, bar.session());
+        Instant entryTime = spec.fillModel() == FillModel.BAR_CLOSE ? signal.time() : bar.openTime();
+        open = new OpenTrade(signal, bar.openTime(), entryTime, entry, stop, stop, target, qty, riskPerUnit, entryCost, bar.session());
         tradesToday++;
     }
 
@@ -229,7 +229,7 @@ public final class InstrumentReplay {
             }
         }
         if (def.maxHoldingMinutes() != null
-                && Duration.between(open.entryBarOpen, bar.closeTime()).toMinutes() >= def.maxHoldingMinutes()) {
+                && Duration.between(open.entryTime, bar.closeTime()).toMinutes() >= def.maxHoldingMinutes()) {
             exit(bar.close(), bar.closeTime(), ExitReason.MAX_HOLDING, true);
             return;
         }
@@ -259,8 +259,7 @@ public final class InstrumentReplay {
             }
             evidence.add(item);
         }
-        Instant entryTime = spec.fillModel() == FillModel.BAR_CLOSE ? open.signal.time() : open.entryBarOpen;
-        trades.add(new BacktestTrade(Ids.newId(), null, meta.id(), splitter.splitOf(open.session), entryTime, time, side, open.qty,
+        trades.add(new BacktestTrade(Ids.newId(), null, meta.id(), splitter.splitOf(open.session), open.entryTime, time, side, open.qty,
                 open.entry, exitPrice, open.initialStop, open.target, gross, cost, net, r, reason, evidence));
         open = null;
     }
@@ -280,6 +279,7 @@ public final class InstrumentReplay {
     static final class OpenTrade {
         final Signal signal;
         final Instant entryBarOpen;
+        final Instant entryTime;
         final BigDecimal entry;
         final BigDecimal initialStop;
         BigDecimal stop;
@@ -290,10 +290,11 @@ public final class InstrumentReplay {
         final Money entryCost;
         final LocalDate session;
 
-        OpenTrade(Signal signal, Instant entryBarOpen, BigDecimal entry, BigDecimal initialStop, BigDecimal stop, BigDecimal target, int qty,
+        OpenTrade(Signal signal, Instant entryBarOpen, Instant entryTime, BigDecimal entry, BigDecimal initialStop, BigDecimal stop, BigDecimal target, int qty,
                 BigDecimal riskPerUnit, Money entryCost, LocalDate session) {
             this.signal = signal;
             this.entryBarOpen = entryBarOpen;
+            this.entryTime = entryTime;
             this.entry = entry;
             this.initialStop = initialStop;
             this.stop = stop;

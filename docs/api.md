@@ -521,3 +521,47 @@ profitFactor, expectancyR, maxDrawdownR, similarRegimePerformance, hejjeScore }`
 
 Scope: `strategies:read`. `{ a: row, b: row, deltas: [ { metric, a, b, changePct, better } ], verdict }`, for example
 `"v3 improved: increased expectancy (r) by 68.0%, but reduced trades by 8.4%."`.
+
+## Signals (Phase 2, M2.6)
+
+See `docs/signals.md`. Signals belong to the server's execution mode.
+
+### `GET /api/v1/signals?status=&from=&limit=` · `GET /api/v1/signals/active` · `GET /api/v1/signals/{id}`
+
+Scope: `strategies:read`.
+
+```json
+{ "id": "...", "versionId": "...", "strategyId": "...", "deploymentId": "...", "instrumentId": "...", "mode": "PAPER", "side": "BUY",
+  "referencePrice": 1507.00, "stop": 1495.00, "target": 1531.00, "riskPerUnit": 12.00,
+  "barTime": "2026-09-08T04:05:00Z", "validUntil": "2026-09-08T04:10:00Z",
+  "evidence": [ { "condition": "close > opening_range_high(15m)", "status": "PASSED", "lhs": 1507.0, "rhs": 1505.0 } ],
+  "status": "ACTIVE", "createdAt": "...", "updatedAt": "..." }
+```
+
+### `POST /api/v1/signals/{id}/prepare`
+
+Scope: `orders:prepare`. Sizes and dry-runs risk; nothing is submitted. 409 when the signal is no longer actionable.
+
+```json
+{ "signal": { "...": "...", "status": "PREPARED" },
+  "proposal": { "instrumentId": "...", "side": "BUY", "quantity": 160, "orderType": "MARKET", "product": "MIS", "stopPrice": "1495.00",
+                "targetPrice": "1531.00", "maxRisk": { "paise": 200000 }, "reason": "STRATEGY_SIGNAL", "strategyId": "...", "signalId": "..." },
+  "risk": { "outcome": "APPROVED", "checks": [ { "name": "riskPerTrade", "passed": true, "message": "2000.00" } ] },
+  "sizing": { "riskRupees": "2000.00", "entryReference": "1507.50", "riskPerUnit": "12.50", "lotSize": 1, "maxQuantity": 0, "quantity": 160 },
+  "notes": [] }
+```
+
+### `POST /api/v1/signals/{id}/execute`
+
+Scope: `orders:execute`; header `Idempotency-Key` required. Submits the prepared order and returns the `HejjeOrder`
+(201). The signal becomes `EXECUTED`; a `strategy_position` tracks the entry, the protective stop and the exit.
+
+### `POST /api/v1/signals/{id}/skip`
+
+Scope: `orders:prepare`. Body `{ "reason": "..." }`. Marks the signal `SKIPPED`.
+
+### `GET /api/v1/signals/positions?live=true`
+
+Scope: `strategies:read`. Strategy-managed positions: `{ id, signalId, deploymentId, versionId, strategyId, instrumentId, mode,
+side, quantity, entryPrice, initialStop, stop, target, entryOrderId, stopOrderId, exitOrderId, status: PENDING_ENTRY|OPEN|EXITING|CLOSED,
+closeReason, exitPrice, openedAt, closedAt }`.

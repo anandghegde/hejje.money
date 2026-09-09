@@ -45,6 +45,7 @@ public record OrderIntent(
 
     /** True when this intent reduces or closes exposure (risk limit checks are relaxed for these). */
     public boolean isExposureReducing() {
-        return reason == OrderReason.POSITION_CLOSE || reason == OrderReason.STRATEGY_EXIT || reason == OrderReason.KILL_SWITCH;
+        return reason == OrderReason.POSITION_CLOSE || reason == OrderReason.STRATEGY_EXIT || reason == OrderReason.STRATEGY_STOP
+                || reason == OrderReason.KILL_SWITCH;
     }
 }

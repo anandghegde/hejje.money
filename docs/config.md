@@ -69,3 +69,9 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.backtest.warmup-days` | — | `20` | Calendar days of candles loaded before `from` to warm indicators up. |
 | `hejje.backtest.default-risk-rupees` | — | `2000` | Money risked per trade when neither the spec nor the definition says. |
 | `hejje.backtest.max-trades-per-backtest` | — | `200000` | Safety cap on persisted trades per run. |
+| `hejje.signals.enabled` | — | `true` | Start the signal engine (runners for enabled deployments) at startup. |
+| `hejje.signals.warmup-days` | — | `10` | Calendar days of candles a runner loads to warm its indicators up. |
+| `hejje.signals.default-validity-minutes` | — | `0` | Signal validity when the definition has none; `0` = until the next bar closes. |
+| `hejje.signals.expiry-sweep` | — | `30s` | How often stale ACTIVE/PREPARED signals are expired. |
+| `hejje.signals.inline-dispatch` | — | `false` (`true` in `test`) | Process bus and order events on the calling thread instead of the engine thread. |
+| `hejje.signals.default-risk-rupees` | — | `2000` | Money risked per signal when neither the deployment (`params.risk_rupees`) nor the definition says. |

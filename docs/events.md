@@ -64,3 +64,14 @@ fills are serialized per order id, so updates racing ahead of the local acknowle
 
 `StrategyVersionStatusChanged(strategyId, versionId, from, to)` and `DeploymentChanged(deploymentId, versionId, enabled)`
 are durable events from the strategy module. The signal engine (M2.6) starts and stops runners on `DeploymentChanged`.
+
+## Backtest, score and signal events (Phase 2)
+
+- `BacktestFinished(backtestId, versionId)` (backtest): a run reached DONE; the scoring module rescored the version on it.
+- `SignalGeneratedEvent(signalId, versionId, instrumentId)` (signals): a runner produced a signal.
+- The signals module consumes `OrderFilledEvent`, `OrderStateChangedEvent` (to drive positions, stops and exits) and
+  `DeploymentChanged` (to start/pause runners). Order events are matched to positions by order id or, when the fill
+  beats the write-back, through the order's intent and signal.
+- New audit types: `SIGNAL_EXPIRED`, `SIGNAL_SKIPPED`, `SIGNAL_PREPARED`, `STRATEGY_STOP_PLACED`, `STRATEGY_EXIT_TRIGGERED`,
+  `STOP_MISSING` (plus the PRD 47 `SIGNAL_CREATED`, `STRATEGY_RECOMMENDED`, `USER_APPROVED`, `STOP_MODIFIED`, `POSITION_CLOSED`).
+- `OrderReason.STRATEGY_STOP` maps to `OrderRole.STOP` and counts as exposure-reducing.

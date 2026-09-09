@@ -1,4 +1,4 @@
-package money.hejje.backtest.internal;
+package money.hejje.backtest;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -16,8 +16,10 @@ import money.hejje.strategy.dsl.Expr.Arg;
  */
 public final class Levels {
 
-    private static final List<Arg> ATR_ARGS = List.of(new Arg.Number(InstrumentReplay.ATR_PERIOD));
-    private static final List<Arg> SWING_ARGS = List.of(new Arg.Number(InstrumentReplay.SWING_LOOKBACK));
+    public static final int ATR_PERIOD = 14;
+    public static final int SWING_LOOKBACK = 10;
+    private static final List<Arg> ATR_ARGS = List.of(new Arg.Number(ATR_PERIOD));
+    private static final List<Arg> SWING_ARGS = List.of(new Arg.Number(SWING_LOOKBACK));
 
     private Levels() {
     }

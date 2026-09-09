@@ -299,6 +299,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     static OrderRole roleFor(OrderReason reason) {
         return switch (reason) {
             case POSITION_CLOSE, STRATEGY_EXIT, KILL_SWITCH -> OrderRole.EXIT;
+            case STRATEGY_STOP -> OrderRole.STOP;
             default -> OrderRole.ENTRY;
         };
     }
