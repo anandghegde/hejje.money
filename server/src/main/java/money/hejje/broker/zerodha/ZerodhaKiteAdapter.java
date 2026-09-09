@@ -251,19 +251,24 @@ public class ZerodhaKiteAdapter implements BrokerAdapter {
             Map<String, String> row = new LinkedHashMap<>();
             row.put("instrument_token", Long.toString(i.instrument_token));
             row.put("exchange_token", Long.toString(i.exchange_token));
-            row.put("tradingsymbol", i.tradingsymbol);
-            row.put("name", i.name);
+            // The SDK maps empty CSV cells to null; the raw map must not hold nulls.
+            row.put("tradingsymbol", nullToEmpty(i.tradingsymbol));
+            row.put("name", nullToEmpty(i.name));
             row.put("last_price", Double.toString(i.last_price));
             row.put("expiry", i.expiry == null ? "" : KiteMapper.localDate(i.expiry).toString());
-            row.put("strike", i.strike);
+            row.put("strike", nullToEmpty(i.strike));
             row.put("tick_size", BigDecimal.valueOf(i.tick_size).toPlainString());
             row.put("lot_size", Integer.toString(i.lot_size));
-            row.put("instrument_type", i.instrument_type);
-            row.put("segment", i.segment);
-            row.put("exchange", i.exchange);
+            row.put("instrument_type", nullToEmpty(i.instrument_type));
+            row.put("segment", nullToEmpty(i.segment));
+            row.put("exchange", nullToEmpty(i.exchange));
             KiteInstrumentCsv.toInstrument(row).ifPresent(out::add);
         }
         return out;
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     // --- transactional ------------------------------------------------------------------------------------------------

@@ -36,6 +36,7 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import money.hejje.broker.BrokerCandle;
 import money.hejje.broker.BrokerException;
+import money.hejje.broker.BrokerInstrument;
 import money.hejje.broker.BrokerInstrumentRef;
 import money.hejje.broker.BrokerInstrumentResolver;
 import money.hejje.broker.BrokerModifyRequest;
@@ -384,5 +385,20 @@ class ZerodhaKiteAdapterWireMockTest {
         assertThatThrownBy(adapter::getOrders).isInstanceOfSatisfying(BrokerException.class, e -> assertThat(e.kind()).isEqualTo(BrokerException.Kind.AUTH));
         assertThat(adapter.sessionState()).isEqualTo(BrokerSessionState.DISCONNECTED);
         assertThat(published).hasSize(1).first().isInstanceOf(BrokerAuthRejected.class);
+    }
+    @Test
+    void getInstrumentsToleratesEmptyCsvCells() throws Exception {
+        login();
+        // Kite's CSV leaves name (and other cells) empty for many rows; the SDK maps those to null.
+        wiremock.stubFor(get(urlPathEqualTo("/instruments")).willReturn(aResponse().withStatus(200)
+                .withHeader("Content-Type", "text/csv").withBody("""
+                instrument_token,exchange_token,tradingsymbol,name,last_price,expiry,strike,tick_size,lot_size,instrument_type,segment,exchange
+                408065,1594,INFY,INFOSYS,0,,0,0.05,1,EQ,NSE,NSE
+                3050241,11915,NIFTYBEES,,0,,0,0.01,1,EQ,NSE,NSE
+                """)));
+        List<BrokerInstrument> rows = adapter.getInstruments();
+        assertThat(rows).extracting(BrokerInstrument::tradingSymbol).containsExactly("INFY", "NIFTYBEES");
+        assertThat(rows.get(1).name()).isNull();
+        assertThat(rows.get(1).raw()).containsEntry("name", "");
     }
 }
