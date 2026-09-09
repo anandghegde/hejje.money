@@ -68,6 +68,7 @@ class MarketDataIT extends AbstractIntegrationTest {
         infy = instruments.resolve("NSE:INFY").map(Instrument::id).orElseThrow();
         fake.reset();
         quoteCache.clear();
+        pipeline.flush(); // close bars left open by earlier tests so ticks here start fresh minutes
     }
 
     @Test

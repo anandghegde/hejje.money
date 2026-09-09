@@ -65,3 +65,7 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.strategy.load-bundled` | — | `true` | Load `strategies/*.yaml` at startup (new slugs created, changed definitions become new versions). |
 | `hejje.strategy.bundled-dirs` | — | `./strategies, ../strategies` | Directories searched for bundled definitions; the first that exists wins, otherwise the copies packaged in the jar (`classpath:strategies/`). |
 | `hejje.strategy.aliases` | — | `NIFTY`, `BANKNIFTY`, `FINNIFTY` → `nearest_future: <name>` | Bare universe names allowed in definitions and what they resolve to (a symbol, `nearest_future: X` or `index: X`). |
+| `hejje.backtest.workers` | — | `2` | Concurrent backtests. |
+| `hejje.backtest.warmup-days` | — | `20` | Calendar days of candles loaded before `from` to warm indicators up. |
+| `hejje.backtest.default-risk-rupees` | — | `2000` | Money risked per trade when neither the spec nor the definition says. |
+| `hejje.backtest.max-trades-per-backtest` | — | `200000` | Safety cap on persisted trades per run. |

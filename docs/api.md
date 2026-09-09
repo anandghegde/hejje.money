@@ -403,3 +403,54 @@ Scope: `strategies:read`.
 
 Scope: `strategies:write`. Body `{ "enabled": false, "reason": "lunch" }`. Enabling requires the version to be in
 `PAPER` or `LIVE`.
+
+## Backtests (Phase 2, M2.3)
+
+See `docs/backtesting.md` for the replay rules, metrics, splits and warnings. Money in request bodies is rupees;
+money in responses is `{ "paise": n }`.
+
+### `POST /api/v1/backtests`
+
+Scope: `strategies:write`. Returns 202 with the queued backtest.
+
+```json
+{ "strategyId": "0192...", "version": 1, "instruments": ["NFO:NIFTY:FUT:2026-09-24"], "timeframe": "M5",
+  "from": "2024-01-01", "to": "2026-08-31", "fillModel": "NEXT_OPEN", "slippageBps": 5,
+  "splits": { "type": "FIXED", "inSamplePct": 60, "validationPct": 20, "outOfSamplePct": 20 },
+  "initialCapitalRupees": 1000000, "riskPerTradeRupees": 2000 }
+```
+
+`versionId` may replace `strategyId` + `version`; `splits` may be `{ "type": "NONE" }` or
+`{ "type": "WALK_FORWARD", "trainMonths": 6, "testMonths": 2, "anchored": false }`. 422 when the version does not
+exist, the universe resolves to nothing or there are no candles.
+
+### `GET /api/v1/backtests/{id}`
+
+Scope: `strategies:read`.
+
+```json
+{ "id": "0192...", "versionId": "0192...", "spec": { "...": "..." }, "status": "DONE", "progressPct": 100,
+  "createdAt": "...", "startedAt": "...", "finishedAt": "...",
+  "metrics": { "totalTrades": 212, "winningTrades": 98, "winRate": 0.46, "expectancyR": 0.31, "profitFactor": 1.52,
+               "maxDrawdown": { "paise": 1840000 }, "sharpe": 1.4, "grossPnl": { "paise": ... }, "totalCosts": { "paise": ... },
+               "netPnl": { "paise": ... }, "rDistribution": { "< -2R": 1, "-2R..-1R": 20, "...": 0 },
+               "monthly": { "2026-08": { "trades": 12, "netPnl": { "paise": ... }, "winRate": 0.5 } },
+               "equityCurve": [ { "time": "...", "value": { "paise": ... } } ], "...": "..." },
+  "bySplit": { "IN_SAMPLE": { "...": "..." }, "OUT_OF_SAMPLE": { "...": "..." } },
+  "windows": [ { "index": 0, "trainFrom": "...", "testFrom": "...", "testTo": "...", "trades": 14, "expectancyR": 0.2 } ],
+  "warnings": [ { "code": "LOW_SAMPLE", "severity": "WARN", "message": "...", "evidence": { "trades": 82 } } ],
+  "sessionsExpected": 660, "sessionsWithData": 658, "skippedSignals": 3, "resultHash": "3f...", "engine": "JAVA", "createdBy": "admin" }
+```
+
+### `GET /api/v1/backtests/{id}/trades?split=IN_SAMPLE|VALIDATION|OUT_OF_SAMPLE`
+
+Scope: `strategies:read`. `[ { id, instrumentId, split, entryTime, exitTime, side, qty, entryPrice, exitPrice, stop,
+target, grossPnl, costs, netPnl, rMultiple, exitReason, evidence: [ { condition, status, lhs, rhs } ] } ]`.
+
+### `GET /api/v1/backtests?versionId=`
+
+Scope: `strategies:read`. Newest first (the last 100 when no version is given).
+
+### `DELETE /api/v1/backtests/{id}`
+
+Scope: `strategies:write`. Cancels a queued/running backtest (status `CANCELLED`) or deletes a finished one.

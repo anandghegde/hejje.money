@@ -85,6 +85,10 @@ hejje:
       NIFTY: "nearest_future: NIFTY"
       BANKNIFTY: "nearest_future: BANKNIFTY"
       FINNIFTY: "nearest_future: FINNIFTY"
+  backtest:
+    workers: 2
+    warmup-days: 20
+    default-risk-rupees: 2000
   instruments:
     sync-on-startup: false
     sync-cron: "0 0 8 * * MON-FRI"
@@ -130,6 +134,8 @@ spring:
     activate:
       on-profile: test
 hejje:
+  strategy:
+    load-bundled: false
   system:
     egress:
       enabled: false
