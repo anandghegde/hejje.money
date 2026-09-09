@@ -42,9 +42,10 @@ Adjusters implement `ScoreAdjuster` and are bounded; the breakdown lists each on
 | Technical compatibility | −10 … +8 | Warm an indicator context from the last 5 days of candles of the instrument, evaluate the entry conditions on the last closed bar; `delta = round(−10 + 18 × passedShare)` (NOT_READY does not pass); no candles → 0 |
 | Current regime | −10 … +10 | Two parts (docs/regime.md, `hejje.regime.adjuster.*`). Preferences: each `regime_preferences` key matching the current snapshot adds +3 (`preferred`) or −6 (`avoid`), that part clipped to [−6, +3]. Similar-regime performance: the base backtest's expectancy in the current `trend × volatility` bucket minus its overall expectancy, ±7 at ±0.5R (linear, clipped), only with ≥ 10 similar trades. Regime unknown → 0 with the reason |
 | Event risk | −8 … 0 | `docs/events.md` proximity level for the instrument: HIGH −8, MEDIUM −3, LOW 0; 0 with the reason when the calendar is unavailable |
+| News context | −3 … +3 | `docs/news.md` bias for the instrument: `round(3 × score)`; 0 with the reason when news is off, the LLM is off or the feed is stale |
 | Recent paper/live performance | −5 … +5 | Last 20 round trips attributed to the strategy in the current mode (fills paired per instrument until flat) vs the base backtest's expectancy in money: ratio ≥ 1 → +5, ≥ 0.5 → +2, ≥ 0 → −2, < 0 → −5; no round trips → 0 |
 
-M3.4 adds the news-context adjuster as one more `ScoreAdjuster` bean (PRD 14 example).
+Adjuster order: technical (10), regime (15), recent performance (20), event risk (30), news (40).
 
 `final = clip(round(base) + Σ deltas, 0, 100)`.
 

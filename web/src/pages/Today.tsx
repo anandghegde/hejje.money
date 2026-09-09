@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { ApiError, request } from '../api/client';
 import { MarketEvent, PreparedOrder, Recommendation, TodayView } from '../api/types';
 import { decisionColor, formatR, rewardRisk, secondsLeft } from '../lib/today';
+import { NewsBiasPanel } from '../components/NewsBiasPanel';
 
 function Header({ view }: { view: TodayView }) {
   const q = view.header.indexQuotes ?? {};
@@ -125,8 +126,10 @@ function BestCard({ rec, onExecute, onSkip }: { rec: Recommendation; onExecute: 
           <tr><td>Risk</td><td>₹{rec.riskRupees}</td></tr>
           <tr><td>Expected reward</td><td>{rec.expectedRewardRupees != null ? `₹${rec.expectedRewardRupees}` : '—'}</td></tr>
           <tr><td>Event risk</td><td>{rec.eventRisk}{rec.nextEvent ? ` — ${rec.nextEvent}` : ''}</td></tr>
+          <tr><td>Regime</td><td>{rec.regime ?? '—'}</td></tr>
         </tbody>
       </table>
+      <NewsBiasPanel instrumentId={rec.instrumentId} />
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button data-testid="execute-button" onClick={onExecute} style={{ background: '#1a9f57', color: '#fff', padding: '8px 16px' }}>EXECUTE</button>
         <button onClick={() => setDetails(!details)}>DETAILS</button>

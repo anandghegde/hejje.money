@@ -102,3 +102,14 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.events.computed.enabled` / `expiry-underlyings` / `index-rebalance-dates` | — | `true` / `NIFTY, BANKNIFTY` / (empty) | Holidays, expiries and rebalance dates. |
 | `hejje.events.curated.enabled` / `files` | — | `true` / `classpath:events/macro-2026.yaml` | Curated macro calendars (`file:` paths override the bundled copy). |
 | `hejje.events.nse.enabled` / `base-url` / `timeout-seconds` | — | `false` / `https://www.nseindia.com` / `5` | Optional best-effort NSE corporate-action fetcher. |
+| `hejje.llm.enabled` | `HEJJE_LLM_ENABLED` | `false` | LLM provider abstraction (`docs/llm.md`). Off: every call is `Unavailable`; callers degrade. |
+| `hejje.llm.providers.<name>.*` | — | `primary`: `openai-compatible`, `base-url` `HEJJE_LLM_BASE_URL`, `api-key-env` `HEJJE_LLM_API_KEY`, `model` `HEJJE_LLM_MODEL` | Providers (`type`, `base-url`, `api-key-env`, `model`, `timeout`). The key is read from the named env var only. |
+| `hejje.llm.profiles.<fast|reasoning|news|research>` | — | all → `primary` | Profile → provider, optional model/temperature/max-tokens. |
+| `hejje.llm.retries` / `backoff` | — | `2` / `500ms` | Retries on timeouts, 429 and 5xx; backoff doubles. |
+| `hejje.llm.pricing.<model>` | — | (none) | Rupees per million input/output tokens for the call-log cost estimate. |
+| `hejje.news.enabled` | `HEJJE_NEWS_ENABLED` | `false` | News polling and classification (`docs/news.md`). |
+| `hejje.news.poll-minutes` | — | `5` | Poll interval. |
+| `hejje.news.sources` / `aliases` | — | `classpath:news-sources.yaml` / `classpath:aliases.yaml` | Feed list and instrument alias map (`file:` paths override the bundled copies). |
+| `hejje.news.window` / `half-life` / `stale-after` | — | `24h` / `4h` / `2h` | Bias window, recency decay, and the age of the last successful poll after which the bias is unavailable. |
+| `hejje.news.min-relevance` / `strong-score` / `mild-score` | — | `0.3` / `0.6` / `0.2` | Contribution threshold and label cut-offs. |
+| `hejje.news.max-items-per-poll` / `title-similarity` / `fetch-timeout` | — | `25` / `0.8` / `30s` | Classification cap per poll, dedupe similarity, HTTP timeout. |

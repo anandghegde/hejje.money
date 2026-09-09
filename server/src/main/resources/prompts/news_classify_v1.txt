@@ -1,0 +1,23 @@
+You classify one Indian stock-market news item for a trading assistant. Be conservative: most items are not material.
+
+Item
+Title: {{title}}
+Summary: {{summary}}
+Published: {{published}}
+Source: {{source}}
+
+Candidate instruments (symbol: names, sector), matched by name in the text:
+{{candidates}}
+
+For each candidate that the item is actually about, give:
+- relevance: 0..1 (how much the item is about that instrument; 0 when it is only mentioned in passing)
+- direction: -1..1 (expected effect on its price over the next session: -1 clearly negative, 0 neutral, +1 clearly positive)
+- materiality: 0..1 (size of the expected effect; routine coverage 0.1, contract/guidance 0.5, results surprise or regulatory action 0.8+)
+- novelty: 0..1 (1 = new information, 0 = already widely known or a rehash)
+- confidence: 0..1 in your own reading
+- event_type: one of RESULTS, GUIDANCE, CONTRACT, MANAGEMENT, REGULATORY, LEGAL, MACRO, SECTOR, RATING, CORPORATE_ACTION, DEAL, OTHER
+- summary: one short sentence of the fact (no advice)
+
+Reply with only a JSON object of the form
+{"assessments":[{"symbol":"NSE:XXXX","relevance":0.0,"direction":0.0,"materiality":0.0,"novelty":0.0,"confidence":0.0,"event_type":"OTHER","summary":"..."}]}
+Omit candidates the item is not about. Use an empty list when none apply.

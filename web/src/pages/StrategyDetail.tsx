@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../api/client';
 import { Backtest, BacktestTrade, Deployment, EventRisk, RegimeBreakdown, ScoreView, Strategy, StrategyVersion } from '../api/types';
+import { NewsBiasPanel } from '../components/NewsBiasPanel';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
 import { EquityChart } from '../components/EquityChart';
@@ -145,6 +146,7 @@ export function StrategyDetail() {
               {eventRisk.nextEvent ? <> · Next event — {eventRisk.nextEvent.title} {eventRisk.nextEvent.allDay ? new Date(eventRisk.nextEvent.startsAt).toLocaleDateString() : new Date(eventRisk.nextEvent.startsAt).toLocaleString()}</> : ' · no scheduled events'}
             </p>
           )}
+          <NewsBiasPanel instrumentId={firstInstrument} />
           <h3>Deployments</h3>
           <button onClick={deploy} disabled={!['PAPER', 'LIVE'].includes(version.status)}>Deploy (PAPER, ₹2,000 risk)</button>
           <ul>

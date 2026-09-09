@@ -19,6 +19,8 @@ import money.hejje.common.time.HejjeClock;
 import money.hejje.events.EventRisk;
 import money.hejje.events.EventRuleOutcome;
 import money.hejje.events.EventService;
+import money.hejje.news.NewsBias;
+import money.hejje.news.NewsService;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.market.MarketProperties;
@@ -61,13 +63,15 @@ public class RecommendationService {
     private final HejjeProperties hejje;
     private final RegimeService regime;
     private final EventService events;
+    private final NewsService news;
     private final HejjeClock clock;
 
     RecommendationService(StrategyService strategies, SignalService signals, ScoringService scoring, BacktestService backtests, InstrumentService instruments,
             MarketService market, MarketProperties marketProperties, RecommendationStore store, RecommendProperties properties, HejjeProperties hejje,
-            RegimeService regime, EventService events, HejjeClock clock) {
+            RegimeService regime, EventService events, NewsService news, HejjeClock clock) {
         this.regime = regime;
         this.events = events;
+        this.news = news;
         this.strategies = strategies;
         this.signals = signals;
         this.scoring = scoring;
@@ -127,6 +131,7 @@ public class RecommendationService {
         EventRisk eventRisk = events.risk(instrumentId);
         EventRuleOutcome eventRule = money.hejje.events.EventRules.apply(version.definition().eventRules(), eventRisk);
         String nextEvent = events.nextEventLine(eventRisk);
+        NewsBias newsBias = news.bias(instrumentId);
 
         Decision decision;
         Integer quantity = null;
@@ -211,7 +216,7 @@ public class RecommendationService {
         return new Recommendation(version.id(), version.strategyId(), strategy == null ? version.definition().name() : strategy.slug(), version.version(), d.id(),
                 instrumentId, symbol, finalScore, decision, signal == null ? null : signal.side(), signal == null ? null : signal.id(),
                 signal == null ? null : signal.status().name(), signal == null ? null : signal.validUntil(), entry, signal == null ? null : signal.stop(),
-                signal == null ? null : signal.target(), quantity, riskRupees, reward, regimeLabel(), null, eventRisk.available() ? eventRisk.level().name() : "UNKNOWN",
+                signal == null ? null : signal.target(), quantity, riskRupees, reward, regimeLabel(), newsBias.available() ? newsBias.score() : null, eventRisk.available() ? eventRisk.level().name() : "UNKNOWN",
                 nextEvent, hardBlocks, evidence, risks, backtest, breakdown);
     }
 

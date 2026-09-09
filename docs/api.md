@@ -753,3 +753,33 @@ Recommendations (`GET /api/v1/today`) now carry `eventRisk` (`LOW | MEDIUM | HIG
 Today 16:00"), `regime` (trend × volatility) and may be `TRADE_WITH_CAUTION`; the header carries the market-level
 `eventRisk` and `nextEvent`. `POST /signals/{id}/execute` of a signal whose strategy blocks on the event is rejected by
 the risk pipeline (`eventRule` check).
+
+## News and news bias (Phase 3, M3.4)
+
+See `docs/news.md`. Scope: `market:read` unless noted.
+
+### `GET /api/v1/news?instrumentId=&from=&limit=`
+
+Stories of the trailing window (all, or those assessed for the instrument), newest first, with their assessments.
+
+```json
+[ { "id": "...", "sourceId": "...", "url": "https://...", "title": "Infosys wins $1.5 billion deal", "summary": "...", "publishedAt": "...",
+    "assessments": [ { "instrumentId": "...", "sector": "IT", "relevance": 0.9, "direction": 0.8, "materiality": 0.6, "novelty": 1.0, "confidence": 0.9,
+                       "eventType": "CONTRACT", "summary": "Infosys won a large multi-year deal.", "promptVersion": "news_classify_v1" } ] } ]
+```
+
+### `GET /api/v1/context/news-bias?instrumentId=`
+
+```json
+{ "instrumentId": "...", "computedAt": "...", "score": 0.58, "label": "BULLISH", "items": 2, "available": true,
+  "evidence": [ "▲ Infosys won a large multi-year deal. (Economic Times Markets, 0.2 h ago, materiality 0.6, +0.39)", "Confirmed by 2 sources (×1.25)",
+                "Price/volume reaction confirms the news (+1.20% on 1.6x volume)" ],
+  "sources": [ { "itemId": "...", "title": "...", "url": "https://...", "source": "Economic Times Markets", "publishedAt": "...", "direction": 0.8, "materiality": 0.6,
+                 "confidence": 0.9, "weight": 0.39, "summary": "..." } ] }
+```
+
+`available=false` (score 0, `NEUTRAL`, reason in `evidence`) when news or the LLM is disabled or the feed is stale.
+
+### `GET /api/v1/news/sources`, `PUT /api/v1/news/sources/{id}` (`strategies:write`, body `{ "enabled": true, "reliability": 0.7 }`), `POST /api/v1/news/poll` (`admin`)
+
+Recommendations (`GET /api/v1/today`) now carry `newsBias` (the score, null when unavailable).

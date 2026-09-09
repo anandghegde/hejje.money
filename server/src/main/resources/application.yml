@@ -108,6 +108,22 @@ hejje:
     default-risk-rupees: 2000
   recommend:
     min-score: 70
+  llm:
+    enabled: ${HEJJE_LLM_ENABLED:false}
+    providers:
+      primary:
+        type: openai-compatible
+        base-url: ${HEJJE_LLM_BASE_URL:}
+        api-key-env: HEJJE_LLM_API_KEY
+        model: ${HEJJE_LLM_MODEL:}
+    profiles:
+      fast: { provider: primary }
+      reasoning: { provider: primary }
+      news: { provider: primary, temperature: 0.0, max-tokens: 600 }
+      research: { provider: primary }
+  news:
+    enabled: ${HEJJE_NEWS_ENABLED:false}
+    poll-minutes: 5
   signals:
     enabled: true
     warmup-days: 10
@@ -169,6 +185,16 @@ hejje:
     universe: classpath:regime/universe-test.yaml   # five fixture equities (test resources)
   events:
     refresh-on-startup: false
+  llm:
+    enabled: true                      # the fixture provider only; nothing in the trading core calls it
+    providers:
+      fixture: { type: fixture }
+    profiles:
+      news: { provider: fixture, model: fixture-news }
+      fast: { provider: fixture, model: fixture-fast }
+  news:
+    enabled: true                      # ingest is driven by tests; the scheduler is a no-op in tests
+    aliases: classpath:aliases.yaml
   strategy:
     load-bundled: false
     allow-forced-status: true

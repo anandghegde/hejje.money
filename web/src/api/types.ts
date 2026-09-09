@@ -158,3 +158,10 @@ export interface MarketEvent {
   source: string; confidence: number;
 }
 export interface EventRisk { level: string; nextEvent?: MarketEvent; minutesTo?: number; evidence: string[]; available: boolean }
+
+// --- Phase 3 (M3.4) ---
+export interface NewsContribution {
+  itemId: string; title: string; url: string; source: string; publishedAt: string; direction: number; materiality: number; confidence: number; weight: number;
+  summary?: string;
+}
+export interface NewsBias { instrumentId: string; computedAt: string; score: number; label: string; items: number; evidence: string[]; available: boolean; sources: NewsContribution[] }

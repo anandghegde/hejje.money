@@ -1,0 +1,7 @@
+# News feeds polled by the news module when hejje.news.enabled=true (docs/news.md). reliability (0..1) weights every
+# item from the source in the bias. Verify the URLs still serve feeds; publishers move them.
+sources:
+  - { name: Economic Times Markets, url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms", kind: RSS, reliability: 0.75, enabled: true }
+  - { name: Moneycontrol Market Reports, url: "https://www.moneycontrol.com/rss/marketreports.xml", kind: RSS, reliability: 0.7, enabled: true }
+  - { name: Business Standard Markets, url: "https://www.business-standard.com/rss/markets-106.rss", kind: RSS, reliability: 0.75, enabled: true }
+  - { name: Livemint Markets, url: "https://www.livemint.com/rss/markets", kind: RSS, reliability: 0.7, enabled: true }
