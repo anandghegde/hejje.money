@@ -108,9 +108,20 @@ public class SignalService {
         engine.signalGone(s);
     }
 
-    /** Sizes the order and runs the risk checks without submitting anything. */
+    /** Sizes the order and runs the risk checks without submitting anything; marks the signal PREPARED. */
     public PreparedOrder prepare(UUID signalId, HejjePrincipal principal) {
         Signal signal = actionable(signalId);
+        PreparedOrder prepared = dryRun(signal, principal);
+        if (signal.status() == SignalStatus.ACTIVE) {
+            store.update(signal.with(SignalStatus.PREPARED, null, null, null, clock.now()));
+            audit.record(AuditEvent.of(AuditEventType.SIGNAL_PREPARED, ActorType.USER).withActorId(prepared.proposal().actorId()).withStrategyId(signal.strategyId())
+                    .withSignalId(signal.id()).withPayload(Map.of("quantity", prepared.sizing().get("quantity"), "risk", prepared.risk().outcome().name())));
+        }
+        return new PreparedOrder(store.find(signal.id()).orElse(signal), prepared.proposal(), prepared.risk(), prepared.sizing(), prepared.notes());
+    }
+
+    /** Sizing plus a dry-run risk decision for a signal, with no side effects (the Today screen calls this for every ranked signal). */
+    public PreparedOrder dryRun(Signal signal, HejjePrincipal principal) {
         StrategyVersion version = strategies.versionById(signal.versionId()).orElseThrow(() -> new SignalException.NotFound("Version missing"));
         Instrument instrument = instruments.findById(signal.instrumentId()).orElseThrow(() -> new SignalException.NotFound("Instrument missing"));
         Money riskMoney = signal.deploymentId() == null ? engine.riskPerTrade(null, version)
@@ -144,12 +155,16 @@ public class SignalService {
         sizing.put("lotSize", instrument.lotSize());
         sizing.put("maxQuantity", maxQty);
         sizing.put("quantity", qty);
-        if (signal.status() == SignalStatus.ACTIVE) {
-            store.update(signal.with(SignalStatus.PREPARED, null, null, null, clock.now()));
-            audit.record(AuditEvent.of(AuditEventType.SIGNAL_PREPARED, ActorType.USER).withActorId(proposal.actorId()).withStrategyId(signal.strategyId())
-                    .withSignalId(signal.id()).withPayload(Map.of("quantity", qty, "risk", decision.outcome().name())));
-        }
-        return new PreparedOrder(store.find(signal.id()).orElse(signal), proposal, decision, sizing, notes);
+        return new PreparedOrder(signal, proposal, decision, sizing, notes);
+    }
+
+    /** The strategy-managed position an order belongs to (entry, stop or exit order), if any. */
+    public Optional<StrategyPosition> positionForOrder(UUID orderId) {
+        return store.findByOrder(orderId);
+    }
+
+    public Optional<StrategyPosition> position(UUID positionId) {
+        return store.findPosition(positionId);
     }
 
     /** The user's confirmation: submits the prepared order (through validation, risk and the gate) and marks the signal EXECUTED. */

@@ -1,6 +1,6 @@
 import { newIdempotencyKey } from '../lib/idempotency';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api/v1';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api/v1'; // relative by default: the Vite dev proxy (or nginx in prod) forwards /api
 
 let accessToken: string | null = null;
 let onUnauthorized: (() => void) | null = null;
@@ -24,11 +24,20 @@ export class ApiError extends Error {
 }
 
 async function refresh(): Promise<boolean> {
-  const res = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
-  if (!res.ok) return false;
-  const body = await res.json();
-  accessToken = body.accessToken;
-  return true;
+  try {
+    const res = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
+    if (!res.ok) return false;
+    const body = await res.json();
+    accessToken = body.accessToken;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Restores a session from the refresh cookie (page reload); false when there is none. */
+export async function tryRefresh(): Promise<boolean> {
+  return refresh();
 }
 
 export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {

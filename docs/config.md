@@ -75,3 +75,7 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.signals.expiry-sweep` | — | `30s` | How often stale ACTIVE/PREPARED signals are expired. |
 | `hejje.signals.inline-dispatch` | — | `false` (`true` in `test`) | Process bus and order events on the calling thread instead of the engine thread. |
 | `hejje.signals.default-risk-rupees` | — | `2000` | Money risked per signal when neither the deployment (`params.risk_rupees`) nor the definition says. |
+| `hejje.recommend.min-score` | — | `70` | Hejje Score a valid signal needs to be recommended as TRADE (else WAIT). |
+| `hejje.market.dev-candles` | — | `false` (`true` in `dev`/`test`) | Enable `POST /market/dev/candles` (scripted sessions for development). |
+| `hejje.strategy.allow-forced-status` | — | `false` (`true` in `dev`/`test`) | Honour `force: true` on version status changes (bypasses lifecycle evidence; audited as forced). |
+| `hejje.execution.allow-off-session-paper` | — | `false` (`true` in `dev`) | Let PAPER-mode intents through outside market hours. Live modes are never exempt. |

@@ -32,11 +32,60 @@ class MarketController {
     private final MarketService market;
     private final HistoricalCandleStore historical;
     private final HistoricalBackfillJob backfill;
+    private final money.hejje.market.MarketProperties properties;
+    private final MarketPipeline pipeline;
+    private final money.hejje.common.event.TickBus bus;
+    private final money.hejje.common.time.HejjeClock clock;
 
-    MarketController(MarketService market, HistoricalCandleStore historical, HistoricalBackfillJob backfill) {
+    MarketController(MarketService market, HistoricalCandleStore historical, HistoricalBackfillJob backfill, money.hejje.market.MarketProperties properties,
+            MarketPipeline pipeline, money.hejje.common.event.TickBus bus, money.hejje.common.time.HejjeClock clock) {
         this.market = market;
         this.historical = historical;
         this.backfill = backfill;
+        this.properties = properties;
+        this.pipeline = pipeline;
+        this.bus = bus;
+        this.clock = clock;
+    }
+
+    /** One candle to seed; times are ISO instants. */
+    record DevCandle(@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant openTime, java.math.BigDecimal open, java.math.BigDecimal high,
+            java.math.BigDecimal low, java.math.BigDecimal close, long volume) {}
+
+    /**
+     * @param store   write the candles to the historical store (backtests, warm-up)
+     * @param publish publish each candle as a closed candle on the tick bus (signal runners)
+     * @param quote   feed a tick (at the close price, stamped now) into the pipeline (quote cache, readiness)
+     */
+    record DevCandlesRequest(UUID instrumentId, Timeframe timeframe, List<DevCandle> candles, Boolean store, Boolean publish, Boolean quote) {}
+
+    /**
+     * Development seeding (docs/data.md): only when {@code hejje.market.dev-candles=true} (dev and test profiles). Lets a
+     * replayed or scripted session drive backtests, runners and the Today screen without a broker.
+     */
+    @PostMapping("/dev/candles")
+    @PreAuthorize("hasAuthority('SCOPE_admin')")
+    Map<String, Object> devCandles(@RequestBody DevCandlesRequest request) {
+        if (!properties.devCandles()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "dev candle seeding is disabled");
+        }
+        Timeframe tf = request.timeframe() == null ? Timeframe.M5 : request.timeframe();
+        List<Candle> candles = request.candles().stream().map(c -> new Candle(request.instrumentId(), tf, c.openTime(), c.open(), c.high(), c.low(), c.close(),
+                c.volume(), 0, false)).toList();
+        if (!Boolean.FALSE.equals(request.store())) {
+            historical.write(request.instrumentId(), tf, candles);
+        }
+        if (Boolean.TRUE.equals(request.publish())) {
+            for (Candle candle : candles) {
+                if (Boolean.TRUE.equals(request.quote())) {
+                    // stamped "now" so the quote cache and market-data readiness treat it as fresh whatever the candle's date
+                    pipeline.onTick(new money.hejje.common.event.MarketTick(request.instrumentId(), clock.now(), candle.close(), null, null,
+                            candle.volume(), 0, money.hejje.common.event.MarketTick.Mode.LTP));
+                }
+                bus.publish(new money.hejje.market.CandleClosedEvent(candle));
+            }
+        }
+        return Map.of("instrumentId", request.instrumentId(), "timeframe", tf.name(), "candles", candles.size());
     }
 
     record Subscriptions(Set<UUID> instrumentIds) {}

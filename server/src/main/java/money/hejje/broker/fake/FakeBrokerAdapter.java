@@ -102,7 +102,8 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     private final Map<String, List<BrokerCandle>> history = new ConcurrentHashMap<>();
     private final List<FakeStream> streams = new CopyOnWriteArrayList<>();
     private final Deque<BrokerException.Kind> failNext = new ArrayDeque<>();
-    private final AtomicLong sequence = new AtomicLong(1);
+    /** Seeded per process from the time of day so ids never collide with rows a previous run left in the database. */
+    private final AtomicLong sequence = new AtomicLong((System.currentTimeMillis() / 1000 % 86400) * 100000 + 1);
     private final AtomicBoolean dropAck = new AtomicBoolean();
     private volatile long delayNextMs;
     private volatile boolean connected;

@@ -63,3 +63,9 @@ After backfilling, run for each bundled strategy (`docs/strategies/`) a `FIXED 6
 backtest over the full range and record the metrics and warnings in the strategy page. Strategies that pass the
 minimum-trade rule move to `VALIDATED`; the others stay `BACKTESTED` with the warning noted. Parameters are not
 changed after seeing out-of-sample results.
+
+## Seeding a development server
+
+`POST /api/v1/market/dev/candles` (dev/test profiles) stores and/or publishes a scripted session for an instrument and
+can feed quotes into the pipeline; `POST /api/v1/broker/dev/quote` pushes a quote into the fake broker. Together
+with a forced `PAPER` status they drive the Playwright paper flow without any broker (`docs/analytics.md`).

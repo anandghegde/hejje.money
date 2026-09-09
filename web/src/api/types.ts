@@ -40,7 +40,7 @@ export interface Position {
   realizedPnl: { paise: number }; fees: { paise: number };
 }
 
-export interface Trade { id: string; orderId: string; instrumentId: string; side: string; quantity: number; price: number; ts: string; }
+export interface Trade { id: string; orderId: string; instrumentId: string; side: string; quantity: number; price: number; ts: string; strategyId?: string; }
 
 export interface RiskDashboard {
   realizedPnl: { paise: number }; unrealizedPnl: { paise: number }; netPnl: { paise: number };
@@ -49,3 +49,90 @@ export interface RiskDashboard {
 }
 
 export interface KillSwitch { mode: ExecutionMode; stopNewOrders: boolean; reason?: string; }
+
+// --- Phase 2 (M2.7) ---
+
+export interface Money { paise: number }
+
+export interface Strategy {
+  id: string; slug: string; family: string; name: string; createdAt: string; retiredAt?: string;
+  latestVersion: number; latestVersionId?: string; latestStatus?: string;
+}
+
+export interface StrategyVersion {
+  id: string; strategyId: string; version: number; definitionYaml: string; definition: any; definitionHash: string;
+  changeNote: string; parentVersionId?: string; createdBy: string; createdAt: string; status: string;
+}
+
+export interface Deployment {
+  id: string; versionId: string; strategyId: string; mode: ExecutionMode; instrumentIds: string[]; autonomyLevel: number;
+  enabled: boolean; params: Record<string, unknown>; createdAt: string; pausedAt?: string; pauseReason?: string;
+}
+
+export interface BacktestMetrics {
+  totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; expectancyR: number; profitFactor?: number;
+  maxDrawdown: Money; maxDrawdownR: number; maxDrawdownPct: number; sharpe?: number; sortino?: number; grossPnl: Money; totalCosts: Money;
+  netPnl: Money; totalReturnPct: number; averageHoldingMinutes: number; maxConsecutiveLosses: number;
+  equityCurve: { time: string; value: Money }[]; monthly: Record<string, { trades: number; netPnl: Money; winRate: number }>;
+  rDistribution: Record<string, number>;
+}
+
+export interface Backtest {
+  id: string; versionId: string; status: string; progressPct: number; createdAt: string; finishedAt?: string; spec: any;
+  metrics?: BacktestMetrics; bySplit: Record<string, BacktestMetrics>; warnings: { code: string; severity: string; message: string }[];
+  sessionsExpected: number; sessionsWithData: number; resultHash?: string; error?: string;
+}
+
+export interface BacktestTrade {
+  id: string; instrumentId: string; split: string; entryTime: string; exitTime: string; side: string; qty: number; entryPrice: number;
+  exitPrice: number; stop?: number; target?: number; grossPnl: Money; costs: Money; netPnl: Money; rMultiple: number; exitReason: string;
+  evidence: { condition: string; status: string; lhs?: number; rhs?: number }[];
+}
+
+export interface ScoreBreakdown {
+  id: string; versionId: string; instrumentId?: string; computedAt: string; baseBacktestId?: string; base: number; cap?: string;
+  components: { name: string; weight: number; score: number; contribution: number; evidence: Record<string, unknown> }[];
+  adjustments: { name: string; delta: number; min: number; max: number; evidence: string[] }[];
+  finalScore: number;
+}
+
+export interface ScoreView { strategyId: string; versionId: string; version: number; breakdown?: ScoreBreakdown; instruments: { instrumentId: string; finalScore: number }[] }
+
+export interface ValidationReport { valid: boolean; errors: { path: string; message: string }[]; definition?: any }
+
+export interface Signal {
+  id: string; versionId: string; strategyId: string; deploymentId?: string; instrumentId: string; side: 'BUY' | 'SELL';
+  referencePrice: number; stop: number; target?: number; riskPerUnit: number; barTime: string; validUntil: string;
+  evidence: { condition: string; status: string; lhs?: number; rhs?: number }[]; status: string; note?: string; orderId?: string;
+}
+
+export interface PreparedOrder {
+  signal: Signal;
+  proposal: { instrumentId: string; side: string; quantity: number; orderType: string; product: string; stopPrice?: string; targetPrice?: string; maxRisk?: Money };
+  risk: { outcome: string; checks: { name: string; passed: boolean; message: string; observed?: string; limit?: string }[] };
+  sizing: Record<string, unknown>;
+  notes: string[];
+}
+
+export interface Recommendation {
+  versionId: string; strategyId: string; strategy: string; version: number; deploymentId: string; instrumentId: string; instrument: string;
+  score?: number; decision: 'TRADE' | 'WAIT' | 'AVOID'; direction?: 'BUY' | 'SELL'; signalId?: string; signalStatus?: string; signalValidUntil?: string;
+  entry?: number; stop?: number; target?: number; quantity?: number; riskRupees?: number; expectedRewardRupees?: number; regime?: string;
+  newsBias?: number; eventRisk: string; hardBlocks: string[]; supportingEvidence: string[]; risks: string[];
+  backtest: Record<string, unknown>; scoreBreakdown: Record<string, unknown>;
+}
+
+export interface TodayView {
+  header: { indexQuotes: Record<string, { lastPrice: number; stale: boolean }>; vix?: number; regime?: string; breadth?: string; eventRisk?: string; mode: string };
+  best?: Recommendation; ranked: Recommendation[]; noTrade?: string;
+}
+
+export interface TradeReview {
+  id: string; positionId?: string; strategyId?: string; strategyVersionId?: string; signalId?: string; instrumentId: string; entryOrderId: string;
+  side: string; quantity: number; entryPrice: number; exitPrice: number; openedAt: string; closedAt: string; grossPnl: Money; fees: Money; netPnl: Money;
+  outcomeR?: number; expectedSetupValid?: boolean; entrySlippageBps?: number; exitSlippageBps?: number; ruleAdherencePct?: number; closeReason?: string;
+  context: Record<string, string>; notes?: string;
+}
+
+export interface PnlBucket { key: string; label: string; trades: number; wins: number; grossPnl: Money; fees: Money; netPnl: Money; winRate: number; averageR?: number }
+export interface PnlReport { groupBy: string; mode: string; buckets: PnlBucket[]; summary: { roundTrips: number; grossPnl: Money; fees: Money; netPnl: Money } }

@@ -5,12 +5,12 @@ import { request } from '../api/client';
 import { Health } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 
-const ACTIVE = ['Orders', 'Trades', 'Positions', 'Risk', 'Broker', 'Server', 'Settings'];
-const PLACEHOLDERS = ['Today', 'Pulse', 'Strategies', 'Lab', 'Hejje AI'];
+const ACTIVE = ['Today', 'Strategies', 'Lab', 'Orders', 'Trades', 'Positions', 'Reviews', 'Analytics', 'Risk', 'Broker', 'Server', 'Settings'];
+const PLACEHOLDERS = ['Pulse', 'Hejje AI'];
 
 const ROUTES: Record<string, string> = {
-  Orders: '/orders', Trades: '/trades', Positions: '/positions', Risk: '/risk',
-  Broker: '/broker', Server: '/system', Settings: '/settings',
+  Today: '/today', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
+  Reviews: '/reviews', Analytics: '/analytics', Risk: '/risk', Broker: '/broker', Server: '/system', Settings: '/settings',
 };
 
 function Dot({ ok, label }: { ok: boolean; label: string }) {

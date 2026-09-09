@@ -21,6 +21,7 @@ test('login, place a paper order, close the position', async ({ page }) => {
   await page.getByLabel('symbol').fill('NSE:INFY');
   await page.getByRole('button', { name: 'Resolve' }).click();
   await page.getByLabel('quantity').fill('1');
+  await page.getByLabel('stopPrice').fill('1450'); // risk limits make a stop mandatory and within 5% of the price
   await page.getByTestId('place-order').click();
   await expect(page.getByTestId('order-message')).toContainText('Order');
 

@@ -17,11 +17,13 @@ public class OrderValidator {
     private final InstrumentService instruments;
     private final HejjeClock clock;
     private final LiveTradingGate gate;
+    private final money.hejje.common.config.ExecutionProperties properties;
 
-    OrderValidator(InstrumentService instruments, HejjeClock clock, LiveTradingGate gate) {
+    OrderValidator(InstrumentService instruments, HejjeClock clock, LiveTradingGate gate, money.hejje.common.config.ExecutionProperties properties) {
         this.instruments = instruments;
         this.clock = clock;
         this.gate = gate;
+        this.properties = properties;
     }
 
     public List<String> validate(OrderIntent intent) {
@@ -49,7 +51,8 @@ public class OrderValidator {
         if ((intent.orderType() == OrderType.SL || intent.orderType() == OrderType.SL_M) && intent.triggerPrice() == null) {
             errors.add(intent.orderType() + " orders need a trigger price");
         }
-        if (!intent.isExposureReducing() && !clock.isSessionOpen()) {
+        boolean paperOffSession = properties.allowOffSessionPaper() && intent.mode() == money.hejje.common.ExecutionMode.PAPER;
+        if (!intent.isExposureReducing() && !clock.isSessionOpen() && !paperOffSession) {
             errors.add("Market is closed (no AMO support yet); only closes are allowed outside the session");
         }
         // the live-trading gate composes broker session, kill switch and every readiness check

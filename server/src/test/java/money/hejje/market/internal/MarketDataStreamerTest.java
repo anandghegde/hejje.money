@@ -42,7 +42,7 @@ class MarketDataStreamerTest {
         when(instruments.nearestFuture(anyString())).thenReturn(Optional.empty());
         HejjeClock clock = new HejjeClock(MutableClock.atIst("2026-09-08T10:00:00"), MutableClock.IST, (d, e) -> false);
         MarketProperties properties = new MarketProperties(List.of("INDEX:NIFTY 50"), true, Duration.ofSeconds(10), Duration.ofSeconds(5),
-                1000, false, 15, 3);
+                1000, false, 15, 3, false);
         MarketDataStreamer streamer = new MarketDataStreamer(broker, instruments, mock(MarketPipeline.class), clock, properties);
 
         streamer.onStartup();

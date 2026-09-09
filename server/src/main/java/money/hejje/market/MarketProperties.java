@@ -26,5 +26,6 @@ public record MarketProperties(
         @DefaultValue("100000") int tickQueue,
         @DefaultValue("false") boolean record,
         @DefaultValue("15") int retentionSessions,
-        @DefaultValue("3") int historicalPerSecond) {
+        @DefaultValue("3") int historicalPerSecond,
+        @DefaultValue("false") boolean devCandles) {
 }

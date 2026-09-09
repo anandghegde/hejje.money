@@ -132,6 +132,10 @@ public class OrderService {
         return trades.query(mode, null, null).stream().filter(t -> t.id().equals(tradeId)).findFirst();
     }
 
+    public Optional<Position> findPosition(UUID positionId) {
+        return positions.findById(positionId);
+    }
+
     public List<Position> positions(ExecutionMode mode) {
         return positions.byMode(mode);
     }
@@ -272,7 +276,8 @@ public class OrderService {
     }
 
     private void recordFill(HejjeOrder order, BrokerOrder update, int delta, BigDecimal price, OrderEventSource source) {
-        UUID strategyId = null;
+        // attribution (PRD 53): the strategy on the order's intent; imported/external orders have none and count as MANUAL
+        UUID strategyId = order.intentId() == null ? null : intents.findById(order.intentId()).map(OrderIntent::strategyId).orElse(null);
         String brokerTradeId = update.brokerOrderId() + ":" + update.filledQuantity();
         Trade trade = new Trade(Ids.newId(), order.id(), brokerTradeId, order.instrumentId(), order.side(), delta, price, clock.now(),
                 order.mode(), strategyId);

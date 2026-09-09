@@ -205,9 +205,19 @@ public class StrategyService {
 
     @Transactional
     public StrategyVersion changeStatus(UUID strategyId, int number, VersionStatus to, String note, String by) {
+        return changeStatus(strategyId, number, to, note, by, false);
+    }
+
+    /**
+     * @param force bypass the lifecycle's evidence and transition checks; only honoured when
+     *              {@code hejje.strategy.allow-forced-status} is set (dev/test), and always audited as forced
+     */
+    @Transactional
+    public StrategyVersion changeStatus(UUID strategyId, int number, VersionStatus to, String note, String by, boolean force) {
         StrategyVersion version = store.findVersion(strategyId, number)
                 .orElseThrow(() -> new StrategyException.NotFound("Version " + number + " of strategy " + strategyId + " not found"));
-        String rejection = lifecycle.reject(version.id(), version.status(), to);
+        boolean forced = force && properties.allowForcedStatus();
+        String rejection = forced ? (version.status() == to ? "version is already " + to : null) : lifecycle.reject(version.id(), version.status(), to);
         if (rejection != null) {
             throw new StrategyException.Conflict(rejection);
         }
@@ -220,6 +230,9 @@ public class StrategyService {
         payload.put("to", to.name());
         if (note != null && !note.isBlank()) {
             payload.put("note", note);
+        }
+        if (forced) {
+            payload.put("forced", true);
         }
         audit.record(AuditEvent.of(AuditEventType.STRATEGY_STATUS_CHANGED, actorOf(by)).withActorId(by).withStrategyId(strategyId).withPayload(payload));
         if (to == VersionStatus.PAUSED) {

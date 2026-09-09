@@ -67,7 +67,7 @@ class DefinitionParserTest {
 
     final DefinitionParser parser = new DefinitionParser();
     final StrategyValidator validator = new StrategyValidator(
-            new StrategyProperties(true, List.of(), Map.of("NIFTY", "nearest_future: NIFTY")));
+            new StrategyProperties(true, List.of(), Map.of("NIFTY", "nearest_future: NIFTY"), false));
 
     private StrategyDefinition parseValid(String yaml) {
         StrategyDefinition d = parser.parse(yaml);

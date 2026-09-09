@@ -11,10 +11,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param loadBundled  load {@code strategies/*.yaml} at startup (filesystem dirs first, then the classpath copy)
  * @param bundledDirs  directories searched for bundled definitions; the first that exists wins
  * @param aliases      bare universe names to canonical symbols or selectors, for example {@code NIFTY -> nearest_future: NIFTY}
+ * @param allowForcedStatus permit {@code force: true} on status changes to bypass lifecycle evidence (dev/test only)
  */
 @ConfigurationProperties("hejje.strategy")
 public record StrategyProperties(
         @DefaultValue("true") boolean loadBundled,
         @DefaultValue({"./strategies", "../strategies"}) List<String> bundledDirs,
-        @DefaultValue({}) Map<String, String> aliases) {
+        @DefaultValue({}) Map<String, String> aliases,
+        @DefaultValue("false") boolean allowForcedStatus) {
 }

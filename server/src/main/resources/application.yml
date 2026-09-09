@@ -89,6 +89,8 @@ hejje:
     workers: 2
     warmup-days: 20
     default-risk-rupees: 2000
+  recommend:
+    min-score: 70
   signals:
     enabled: true
     warmup-days: 10
@@ -126,8 +128,13 @@ spring:
 hejje:
   instruments:
     sync-on-startup: true
+  strategy:
+    allow-forced-status: true
+  execution:
+    allow-off-session-paper: true
   market:
     stream-on-startup: true
+    dev-candles: true
   system:
     egress:
       enabled: false
@@ -142,6 +149,9 @@ spring:
 hejje:
   strategy:
     load-bundled: false
+    allow-forced-status: true
+  market:
+    dev-candles: true
   signals:
     inline-dispatch: true
   system:

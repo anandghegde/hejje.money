@@ -75,3 +75,5 @@ are durable events from the strategy module. The signal engine (M2.6) starts and
 - New audit types: `SIGNAL_EXPIRED`, `SIGNAL_SKIPPED`, `SIGNAL_PREPARED`, `STRATEGY_STOP_PLACED`, `STRATEGY_EXIT_TRIGGERED`,
   `STOP_MISSING` (plus the PRD 47 `SIGNAL_CREATED`, `STRATEGY_RECOMMENDED`, `USER_APPROVED`, `STOP_MODIFIED`, `POSITION_CLOSED`).
 - `OrderReason.STRATEGY_STOP` maps to `OrderRole.STOP` and counts as exposure-reducing.
+- The analytics module consumes `PositionChangedEvent` (net 0) to write the post-trade review; the recommendation
+  history table is written from `GET /today` when a signal's decision or score changes.

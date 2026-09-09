@@ -565,3 +565,60 @@ Scope: `orders:prepare`. Body `{ "reason": "..." }`. Marks the signal `SKIPPED`.
 Scope: `strategies:read`. Strategy-managed positions: `{ id, signalId, deploymentId, versionId, strategyId, instrumentId, mode,
 side, quantity, entryPrice, initialStop, stop, target, entryOrderId, stopOrderId, exitOrderId, status: PENDING_ENTRY|OPEN|EXITING|CLOSED,
 closeReason, exitPrice, openedAt, closedAt }`.
+
+## Today, analytics and reviews (Phase 2, M2.7)
+
+See `docs/analytics.md`.
+
+### `GET /api/v1/today`
+
+Scope: `strategies:read`.
+
+```json
+{ "header": { "indexQuotes": { "INDEX:NIFTY 50": { "lastPrice": 24930.5, "ts": "...", "stale": false } }, "vix": 14.1,
+              "regime": null, "breadth": null, "eventRisk": null, "mode": "PAPER", "time": "..." },
+  "best": { "versionId": "...", "strategyId": "...", "strategy": "nifty_orb", "version": 1, "deploymentId": "...", "instrumentId": "...",
+            "instrument": "NFO:NIFTY:FUT:2026-09-29", "score": 87, "decision": "TRADE", "direction": "BUY", "signalId": "...",
+            "signalStatus": "ACTIVE", "signalValidUntil": "...", "entry": 24930, "stop": 24885, "target": 25020, "quantity": 75,
+            "riskRupees": 2000, "expectedRewardRupees": 4000, "regime": null, "newsBias": null, "eventRisk": "UNKNOWN",
+            "hardBlocks": [], "supportingEvidence": [ "✓ close > opening_range_high(15m) (24930.00 vs 24905.00)", "✓ Reward:risk 2 at the current price" ],
+            "risks": [], "backtest": { "trades": 212, "expectancyR": 0.31, "winRatePct": 46, "profitFactor": 1.52, "maxDrawdownR": 9.2 },
+            "scoreBreakdown": { "base": 78, "adjustments": [ { "name": "Technical compatibility", "delta": 8 } ], "final": 87 } },
+  "ranked": [ "..." ], "noTrade": null }
+```
+
+`noTrade` carries the message when `best` is null. `GET /api/v1/today/history?signalId=` lists the recorded decisions for a signal.
+
+### `GET /api/v1/analytics/pnl?groupBy=strategy&from=2026-09-01&to=2026-09-09&mode=PAPER`
+
+Scope: `market:read`. `groupBy`: `strategy | version | instrument | weekday | hour | regime`.
+
+```json
+{ "groupBy": "strategy", "mode": "PAPER", "from": "...", "to": "...",
+  "buckets": [ { "key": "0192...", "label": "nifty_orb", "trades": 12, "wins": 7, "grossPnl": { "paise": 1850000 }, "fees": { "paise": 42000 },
+                 "netPnl": { "paise": 1808000 }, "winRate": 0.58, "averageR": 0.42 },
+               { "key": "MANUAL", "label": "MANUAL", "trades": 3, "...": "..." } ],
+  "summary": { "roundTrips": 15, "grossPnl": { "paise": ... }, "fees": { "paise": ... }, "netPnl": { "paise": ... } } }
+```
+
+### `GET /api/v1/reviews?limit=&mode=` · `GET /api/v1/reviews/{id}` · `GET /api/v1/reviews/by-order/{entryOrderId}`
+
+Scope: `market:read`.
+
+```json
+{ "id": "...", "positionId": "...", "strategyPositionId": "...", "strategyId": "...", "strategyVersionId": "...", "signalId": "...",
+  "instrumentId": "...", "entryOrderId": "...", "side": "BUY", "quantity": 160, "entryPrice": 1507.50, "exitPrice": 1494.00,
+  "openedAt": "...", "closedAt": "...", "grossPnl": { "paise": -216000 }, "fees": { "paise": 9870 }, "netPnl": { "paise": -225870 },
+  "outcomeR": -1.13, "expectedSetupValid": true, "entrySlippageBps": 3.32, "exitSlippageBps": 6.69, "ruleAdherencePct": 100,
+  "closeReason": "STOP", "context": { "regime": "UNKNOWN", "breadth": "UNKNOWN", "news": "UNKNOWN", "event": "UNKNOWN" }, "notes": "strategy trade" }
+```
+
+`POST /api/v1/reviews/positions/{positionId}` (scope `admin`) re-runs the review for a flattened position.
+
+### Development seeding (dev/test profiles)
+
+- `POST /api/v1/market/dev/candles` (scope `admin`, 404 unless `hejje.market.dev-candles=true`):
+  `{ "instrumentId": "...", "timeframe": "M5", "store": true, "publish": true, "quote": true,
+     "candles": [ { "openTime": "2026-09-10T09:15:00+05:30", "open": 1500, "high": 1505, "low": 1495, "close": 1500, "volume": 50000 } ] }`.
+- `POST /api/v1/broker/dev/quote` (scope `admin`, 404 unless the fake broker is active): `{ "instrumentId": "...", "price": 1507.5 }`.
+- `POST /api/v1/strategies/{id}/versions/{v}/status` accepts `"force": true` when `hejje.strategy.allow-forced-status=true`.

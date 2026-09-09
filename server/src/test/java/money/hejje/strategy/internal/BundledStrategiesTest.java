@@ -21,7 +21,7 @@ class BundledStrategiesTest {
     void allBundledStrategiesValidate() throws Exception {
         DefinitionParser parser = new DefinitionParser();
         StrategyValidator validator = new StrategyValidator(new StrategyProperties(true, List.of(),
-                Map.of("NIFTY", "nearest_future: NIFTY", "BANKNIFTY", "nearest_future: BANKNIFTY", "FINNIFTY", "nearest_future: FINNIFTY")));
+                Map.of("NIFTY", "nearest_future: NIFTY", "BANKNIFTY", "nearest_future: BANKNIFTY", "FINNIFTY", "nearest_future: FINNIFTY"), false));
         List<Path> files;
         try (Stream<Path> list = Files.list(DIR)) {
             files = list.filter(p -> p.toString().endsWith(".yaml")).sorted().toList();

@@ -40,7 +40,7 @@ class StrategyController {
 
     record CloneRequest(@NotBlank String name) {}
 
-    record StatusRequest(VersionStatus status, String note) {}
+    record StatusRequest(VersionStatus status, String note, Boolean force) {}
 
     record DeployRequest(ExecutionMode mode, List<String> instruments, Integer autonomyLevel, Map<String, Object> params) {}
 
@@ -104,7 +104,7 @@ class StrategyController {
         if (body.status() == null) {
             throw new IllegalArgumentException("status is required");
         }
-        return strategies.changeStatus(id, v, body.status(), body.note(), principal.name());
+        return strategies.changeStatus(id, v, body.status(), body.note(), principal.name(), Boolean.TRUE.equals(body.force()));
     }
 
     @PostMapping("/strategies/{id}/versions/{v}/deployments")

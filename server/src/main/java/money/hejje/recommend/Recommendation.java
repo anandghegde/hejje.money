@@ -1,0 +1,32 @@
+package money.hejje.recommend;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import money.hejje.common.Side;
+
+/**
+ * The PRD section 29 decision object plus the PRD section 20 evidence. {@code regime}, {@code newsBias} and
+ * {@code eventRisk} are placeholders until Phase 3.
+ *
+ * @param score            latest Hejje Score for the version on the instrument (null when never scored)
+ * @param hardBlocks       reasons execution is impossible right now (risk rejection, kill switch, readiness)
+ * @param supportingEvidence PRD 20 "✓" lines, templated from structured evidence
+ * @param risks            PRD 20 "⚠" lines
+ * @param expectedRewardRupees risk × reward:risk of the target, when a target exists
+ */
+public record Recommendation(UUID versionId, UUID strategyId, String strategy, int version, UUID deploymentId, UUID instrumentId, String instrument,
+        Integer score, Decision decision, Side direction, UUID signalId, String signalStatus, Instant signalValidUntil, BigDecimal entry, BigDecimal stop,
+        BigDecimal target, Integer quantity, BigDecimal riskRupees, BigDecimal expectedRewardRupees, String regime, Double newsBias, String eventRisk,
+        List<String> hardBlocks, List<String> supportingEvidence, List<String> risks, Map<String, Object> backtest, Map<String, Object> scoreBreakdown) {
+
+    public Recommendation {
+        hardBlocks = hardBlocks == null ? List.of() : List.copyOf(hardBlocks);
+        supportingEvidence = supportingEvidence == null ? List.of() : List.copyOf(supportingEvidence);
+        risks = risks == null ? List.of() : List.copyOf(risks);
+        backtest = backtest == null ? Map.of() : Map.copyOf(backtest);
+        scoreBreakdown = scoreBreakdown == null ? Map.of() : Map.copyOf(scoreBreakdown);
+    }
+}
