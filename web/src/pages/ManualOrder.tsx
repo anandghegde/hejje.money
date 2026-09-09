@@ -45,7 +45,8 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
       onPlaced?.();
     } catch (err) {
       if (err instanceof ApiError) {
-        const reasons = err.problem?.reasons ?? err.problem?.checks?.map((c: any) => c.message) ?? [err.message];
+        const failed = err.problem?.checks?.filter((c: any) => !c.passed).map((c: any) => `${c.name}: ${c.message}`);
+        const reasons = err.problem?.reasons ?? (failed?.length ? failed : undefined) ?? [err.problem?.detail ?? err.message];
         setMessage(`Rejected: ${Array.isArray(reasons) ? reasons.join('; ') : reasons}`);
       } else setMessage('Failed');
     } finally { setBusy(false); }
