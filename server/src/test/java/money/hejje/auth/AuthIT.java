@@ -124,7 +124,8 @@ class AuthIT extends AbstractIntegrationTest {
         String id = (String) created.getBody().get("id");
 
         // plaintext never stored
-        String secret = key.substring(key.lastIndexOf('_') + 1);
+        String secret = key.substring("hejje_".length() + 8 + 1); // the base64url secret itself may contain '_'
+
         assertThat(jdbc.queryForObject("SELECT secret_hash FROM client_credential WHERE id = ?::uuid", String.class, id))
                 .isNotEqualTo(secret).hasSize(64);
 

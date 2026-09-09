@@ -15,6 +15,7 @@ import money.hejje.backtest.internal.BacktestStore;
 import money.hejje.common.Ids;
 import money.hejje.common.Money;
 import money.hejje.common.Timeframe;
+import money.hejje.common.event.EventMeta;
 import money.hejje.common.time.HejjeClock;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
@@ -37,9 +38,12 @@ public class BacktestService {
     private final MarketService market;
     private final BacktestProperties properties;
     private final HejjeClock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
+    private final org.springframework.transaction.support.TransactionTemplate tx;
 
     BacktestService(BacktestStore store, BacktestEngine engine, BacktestRunner runner, StrategyService strategies, InstrumentService instruments,
-            MarketService market, BacktestProperties properties, HejjeClock clock) {
+            MarketService market, BacktestProperties properties, HejjeClock clock, org.springframework.context.ApplicationEventPublisher events,
+            org.springframework.transaction.PlatformTransactionManager txManager) {
         this.store = store;
         this.engine = engine;
         this.runner = runner;
@@ -48,6 +52,8 @@ public class BacktestService {
         this.market = market;
         this.properties = properties;
         this.clock = clock;
+        this.events = events;
+        this.tx = new org.springframework.transaction.support.TransactionTemplate(txManager);
         runner.attach(this);
     }
 
@@ -87,7 +93,10 @@ public class BacktestService {
                 throw new BacktestException("Too many trades (" + result.trades().size() + ")");
             }
             store.insertTrades(id, result.trades().stream().map(t -> withBacktestId(t, id)).toList());
-            store.finish(id, result, clock.now());
+            tx.executeWithoutResult(status -> {
+                store.finish(id, result, clock.now());
+                events.publishEvent(new BacktestFinished(EventMeta.create(clock), id, backtest.versionId()));
+            });
         } catch (BacktestEngine.CancelledException e) {
             store.fail(id, BacktestStatus.CANCELLED, "cancelled", clock.now());
         } catch (RuntimeException e) {
@@ -103,6 +112,22 @@ public class BacktestService {
         store.insert(queued);
         execute(queued.id(), () -> false);
         return store.find(queued.id()).orElseThrow();
+    }
+
+    /** Runs a spec on the calling thread without persisting anything (score sensitivity runs, parity checks). */
+    public BacktestResult evaluate(BacktestSpec spec) {
+        return engine.run(prepare(spec, requireVersion(spec.versionId())));
+    }
+
+    /**
+     * The backtest a version is judged by: the newest DONE run that validates (out-of-sample slice with enough trades
+     * and no FAIL), else the newest DONE run with an out-of-sample slice, else the newest DONE run.
+     */
+    public Optional<Backtest> baseBacktest(UUID versionId) {
+        List<Backtest> done = store.findByVersion(versionId).stream().filter(b -> b.status() == BacktestStatus.DONE).toList();
+        return done.stream().filter(money.hejje.backtest.internal.BacktestEvidenceAdapter::validates).findFirst()
+                .or(() -> done.stream().filter(b -> b.spec().splits().hasOutOfSample()).findFirst())
+                .or(() -> done.stream().findFirst());
     }
 
     /** Loads everything the engine needs for a spec (definition, instruments, candles with warm-up). */

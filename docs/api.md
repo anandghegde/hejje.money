@@ -485,3 +485,39 @@ Scope: `market:read`. Store contents versus the holiday calendar:
   "shortSessions": [ { "session": "2024-05-20", "bars": 40 } ], "totalCandles": 49350, "syntheticCandles": 120,
   "missingSessionPct": 0.3 }
 ```
+
+## Hejje Score and comparison (Phase 2, M2.5)
+
+Formula: `docs/hejje-score.md`.
+
+### `GET /api/v1/strategies/{id}/score?version=&instrumentId=`
+
+Scope: `strategies:read`. The latest breakdown for one instrument (default: the best-scoring one) of the latest (or
+given) version, plus every instrument's latest final score.
+
+```json
+{ "strategyId": "...", "versionId": "...", "version": 3,
+  "breakdown": { "id": "...", "computedAt": "...", "baseBacktestId": "...", "base": 62.4,
+    "cap": null,
+    "components": [ { "name": "Expectancy (R)", "weight": 0.25, "score": 70.0, "contribution": 17.5,
+                      "evidence": { "out_of_sample": 0.25, "validation": 0.5, "in_sample": 0.5 } }, "..." ],
+    "adjustments": [ { "name": "Technical compatibility", "delta": 8, "min": -10, "max": 8,
+                       "evidence": [ "3 of 3 entry conditions pass on the last closed bar (...)", "close > vwap: passed (24931.20 vs 24890.05)" ] },
+                     { "name": "Recent paper/live performance", "delta": 0, "min": -5, "max": 5, "evidence": [ "no paper/live round trips ..." ] } ],
+    "finalScore": 70 },
+  "instruments": [ { "instrumentId": "...", "finalScore": 70, "computedAt": "..." } ] }
+```
+
+### `POST /api/v1/strategies/{id}/score/recompute?version=`
+
+Scope: `strategies:write`. Recomputes on every deployed instrument (or the resolved universe) and returns the breakdowns.
+
+### `GET /api/v1/strategies/compare?versionIds=a,b,c`
+
+Scope: `strategies:read`. PRD 21 rows: `{ versionId, strategyId, slug, version, status, backtestId, trades, winRate,
+profitFactor, expectancyR, maxDrawdownR, similarRegimePerformance, hejjeScore }`.
+
+### `GET /api/v1/strategies/{id}/versions/compare?a=2&b=3`
+
+Scope: `strategies:read`. `{ a: row, b: row, deltas: [ { metric, a, b, changePct, better } ], verdict }`, for example
+`"v3 improved: increased expectancy (r) by 68.0%, but reduced trades by 8.4%."`.

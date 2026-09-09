@@ -33,7 +33,7 @@ public class BacktestEvidenceAdapter implements StrategyEvidence {
         return store.findByVersion(versionId).stream().anyMatch(BacktestEvidenceAdapter::validates);
     }
 
-    static boolean validates(Backtest b) {
+    public static boolean validates(Backtest b) {
         if (b.status() != BacktestStatus.DONE || !b.spec().splits().hasOutOfSample()) {
             return false;
         }
