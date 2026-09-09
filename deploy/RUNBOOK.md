@@ -60,6 +60,12 @@ and pass both files: `docker compose -f deploy/docker-compose.prod.yml -f deploy
 The host proxy terminates TLS for `HEJJE_DOMAIN`, serves `web/dist`, and proxies `/api` and `/ws` (with
 WebSocket upgrade headers) to `127.0.0.1:8090`. Port 8081 must stay unpublished.
 
+The web bundle is served from a copy, not from the checkout. After a web change:
+
+```bash
+cd /opt/hejje/web && npm ci && npm run build && rsync -a --delete dist/ /var/www/hejje/
+```
+
 ## 4. Required environment variables
 
 See `deploy/.env.example` and `docs/config.md`. In `prod` the server refuses to start without
