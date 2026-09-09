@@ -78,6 +78,13 @@ hejje:
     record: ${HEJJE_MARKET_RECORD:false}
     retention-sessions: 15
     historical-per-second: 3
+  strategy:
+    load-bundled: true
+    bundled-dirs: ./strategies,../strategies
+    aliases:
+      NIFTY: "nearest_future: NIFTY"
+      BANKNIFTY: "nearest_future: BANKNIFTY"
+      FINNIFTY: "nearest_future: FINNIFTY"
   instruments:
     sync-on-startup: false
     sync-cron: "0 0 8 * * MON-FRI"

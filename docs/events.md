@@ -59,3 +59,8 @@ Durable domain events published inside the execution transaction and consumed wi
 Broker order updates (WebSocket, postback, poll, simulation) arrive on the in-process `BrokerOrderUpdates` bus and are
 turned into these durable events by `OrderService.applyBrokerUpdate` after the state machine runs. Order transitions and
 fills are serialized per order id, so updates racing ahead of the local acknowledgement never corrupt state.
+
+## Strategy events (Phase 2, M2.1)
+
+`StrategyVersionStatusChanged(strategyId, versionId, from, to)` and `DeploymentChanged(deploymentId, versionId, enabled)`
+are durable events from the strategy module. The signal engine (M2.6) starts and stops runners on `DeploymentChanged`.

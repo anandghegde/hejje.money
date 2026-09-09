@@ -343,3 +343,63 @@ mode by default; pass `?mode=` to inspect the other ledger. Positions carry `fee
 
 Scope: `market:read`. The itemized transaction cost of a fill (PRD section 12.2), computed by the cost model:
 `{ brokerage, stt, exchangeTxn, gst, sebi, stampDuty, total }` (each in paise).
+
+## Strategies (Phase 2, M2.1)
+
+Definitions are YAML (see `docs/strategy-dsl.md`, schema `docs/strategy-schema.json`). Invalid definitions return a
+400 problem of type `https://hejje.money/problems/strategy-validation` with `errors: [{path, message}]`. Illegal
+lifecycle moves, duplicate names and identical versions return 409.
+
+### `GET /api/v1/strategies`
+
+Scope: `strategies:read`. `[ { id, slug, family, name, createdAt, retiredAt, latestVersion, latestVersionId, latestStatus } ]`.
+
+### `POST /api/v1/strategies`
+
+Scope: `strategies:write`. Body `{ "yaml": "...", "changeNote": "optional" }`. Creates the strategy (slug = `name`)
+with version 1 in `DRAFT` and returns the version:
+
+```json
+{ "id": "0192...", "strategyId": "0192...", "version": 1, "definitionYaml": "name: nifty_orb...", 
+  "definition": { "name": "nifty_orb", "family": "INDEX", "timeframe": "M5", "direction": "LONG",
+                  "entry": { "mode": "ALL", "conditions": ["close > opening_range_high(15m)", "close > vwap"] }, "...": "..." },
+  "definitionHash": "3f2a...", "changeNote": "initial", "parentVersionId": null, "createdBy": "admin",
+  "createdAt": "2026-09-09T04:00:00Z", "status": "DRAFT" }
+```
+
+### `POST /api/v1/strategies/validate`
+
+Scope: `strategies:read`. Body `{ "yaml": "..." }` → `{ valid, errors: [{path, message}], definition }`.
+
+### `GET /api/v1/strategies/{id}` · `GET /api/v1/strategies/{id}/versions` · `GET /api/v1/strategies/{id}/versions/{v}`
+
+Scope: `strategies:read`.
+
+### `POST /api/v1/strategies/{id}/versions`
+
+Scope: `strategies:write`. Body `{ "yaml": "...", "changeNote": "Added volume filter" }` (change note required; the
+`name` must equal the strategy slug; a definition identical to the latest version is refused with 409).
+
+### `POST /api/v1/strategies/{id}/clone`
+
+Scope: `strategies:write`. Body `{ "name": "nifty_orb_v2_experiment" }`. Copies the latest version into a new strategy.
+
+### `POST /api/v1/strategies/{id}/versions/{v}/status`
+
+Scope: `strategies:write`. Body `{ "status": "BACKTESTED|VALIDATED|PAPER|LIVE|PAUSED|RETIRED", "note": "optional" }`.
+Transitions are enforced (`docs/strategy-dsl.md`, "Versions and lifecycle"); `DRAFT → LIVE` is a 409.
+
+### `POST /api/v1/strategies/{id}/versions/{v}/deployments`
+
+Scope: `strategies:write`. Body `{ "mode": "PAPER", "instruments": ["NSE:INFY"], "autonomyLevel": 0, "params": { "risk_rupees": 2000 } }`.
+`instruments` defaults to the resolved universe; `mode` defaults to `PAPER`. Returns
+`{ id, versionId, strategyId, mode, instrumentIds, autonomyLevel, enabled, params, createdAt, pausedAt, pauseReason }`.
+
+### `GET /api/v1/deployments?versionId=&mode=&enabled=` · `GET /api/v1/deployments/{id}`
+
+Scope: `strategies:read`.
+
+### `PUT /api/v1/deployments/{id}`
+
+Scope: `strategies:write`. Body `{ "enabled": false, "reason": "lunch" }`. Enabling requires the version to be in
+`PAPER` or `LIVE`.

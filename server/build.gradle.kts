@@ -34,6 +34,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
     implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("com.zerodhatech.kiteconnect:kiteconnect:4.0.1")
@@ -60,6 +61,14 @@ dependencyManagement {
 
 springBoot {
     buildInfo()
+}
+
+// Bundled strategy definitions (repo strategies/) ship inside the jar under classpath:strategies/.
+tasks.processResources {
+    from("../strategies") {
+        into("strategies")
+        include("*.yaml")
+    }
 }
 
 tasks.withType<Test> {
