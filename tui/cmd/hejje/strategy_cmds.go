@@ -174,3 +174,14 @@ func skipCmd() *cobra.Command {
 	cmd.Flags().StringVar(&reason, "reason", "skipped from TUI", "why")
 	return cmd
 }
+
+func pulseCmd() *cobra.Command {
+	return &cobra.Command{Use: "pulse", Short: "Technical and Market Pulse (what kind of market is today?)", RunE: func(_ *cobra.Command, _ []string) error {
+		p, err := client.Pulse()
+		if err != nil {
+			return err
+		}
+		emit(p, func() { fmt.Print(ui.RenderPulse(p)) })
+		return nil
+	}}
+}

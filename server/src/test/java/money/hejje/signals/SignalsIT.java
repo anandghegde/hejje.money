@@ -83,7 +83,7 @@ class SignalsIT extends AbstractIntegrationTest {
     StrategyDeployment deployment;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws InterruptedException {
         engine.stop();
         jdbc.execute("TRUNCATE strategy_position, signal, strategy_score, backtest_trade, backtest, strategy_deployment, strategy_version, strategy, "
                 + "trade, order_event, hejje_order, risk_decision, order_intent, position, idempotency_record CASCADE");
@@ -107,6 +107,7 @@ class SignalsIT extends AbstractIntegrationTest {
         deployment = strategies.deploy(version.strategyId(), 1, ExecutionMode.PAPER, List.of("NSE:INFY"), 0, Map.of("risk_rupees", 2000), "admin");
         engine.start();
         engine.refresh();
+        awaitAsyncListeners(); // the DeploymentChanged listener restarts the runner asynchronously; bars published before it would be lost
         assertThat(engine.runner(deployment.id(), infy)).isPresent();
     }
 

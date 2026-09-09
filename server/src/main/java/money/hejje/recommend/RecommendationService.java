@@ -22,6 +22,8 @@ import money.hejje.market.MarketProperties;
 import money.hejje.market.MarketService;
 import money.hejje.market.QuoteSnapshot;
 import money.hejje.recommend.internal.RecommendationStore;
+import money.hejje.regime.RegimeService;
+import money.hejje.regime.RegimeSnapshot;
 import money.hejje.risk.RiskCheck;
 import money.hejje.scoring.Adjustment;
 import money.hejje.scoring.ScoreBreakdown;
@@ -54,11 +56,13 @@ public class RecommendationService {
     private final RecommendationStore store;
     private final RecommendProperties properties;
     private final HejjeProperties hejje;
+    private final RegimeService regime;
     private final HejjeClock clock;
 
     RecommendationService(StrategyService strategies, SignalService signals, ScoringService scoring, BacktestService backtests, InstrumentService instruments,
             MarketService market, MarketProperties marketProperties, RecommendationStore store, RecommendProperties properties, HejjeProperties hejje,
-            HejjeClock clock) {
+            RegimeService regime, HejjeClock clock) {
+        this.regime = regime;
         this.strategies = strategies;
         this.signals = signals;
         this.scoring = scoring;
@@ -216,8 +220,15 @@ public class RecommendationService {
         }
         header.put("indexQuotes", quotes);
         header.put("vix", quotes.containsKey("INDEX:INDIA VIX") ? ((Map<?, ?>) quotes.get("INDEX:INDIA VIX")).get("lastPrice") : null);
-        header.put("regime", null);
-        header.put("breadth", null);
+        RegimeSnapshot snapshot = null;
+        try {
+            snapshot = regime.current();
+        } catch (RuntimeException e) {
+            // the regime engine is optional: the header shows UNKNOWN
+        }
+        header.put("regime", snapshot == null ? "UNKNOWN" : snapshot.trend().name());
+        header.put("regimeLabels", snapshot == null ? null : RegimeService.labelsOf(snapshot));
+        header.put("breadth", snapshot == null ? "UNKNOWN" : snapshot.breadth().name());
         header.put("eventRisk", null);
         header.put("mode", hejje.mode().name());
         header.put("time", clock.now().toString());

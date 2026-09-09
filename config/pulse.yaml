@@ -1,0 +1,34 @@
+# Technical Pulse weights and thresholds (plan M3.2, docs/pulse.md). Loaded like config/regime.yaml.
+hejje:
+  pulse:
+    enabled: true
+    sectors: classpath:universe/sectors.yaml   # or file:./config/universe/sectors.yaml
+    index-symbol: "INDEX:NIFTY 50"
+    vix-symbol: "INDEX:INDIA VIX"
+    futures-underlying: NIFTY
+    interval: PT1M
+    weights:                    # rule -> weight; the score is the weight-normalised sum over the rules with inputs
+      index_trend: 20           # regime trend label
+      index_vs_vwap: 15         # index vs its session average price
+      day_change: 10            # index vs previous close
+      momentum: 10              # rate of change over roc-bars
+      breadth: 15               # regime breadth label
+      relative_volume: 5        # nearest future's volume vs its baseline, confirming the day's direction
+      vix: 10                   # VIX change on the day (and an extreme-regime penalty)
+      sectors: 10               # strong minus weak sector indices
+      futures_basis: 5          # nearest future premium over the index
+      gap: 5                    # regime opening label
+    thresholds:
+      vwap-full-pct: 0.3
+      day-change-full-pct: 0.75
+      roc-bars: 12
+      roc-full-pct: 0.4
+      vix-full-change-pct: 5
+      sector-strong-pct: 0.5
+      basis-neutral-pct: 0.1
+      basis-full-pct: 0.15
+      relative-volume-full: 1.5
+      relative-volume-sessions: 10
+      bullish-score: 20
+      moderate-score: 35
+      strong-score: 60

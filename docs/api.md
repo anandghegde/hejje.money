@@ -680,3 +680,28 @@ any of `trend, volatility, opening, breadth, structure, event`.
 ```
 
 `similarRegime` is null with `note` explaining why (current regime unknown along the dimensions, or no trades in it).
+
+## Context: Pulse (Phase 3, M3.2)
+
+See `docs/pulse.md`. Scope: `market:read`.
+
+### `GET /api/v1/context/pulse`
+
+```json
+{ "date": "2026-09-08", "asOf": "2026-09-08T05:16:00Z",
+  "technical": { "direction": "BULLISH", "strength": "STRONG", "score": 72, "coverage": 0.9,
+                 "components": [ { "name": "index_trend", "weight": 20, "value": 1.0, "contribution": 20, "evidence": "Index trend STRONG_UP" },
+                                 { "name": "relative_volume", "weight": 5, "value": null, "contribution": 0, "evidence": "Futures volume history unavailable" } ],
+                 "evidence": [ "+20.0 Index trend STRONG_UP", "+15.0 Index 24930.00 is +0.35% from its session average 24843.00", "n/a  Futures volume history unavailable" ] },
+  "market": { "regime": "Trending ↑", "volatility": "Moderate", "breadth": "Positive",
+              "sectors": [ { "name": "Banking", "symbol": "INDEX:NIFTY BANK", "label": "STRONG", "changePct": 1.8, "relativePct": 1.1 },
+                           { "name": "IT", "symbol": "INDEX:NIFTY IT", "label": "UNKNOWN" } ],
+              "globalContext": "NEUTRAL" } }
+```
+
+### `GET /api/v1/context/pulse/history?date=2026-09-08`
+
+The stored snapshots of a session (one per interval while the session was open), oldest first.
+
+The Today header (`GET /api/v1/today`) now carries `regime` (the trend label), `regimeLabels` (all six dimensions) and
+`breadth` from the regime snapshot; `UNKNOWN` when the engine has no data.

@@ -1,0 +1,21 @@
+# Sector indices of the Market Pulse (PRD 16.2), in display order. Each needs to exist in the instrument master
+# (Kite lists them under exchange NSE, segment INDICES) and to be streamed (hejje.market.watchlist).
+sectors:
+  - name: Banking
+    symbol: "INDEX:NIFTY BANK"
+  - name: Financials
+    symbol: "INDEX:NIFTY FIN SERVICE"
+  - name: IT
+    symbol: "INDEX:NIFTY IT"
+  - name: Auto
+    symbol: "INDEX:NIFTY AUTO"
+  - name: Pharma
+    symbol: "INDEX:NIFTY PHARMA"
+  - name: FMCG
+    symbol: "INDEX:NIFTY FMCG"
+  - name: Metal
+    symbol: "INDEX:NIFTY METAL"
+  - name: Realty
+    symbol: "INDEX:NIFTY REALTY"
+  - name: Midcaps
+    symbol: "INDEX:NIFTY MIDCAP 100"

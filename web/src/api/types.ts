@@ -142,3 +142,12 @@ export interface TradeReview {
 
 export interface PnlBucket { key: string; label: string; trades: number; wins: number; grossPnl: Money; fees: Money; netPnl: Money; winRate: number; averageR?: number }
 export interface PnlReport { groupBy: string; mode: string; buckets: PnlBucket[]; summary: { roundTrips: number; grossPnl: Money; fees: Money; netPnl: Money } }
+
+// --- Phase 3 (M3.2) ---
+export interface PulseComponent { name: string; weight: number; value?: number; contribution: number; evidence: string }
+export interface TechnicalPulse { direction: string; strength: string; score: number; coverage: number; components: PulseComponent[]; evidence: string[] }
+export interface SectorStrength { name: string; symbol: string; label: string; changePct?: number; relativePct?: number }
+export interface MarketPulse { regime: string; volatility: string; breadth: string; sectors: SectorStrength[]; globalContext: string }
+export interface PulseSnapshot { date: string; asOf: string; technical: TechnicalPulse; market: MarketPulse }
+export interface Instrument { id: string; symbol: string; name: string; exchange: string; type: string }
+export interface Candle { instrumentId: string; timeframe: string; openTime: string; open: number; high: number; low: number; close: number; volume: number }

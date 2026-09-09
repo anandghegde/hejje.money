@@ -9,7 +9,7 @@ const ACTIVE = ['Today', 'Strategies', 'Lab', 'Orders', 'Trades', 'Positions', '
 const PLACEHOLDERS = ['Pulse', 'Hejje AI'];
 
 const ROUTES: Record<string, string> = {
-  Today: '/today', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
+  Today: '/today', Pulse: '/pulse', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
   Reviews: '/reviews', Analytics: '/analytics', Risk: '/risk', Broker: '/broker', Server: '/system', Settings: '/settings',
 };
 

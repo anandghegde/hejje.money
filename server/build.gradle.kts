@@ -46,6 +46,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.modulith:spring-modulith-starter-test")
+    testImplementation("org.springframework.modulith:spring-modulith-events-core") // EventPublicationRegistry: ITs drain async listeners
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
@@ -71,7 +72,7 @@ tasks.processResources {
     }
     // Context config (regime thresholds, universes) ships inside the jar as the fallback for config/ overrides.
     from("../config") {
-        include("regime.yaml")
+        include("regime.yaml", "pulse.yaml")
     }
     from("../config/universe") {
         into("universe")

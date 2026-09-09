@@ -9,6 +9,9 @@ spring:
       - optional:file:./config/regime.yaml
       - optional:file:../config/regime.yaml
       - optional:classpath:regime.yaml
+      - optional:file:./config/pulse.yaml
+      - optional:file:../config/pulse.yaml
+      - optional:classpath:pulse.yaml
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   profiles:
@@ -74,6 +77,14 @@ hejje:
       - "INDEX:NIFTY 50"
       - "INDEX:NIFTY BANK"
       - "INDEX:INDIA VIX"
+      - "INDEX:NIFTY FIN SERVICE"
+      - "INDEX:NIFTY IT"
+      - "INDEX:NIFTY AUTO"
+      - "INDEX:NIFTY PHARMA"
+      - "INDEX:NIFTY FMCG"
+      - "INDEX:NIFTY METAL"
+      - "INDEX:NIFTY REALTY"
+      - "INDEX:NIFTY MIDCAP 100"
     stream-on-startup: ${HEJJE_MARKET_STREAM:false}
     stale-after: 10s
     quote-stale-after: 5s

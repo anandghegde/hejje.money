@@ -112,17 +112,18 @@ class RecommendationIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void todayMovesFromNoDeploymentsToWaitToTradeToAvoid() {
+    void todayMovesFromNoDeploymentsToWaitToTradeToAvoid() throws InterruptedException {
         Map<?, ?> empty = today();
         assertThat((String) empty.get("noTrade")).contains("No strategies deployed");
         assertThat(empty.get("best")).isNull();
-        assertThat(((Map<?, ?>) empty.get("header")).get("regime")).isNull();
+        assertThat(((Map<?, ?>) empty.get("header")).get("regime")).isEqualTo("UNKNOWN"); // no index history in this test
 
         StrategyVersion v1 = strategies.create(YAML, null, "admin");
         strategies.changeStatus(v1.strategyId(), 1, VersionStatus.PAPER, "dev", "admin", true);
         assertThat(strategies.version(v1.strategyId(), 1).orElseThrow().status()).isEqualTo(VersionStatus.PAPER);
         StrategyDeployment d = strategies.deploy(v1.strategyId(), 1, ExecutionMode.PAPER, List.of("NSE:INFY"), 0, Map.of("risk_rupees", 2000), "admin");
         engine.refresh();
+        awaitAsyncListeners(); // the DeploymentChanged listener restarts the runner asynchronously
 
         // deployed, no signal yet: WAIT
         Map<?, ?> waiting = today();

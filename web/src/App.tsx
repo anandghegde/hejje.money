@@ -11,6 +11,7 @@ import { Risk } from './pages/Risk';
 import { System } from './pages/System';
 import { Settings } from './pages/Settings';
 import { Today } from './pages/Today';
+import { Pulse } from './pages/Pulse';
 import { Strategies } from './pages/Strategies';
 import { StrategyDetail } from './pages/StrategyDetail';
 import { Lab } from './pages/Lab';
@@ -34,6 +35,7 @@ export function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/today" element={<Protected><Today /></Protected>} />
+            <Route path="/pulse" element={<Protected><Pulse /></Protected>} />
             <Route path="/strategies" element={<Protected><Strategies /></Protected>} />
             <Route path="/strategies/:id" element={<Protected><StrategyDetail /></Protected>} />
             <Route path="/lab" element={<Protected><Lab /></Protected>} />

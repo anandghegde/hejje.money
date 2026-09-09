@@ -19,7 +19,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  */
 @ConfigurationProperties("hejje.market")
 public record MarketProperties(
-        @DefaultValue({"INDEX:NIFTY 50", "INDEX:NIFTY BANK", "INDEX:INDIA VIX"}) List<String> watchlist,
+        @DefaultValue({"INDEX:NIFTY 50", "INDEX:NIFTY BANK", "INDEX:INDIA VIX", "INDEX:NIFTY FIN SERVICE", "INDEX:NIFTY IT", "INDEX:NIFTY AUTO",
+                "INDEX:NIFTY PHARMA", "INDEX:NIFTY FMCG", "INDEX:NIFTY METAL", "INDEX:NIFTY REALTY", "INDEX:NIFTY MIDCAP 100"}) List<String> watchlist,
         @DefaultValue("false") boolean streamOnStartup,
         @DefaultValue("10s") Duration staleAfter,
         @DefaultValue("5s") Duration quoteStaleAfter,

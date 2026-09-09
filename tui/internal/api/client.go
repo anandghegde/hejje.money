@@ -260,3 +260,10 @@ func (c *Client) SkipSignal(id, reason string) (Signal, error) {
 	var s Signal
 	return s, c.do(http.MethodPost, "/signals/"+url.PathEscape(id)+"/skip", map[string]string{"reason": reason}, false, &s)
 }
+
+// --- Phase 3 (M3.2) ---
+
+func (c *Client) Pulse() (PulseSnapshot, error) {
+	var p PulseSnapshot
+	return p, c.do(http.MethodGet, "/context/pulse", nil, false, &p)
+}

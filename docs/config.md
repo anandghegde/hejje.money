@@ -88,3 +88,10 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.regime.intraday-snapshot` | — | `PT5M` | Snapshot cache lifetime and the interval of stored intraday snapshots during the session. |
 | `hejje.regime.trend.*`, `volatility.*`, `opening.*`, `breadth.*`, `structure.*` | — | see `config/regime.yaml` | Rule thresholds, documented in `docs/regime.md`. |
 | `hejje.regime.adjuster.*` | — | `preferred-points 3`, `avoid-points 6`, `similar-full-points 7`, `similar-full-diff-r 0.5`, `min-similar-trades 10` | Points of the "Current regime" score adjuster (`docs/hejje-score.md`). |
+| `hejje.pulse.enabled` | — | `true` | Pulse (plan M3.2, `docs/pulse.md`). Off: NEUTRAL/WEAK with score 0 and a "disabled" evidence line; nothing stored. |
+| `hejje.pulse.sectors` | — | `classpath:universe/sectors.yaml` | YAML `sectors: [{name, symbol}]` of the Market Pulse rows. |
+| `hejje.pulse.index-symbol` / `vix-symbol` / `futures-underlying` | — | `INDEX:NIFTY 50` / `INDEX:INDIA VIX` / `NIFTY` | Inputs of the Technical Pulse (the nearest future of the underlying gives relative volume and basis). |
+| `hejje.pulse.interval` | — | `PT1M` | Recompute/store cadence during the session and the cache lifetime of `GET /context/pulse`. |
+| `hejje.pulse.weights.*` | — | see `config/pulse.yaml` | Rule weights (`index_trend 20, index_vs_vwap 15, day_change 10, momentum 10, breadth 15, relative_volume 5, vix 10, sectors 10, futures_basis 5, gap 5`). |
+| `hejje.pulse.thresholds.*` | — | see `config/pulse.yaml` | Rule thresholds and the direction/strength cut-offs (`docs/pulse.md`). |
+| `hejje.market.watchlist` | — | NIFTY 50, NIFTY BANK, INDIA VIX and the sector indices of `config/universe/sectors.yaml` | Symbols streamed in FULL mode (M3.2 added the sector indices). |

@@ -241,3 +241,45 @@ type Backtest struct {
 		Severity string `json:"severity"`
 	} `json:"warnings"`
 }
+
+// --- Phase 3 (M3.2) ---
+
+type PulseComponent struct {
+	Name         string   `json:"name"`
+	Weight       float64  `json:"weight"`
+	Value        *float64 `json:"value"`
+	Contribution float64  `json:"contribution"`
+	Evidence     string   `json:"evidence"`
+}
+
+type TechnicalPulse struct {
+	Direction  string           `json:"direction"`
+	Strength   string           `json:"strength"`
+	Score      int              `json:"score"`
+	Coverage   float64          `json:"coverage"`
+	Components []PulseComponent `json:"components"`
+	Evidence   []string         `json:"evidence"`
+}
+
+type SectorStrength struct {
+	Name        string   `json:"name"`
+	Symbol      string   `json:"symbol"`
+	Label       string   `json:"label"`
+	ChangePct   *float64 `json:"changePct"`
+	RelativePct *float64 `json:"relativePct"`
+}
+
+type MarketPulse struct {
+	Regime        string           `json:"regime"`
+	Volatility    string           `json:"volatility"`
+	Breadth       string           `json:"breadth"`
+	Sectors       []SectorStrength `json:"sectors"`
+	GlobalContext string           `json:"globalContext"`
+}
+
+type PulseSnapshot struct {
+	Date      string         `json:"date"`
+	AsOf      string         `json:"asOf"`
+	Technical TechnicalPulse `json:"technical"`
+	Market    MarketPulse    `json:"market"`
+}

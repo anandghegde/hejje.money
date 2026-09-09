@@ -57,6 +57,36 @@ public abstract class AbstractIntegrationTest {
     @Autowired
     protected TestRestTemplate rest;
 
+    @Autowired
+    org.springframework.beans.factory.ObjectProvider<org.springframework.modulith.events.core.EventPublicationRegistry> publications;
+
+    /**
+     * Asynchronous module listeners (rescoring after a backtest, reviews after a close, ...) from a previous test may
+     * still be writing when the next test truncates tables; wait for the publication registry to drain first.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void drainOutstandingPublications() throws InterruptedException {
+        awaitAsyncListeners();
+    }
+
+    /**
+     * Waits (up to 10 s) until every registered module event has been handled, for example the {@code DeploymentChanged}
+     * listener that (re)starts a runner: publish candles only after it, or the async restart can drop them.
+     */
+    protected void awaitAsyncListeners() throws InterruptedException {
+        org.springframework.modulith.events.core.EventPublicationRegistry registry = publications.getIfAvailable();
+        if (registry == null) {
+            return;
+        }
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (System.currentTimeMillis() < deadline) {
+            if (registry.findIncompletePublications().isEmpty()) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+    }
+
     /** Logs in as admin and returns the raw login response (token body plus refresh cookie). */
     protected ResponseEntity<Map> loginAdmin() {
         HttpHeaders headers = new HttpHeaders();

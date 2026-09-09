@@ -2,10 +2,6 @@ package money.hejje.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Map;
 import java.util.UUID;
@@ -14,13 +10,14 @@ import money.hejje.common.ActorType;
 import money.hejje.common.CorrelationId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
-@AutoConfigureMockMvc
+/** Uses the shared context and the real HTTP port (a MockMvc context would boot a second application against the same database). */
 class AuditIT extends AbstractIntegrationTest {
 
     @Autowired
@@ -28,9 +25,6 @@ class AuditIT extends AbstractIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
-
-    @Autowired
-    MockMvc mvc;
 
     @Test
     void recordsAndQueriesEvents() {
@@ -68,15 +62,16 @@ class AuditIT extends AbstractIntegrationTest {
         for (int i = 0; i < 3; i++) {
             audit.record(AuditEvent.of(AuditEventType.ORDER_FILLED, ActorType.SYSTEM).withOrderId(orderId));
         }
-        mvc.perform(get("/api/v1/audit").with(user("tester").authorities(new SimpleGrantedAuthority("SCOPE_admin")))
-                        .param("orderId", orderId.toString()).param("type", "ORDER_FILLED").param("size", "2"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.total").value(3))
-                .andExpect(jsonPath("$.size").value(2))
-                .andExpect(jsonPath("$.content.length()").value(2))
-                .andExpect(jsonPath("$.content[0].type").value("ORDER_FILLED"))
-                .andExpect(jsonPath("$.content[0].correlationId").isString());
-        mvc.perform(get("/api/v1/audit").with(user("tester").authorities(new SimpleGrantedAuthority("SCOPE_admin"))).param("type", "NOT_A_TYPE"))
-                .andExpect(status().isBadRequest());
+        HttpEntity<Void> auth = new HttpEntity<>(bearer(adminAccessToken()));
+        ResponseEntity<Map> page = rest.exchange("/api/v1/audit?orderId=" + orderId + "&type=ORDER_FILLED&size=2", HttpMethod.GET, auth, Map.class);
+        assertThat(page.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(page.getBody().get("total")).isEqualTo(3);
+        assertThat(page.getBody().get("size")).isEqualTo(2);
+        java.util.List<Map<?, ?>> content = (java.util.List<Map<?, ?>>) page.getBody().get("content");
+        assertThat(content).hasSize(2);
+        assertThat(content.get(0).get("type")).isEqualTo("ORDER_FILLED");
+        assertThat(content.get(0).get("correlationId")).isInstanceOf(String.class);
+        ResponseEntity<Map> bad = rest.exchange("/api/v1/audit?type=NOT_A_TYPE", HttpMethod.GET, auth, Map.class);
+        assertThat(bad.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

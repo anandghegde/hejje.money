@@ -57,6 +57,7 @@ class ExecutionIT extends AbstractIntegrationTest {
     @BeforeEach
     void setUp() {
         jdbc.execute("TRUNCATE trade, order_event, hejje_order, risk_decision, order_intent, position, idempotency_record CASCADE");
+        jdbc.update("UPDATE reconciliation_issue SET resolved_at = now() WHERE resolved_at IS NULL"); // another class may have left one (test class order is not fixed)
         jdbc.update("UPDATE kill_switch SET stop_new_orders = FALSE WHERE mode = 'PAPER'");
         // this suite exercises the execution pipeline, not risk policy: relax the limits so plain orders pass risk
         jdbc.update("UPDATE risk_limits SET mandatory_stop = FALSE, no_reentry_minutes = 0, no_averaging_down = FALSE, "
