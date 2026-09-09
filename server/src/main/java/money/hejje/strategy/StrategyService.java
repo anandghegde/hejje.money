@@ -26,6 +26,7 @@ import money.hejje.common.time.HejjeClock;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.strategy.StrategyDefinition.UniverseEntry;
+import money.hejje.strategy.StrategyDefinition.UniverseKind;
 import money.hejje.strategy.internal.DefinitionParser;
 import money.hejje.strategy.internal.StrategyLifecycle;
 import money.hejje.strategy.internal.StrategyStore;
@@ -320,31 +321,45 @@ public class StrategyService {
     /** Resolves the definition's universe to concrete instruments in order, without duplicates. Unknown entries are skipped. */
     public List<Instrument> resolveUniverse(StrategyDefinition definition) {
         LinkedHashSet<Instrument> out = new LinkedHashSet<>();
-        for (UniverseEntry entry : definition.universe()) {
-            resolveEntry(entry).ifPresent(out::add);
+        for (UniverseEntry target : universeTargets(definition)) {
+            resolveTarget(target).ifPresent(out::add);
         }
         return new ArrayList<>(out);
     }
 
-    private Optional<Instrument> resolveEntry(UniverseEntry entry) {
-        return switch (entry.kind()) {
-            case SYMBOL -> instruments.resolve(entry.value());
-            case NEAREST_FUTURE -> instruments.nearestFuture(entry.value());
-            case INDEX -> instruments.resolve("INDEX:" + entry.value());
-            case ALIAS -> {
-                String target = properties.aliases().get(entry.value());
-                if (target == null) {
-                    yield Optional.empty();
-                }
-                String t = target.trim();
-                if (t.startsWith("nearest_future:")) {
-                    yield instruments.nearestFuture(t.substring("nearest_future:".length()).trim());
-                }
-                if (t.startsWith("index:")) {
-                    yield instruments.resolve("INDEX:" + t.substring("index:".length()).trim());
-                }
-                yield instruments.resolve(t);
+    /**
+     * The universe with aliases expanded: every entry is a SYMBOL, NEAREST_FUTURE or INDEX target. Consumers that
+     * substitute a continuous series for "nearest future" (the backtester) start from this list.
+     */
+    public List<UniverseEntry> universeTargets(StrategyDefinition definition) {
+        List<UniverseEntry> out = new ArrayList<>();
+        for (UniverseEntry entry : definition.universe()) {
+            if (entry.kind() != UniverseKind.ALIAS) {
+                out.add(entry);
+                continue;
             }
+            String target = properties.aliases().get(entry.value());
+            if (target == null) {
+                continue;
+            }
+            String t = target.trim();
+            if (t.startsWith("nearest_future:")) {
+                out.add(new UniverseEntry(UniverseKind.NEAREST_FUTURE, t.substring("nearest_future:".length()).trim().toUpperCase()));
+            } else if (t.startsWith("index:")) {
+                out.add(new UniverseEntry(UniverseKind.INDEX, t.substring("index:".length()).trim().toUpperCase()));
+            } else {
+                out.add(new UniverseEntry(UniverseKind.SYMBOL, t.toUpperCase()));
+            }
+        }
+        return out;
+    }
+
+    private Optional<Instrument> resolveTarget(UniverseEntry target) {
+        return switch (target.kind()) {
+            case SYMBOL -> instruments.resolve(target.value());
+            case NEAREST_FUTURE -> instruments.nearestFuture(target.value());
+            case INDEX -> instruments.resolve("INDEX:" + target.value());
+            case ALIAS -> Optional.empty();
         };
     }
 

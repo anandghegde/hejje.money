@@ -1,0 +1,54 @@
+# Previous-day-high breakout with volume, long only (docs/strategies/pdh_pdl_breakout.md)
+name: pdh_pdl_breakout
+family: trend
+description: Buy the first close above the previous day's high with relative volume and VWAP support.
+
+universe:
+  - NSE:RELIANCE
+  - NSE:HDFCBANK
+  - NSE:ICICIBANK
+  - NSE:INFY
+  - NSE:TCS
+  - NSE:SBIN
+  - NSE:AXISBANK
+  - NSE:KOTAKBANK
+  - NSE:LT
+  - NSE:ITC
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close > prev_day_high
+    - close[1] <= prev_day_high
+    - relative_volume(20) > 1.5
+    - close > vwap
+
+stop:
+  type: atr_multiple
+  value: 1.5
+
+target:
+  type: risk_multiple
+  value: 2
+
+trade_window:
+  start: "09:30"
+  end: "13:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 1500
+
+regime_preferences:
+  trending: preferred
+  gap_up: preferred
+  ranging: avoid
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

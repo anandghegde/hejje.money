@@ -1,0 +1,46 @@
+# Mean reversion back to VWAP after an oversold extension, long only (docs/strategies/vwap_reversion.md)
+name: vwap_reversion
+family: mean_reversion
+description: Buy an oversold extension below VWAP on the first up-close and exit at VWAP.
+
+universe:
+  - NIFTY
+  - BANKNIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close < vwap * 0.997
+    - rsi(14) < 30
+    - close > close[1]
+    - session_minutes >= 45
+
+stop:
+  type: percent
+  value: 0.5
+
+target:
+  type: vwap
+
+trade_window:
+  start: "10:00"
+  end: "14:30"
+
+force_exit_time: "15:10"
+max_trades_per_day: 2
+max_holding_minutes: 120
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  ranging: preferred
+  trending: avoid
+  volatile: neutral
+
+event_rules:
+  high_risk_event_within_minutes: 30
+  action: block

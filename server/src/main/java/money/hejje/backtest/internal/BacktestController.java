@@ -36,11 +36,21 @@ class BacktestController {
     private final BacktestService backtests;
     private final StrategyService strategies;
     private final InstrumentService instruments;
+    private final money.hejje.market.MarketService market;
 
-    BacktestController(BacktestService backtests, StrategyService strategies, InstrumentService instruments) {
+    BacktestController(BacktestService backtests, StrategyService strategies, InstrumentService instruments, money.hejje.market.MarketService market) {
         this.backtests = backtests;
         this.strategies = strategies;
         this.instruments = instruments;
+        this.market = market;
+    }
+
+    /** A Hejje symbol, or a continuous series symbol such as {@code NFO:NIFTY:FUT:CONT}. */
+    private UUID instrumentIdOf(String symbol) {
+        if (money.hejje.market.ContinuousSeries.isContinuousSymbol(symbol)) {
+            return market.continuousSeriesBySymbol(symbol).orElseThrow(() -> new IllegalArgumentException("No continuous series " + symbol)).id();
+        }
+        return instruments.resolve(symbol).orElseThrow(() -> new IllegalArgumentException("Unknown instrument " + symbol)).id();
     }
 
     /** Either {@code versionId} or {@code strategyId + version}; instruments as Hejje symbols. Money in rupees. */
@@ -59,8 +69,7 @@ class BacktestController {
             versionId = strategies.version(r.strategyId(), r.version())
                     .orElseThrow(() -> new BacktestException("Version " + r.version() + " of strategy " + r.strategyId() + " not found")).id();
         }
-        List<UUID> instrumentIds = r.instruments() == null ? List.of() : r.instruments().stream()
-                .map(s -> instruments.resolve(s).orElseThrow(() -> new IllegalArgumentException("Unknown instrument " + s)).id()).toList();
+        List<UUID> instrumentIds = r.instruments() == null ? List.of() : r.instruments().stream().map(this::instrumentIdOf).toList();
         BacktestSpec spec = new BacktestSpec(versionId, instrumentIds, r.timeframe(), r.from(), r.to(), r.fillModel(),
                 r.slippageBps() == null ? 5 : r.slippageBps(), r.costModelVersion(), r.splits(),
                 r.initialCapitalRupees() == null ? null : Money.ofRupees(r.initialCapitalRupees()),

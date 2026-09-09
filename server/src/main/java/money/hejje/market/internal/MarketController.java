@@ -90,4 +90,27 @@ class MarketController {
     CandleCoverage coverage(@RequestParam UUID instrumentId, @RequestParam(defaultValue = "M1") Timeframe timeframe) {
         return historical.coverage(instrumentId, timeframe);
     }
+
+    @GetMapping("/history/integrity")
+    money.hejje.market.DataIntegrityReport integrity(@RequestParam UUID instrumentId, @RequestParam(defaultValue = "M5") Timeframe timeframe,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) java.time.LocalDate to) {
+        return market.integrity(instrumentId, timeframe, from, to);
+    }
+
+    record ContinuousRequest(String underlying, Timeframe timeframe) {}
+
+    @PostMapping("/history/continuous")
+    @PreAuthorize("hasAuthority('SCOPE_admin')")
+    money.hejje.market.ContinuousSeries buildContinuous(@RequestBody ContinuousRequest request) {
+        if (request.underlying() == null || request.underlying().isBlank()) {
+            throw new IllegalArgumentException("underlying is required");
+        }
+        return market.buildContinuousSeries(request.underlying(), request.timeframe() == null ? Timeframe.M5 : request.timeframe());
+    }
+
+    @GetMapping("/history/continuous")
+    List<money.hejje.market.ContinuousSeries> continuousSeries(@RequestParam(required = false) String underlying) {
+        return underlying == null ? market.continuousSeries() : market.continuousSeriesFor(underlying).map(List::of).orElse(List.of());
+    }
 }

@@ -1,0 +1,50 @@
+# Pullback to VWAP in an established intraday uptrend, long only (docs/strategies/vwap_trend_continuation.md)
+name: vwap_trend_continuation
+family: trend
+description: Buy the first up-close after price pulls back to VWAP while the 9/21 EMAs point up.
+
+universe:
+  - NIFTY
+  - BANKNIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - ema(9) > ema(21)
+    - low[1] <= vwap[1]
+    - close > vwap
+    - close > close[1]
+    - session_minutes >= 45
+
+stop:
+  type: atr_multiple
+  value: 1.5
+
+target:
+  type: risk_multiple
+  value: 2
+
+trailing_stop:
+  type: breakeven_at_r
+  value: 1
+
+trade_window:
+  start: "10:00"
+  end: "14:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 2
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  trending: preferred
+  ranging: avoid
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: caution

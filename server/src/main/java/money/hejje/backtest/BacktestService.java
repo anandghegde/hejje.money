@@ -109,10 +109,7 @@ public class BacktestService {
     public BacktestInput prepare(BacktestSpec spec, StrategyVersion version) {
         StrategyDefinition def = version.definition();
         Timeframe timeframe = spec.timeframe() == null ? def.timeframe() : spec.timeframe();
-        List<Instrument> resolved = spec.instrumentIds().isEmpty()
-                ? strategies.resolveUniverse(def)
-                : spec.instrumentIds().stream().map(id -> instruments.findById(id)
-                        .orElseThrow(() -> new BacktestException("Unknown instrument " + id))).toList();
+        List<InstrumentMeta> resolved = spec.instrumentIds().isEmpty() ? resolveUniverse(def) : spec.instrumentIds().stream().map(this::metaFor).toList();
         if (resolved.isEmpty()) {
             throw new BacktestException("The strategy universe resolved to no instruments");
         }
@@ -121,14 +118,47 @@ public class BacktestService {
         Instant to = spec.to().plusDays(1).atStartOfDay(zone).toInstant();
         Map<UUID, InstrumentMeta> metas = new LinkedHashMap<>();
         Map<UUID, List<Candle>> candles = new LinkedHashMap<>();
-        for (Instrument instrument : resolved) {
-            metas.put(instrument.id(), new InstrumentMeta(instrument.id(), instrument.hejjeSymbol().format(), instrument.type(), instrument.lotSize(),
-                    instrument.tickSize()));
-            candles.put(instrument.id(), market.candles(instrument.id(), timeframe, from, to));
+        for (InstrumentMeta meta : resolved) {
+            metas.put(meta.id(), meta);
+            candles.put(meta.id(), market.candles(meta.id(), timeframe, from, to));
         }
         BacktestSpec effective = spec.timeframe() == null ? new BacktestSpec(spec.versionId(), spec.instrumentIds(), timeframe, spec.from(), spec.to(),
                 spec.fillModel(), spec.slippageBps(), spec.costModelVersion(), spec.splits(), spec.initialCapital(), spec.riskPerTrade()) : spec;
         return new BacktestInput(def, effective, metas, candles, riskPerTrade(spec, def));
+    }
+
+    /**
+     * The universe for a backtest: "nearest future" targets map to the continuous series when one has been built
+     * (docs/data.md), otherwise to today's nearest contract; symbols and indices resolve through the instrument master.
+     */
+    private List<InstrumentMeta> resolveUniverse(StrategyDefinition def) {
+        Map<UUID, InstrumentMeta> out = new LinkedHashMap<>();
+        for (StrategyDefinition.UniverseEntry target : strategies.universeTargets(def)) {
+            Optional<InstrumentMeta> meta = switch (target.kind()) {
+                case NEAREST_FUTURE -> market.continuousSeriesFor(target.value()).map(BacktestService::metaOf)
+                        .or(() -> instruments.nearestFuture(target.value()).map(BacktestService::metaOf));
+                case SYMBOL -> instruments.resolve(target.value()).map(BacktestService::metaOf);
+                case INDEX -> instruments.resolve("INDEX:" + target.value()).map(BacktestService::metaOf);
+                case ALIAS -> Optional.empty();
+            };
+            meta.ifPresent(m -> out.putIfAbsent(m.id(), m));
+        }
+        return new java.util.ArrayList<>(out.values());
+    }
+
+    /** An explicit instrument id may be an instrument or a continuous series. */
+    private InstrumentMeta metaFor(UUID id) {
+        return instruments.findById(id).map(BacktestService::metaOf)
+                .or(() -> market.continuousSeries(id).map(BacktestService::metaOf))
+                .orElseThrow(() -> new BacktestException("Unknown instrument " + id));
+    }
+
+    static InstrumentMeta metaOf(Instrument instrument) {
+        return new InstrumentMeta(instrument.id(), instrument.hejjeSymbol().format(), instrument.type(), instrument.lotSize(), instrument.tickSize());
+    }
+
+    static InstrumentMeta metaOf(money.hejje.market.ContinuousSeries series) {
+        return new InstrumentMeta(series.id(), series.symbol(), money.hejje.common.InstrumentType.FUT, series.lotSize(), series.tickSize());
     }
 
     private Money riskPerTrade(BacktestSpec spec, StrategyDefinition def) {

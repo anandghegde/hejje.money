@@ -169,6 +169,12 @@ public class InstrumentStore {
                 .param("underlying", underlying).param("asOf", asOf).query(this::map).optional();
     }
 
+    /** Every future on the underlying (active or not), oldest expiry first. */
+    public List<Instrument> futures(String underlying) {
+        return jdbc.sql("SELECT * FROM instrument WHERE type = 'FUT' AND underlying = :underlying ORDER BY expiry")
+                .param("underlying", underlying).query(this::map).list();
+    }
+
     public List<Instrument> optionChain(String underlying, LocalDate expiry) {
         return jdbc.sql("""
                 SELECT * FROM instrument WHERE type = 'OPT' AND active AND underlying = :underlying AND expiry = :expiry

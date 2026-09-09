@@ -62,6 +62,11 @@ public class InstrumentService {
         return store.nearestFuture(underlying.trim().toUpperCase(), asOf);
     }
 
+    /** Every future on {@code underlying} known to the master, including expired ones, oldest expiry first. */
+    public List<Instrument> futures(String underlying) {
+        return store.futures(underlying.trim().toUpperCase());
+    }
+
     /** All active options on {@code underlying} for {@code expiry}, ordered by strike then CE before PE. */
     public List<Instrument> optionChain(String underlying, LocalDate expiry) {
         return store.optionChain(underlying.trim().toUpperCase(), expiry);

@@ -454,3 +454,34 @@ Scope: `strategies:read`. Newest first (the last 100 when no version is given).
 ### `DELETE /api/v1/backtests/{id}`
 
 Scope: `strategies:write`. Cancels a queued/running backtest (status `CANCELLED`) or deletes a finished one.
+
+## Historical dataset (Phase 2, M2.4)
+
+### `POST /api/v1/market/history/continuous`
+
+Scope: `admin`. Body `{ "underlying": "NIFTY", "timeframe": "M5" }`. Stitches every known contract's candles into
+the continuous series `NFO:<UNDERLYING>:FUT:CONT` (docs/data.md) and returns it:
+
+```json
+{ "id": "6f1c...", "underlying": "NIFTY", "exchange": "NFO", "symbol": "NFO:NIFTY:FUT:CONT", "lotSize": 75, "tickSize": 0.05,
+  "segments": [ { "instrumentId": "0192...", "contract": "NFO:NIFTY:FUT:2026-09-29", "expiry": "2026-09-29",
+                  "from": "2026-08-27", "to": "2026-09-28", "candles": 1650 } ], "builtAt": "..." }
+```
+
+The series id is stable across rebuilds. Backtests use the series automatically for `nearest_future` universe
+entries (and aliases such as `NIFTY`) when one exists, and accept its symbol in `instruments`.
+
+### `GET /api/v1/market/history/continuous?underlying=`
+
+Scope: `market:read`. Lists built series (all, or the one for an underlying).
+
+### `GET /api/v1/market/history/integrity?instrumentId=&timeframe=M5&from=2024-01-01&to=2026-08-31`
+
+Scope: `market:read`. Store contents versus the holiday calendar:
+
+```json
+{ "instrumentId": "...", "timeframe": "M5", "from": "2024-01-01", "to": "2026-08-31", "sessionsExpected": 660,
+  "sessionsWithData": 658, "missingSessions": ["2025-03-14", "2026-01-26"], "expectedBarsPerSession": 75,
+  "shortSessions": [ { "session": "2024-05-20", "bars": 40 } ], "totalCandles": 49350, "syntheticCandles": 120,
+  "missingSessionPct": 0.3 }
+```

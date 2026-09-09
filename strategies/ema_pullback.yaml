@@ -1,0 +1,57 @@
+# Pullback to the 9 EMA in a 9/21/50 EMA uptrend, long only (docs/strategies/ema_pullback.md)
+name: ema_pullback
+family: trend
+description: Buy a bullish bar that touches the 9 EMA while the 9, 21 and 50 EMAs are stacked upward.
+
+universe:
+  - NSE:RELIANCE
+  - NSE:HDFCBANK
+  - NSE:ICICIBANK
+  - NSE:INFY
+  - NSE:TCS
+  - NSE:SBIN
+  - NSE:AXISBANK
+  - NSE:KOTAKBANK
+  - NSE:LT
+  - NSE:ITC
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - ema(9) > ema(21)
+    - ema(21) > ema(50)
+    - low <= ema(9)
+    - close > ema(9)
+    - close > open
+
+stop:
+  type: swing_low
+
+target:
+  type: risk_multiple
+  value: 2
+
+trailing_stop:
+  type: atr_multiple
+  value: 2
+
+trade_window:
+  start: "09:45"
+  end: "14:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 2
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 1500
+
+regime_preferences:
+  trending: preferred
+  ranging: avoid
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: caution
