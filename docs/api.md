@@ -727,6 +727,7 @@ Scope: `market:read`. Market-level when no instrument.
 
 ```json
 { "level": "HIGH", "nextEvent": { "type": "RBI_POLICY", "title": "RBI MPC decision", "startsAt": "2026-10-07T04:30:00Z", "...": "..." }, "minutesTo": 45,
+  "trigger": { "type": "RBI_POLICY", "title": "RBI MPC decision", "...": "..." }, "triggerMinutesTo": 45,
   "evidence": [ "RBI MPC decision (2026-10-07 10:00, in 45 min) → HIGH" ], "available": true }
 ```
 
@@ -783,3 +784,27 @@ Stories of the trailing window (all, or those assessed for the instrument), newe
 ### `GET /api/v1/news/sources`, `PUT /api/v1/news/sources/{id}` (`strategies:write`, body `{ "enabled": true, "reliability": 0.7 }`), `POST /api/v1/news/poll` (`admin`)
 
 Recommendations (`GET /api/v1/today`) now carry `newsBias` (the score, null when unavailable).
+
+## Context Card and decision states (Phase 3, M3.5)
+
+See `docs/decisions.md`.
+
+### `GET /api/v1/context/strategy?versionId=&instrumentId=`
+
+Scope: `strategies:read`.
+
+```json
+{ "versionId": "...", "instrumentId": "...", "asOf": "...",
+  "technicalFit": { "name": "Technical fit", "status": "GREEN", "value": "Strong", "delta": 8, "evidence": [ "3 of 3 entry conditions pass on the last closed bar (…)" ] },
+  "marketRegime": { "name": "Market regime", "status": "GREEN", "value": "Favorable", "delta": 6, "evidence": [ "Current regime UP × NORMAL, …", "Preferred regime 'trending' is current: +3", "Similar regime UP × NORMAL: 34 trades, expectancy 0.42R vs 0.25R overall (+0.17R): +2" ] },
+  "newsBias": { "name": "News bias", "status": "GREEN", "value": "Bullish +0.4", "delta": 1, "evidence": [ "▲ …" ] },
+  "eventRisk": { "name": "Event risk", "status": "RED", "value": "High", "delta": -8, "evidence": [ "Q2 results (2026-10-16 16:00, results today) → HIGH" ] },
+  "sector": { "name": "Sector", "status": "GREEN", "value": "Strong", "delta": null, "evidence": [ "Banking (INDEX:NIFTY BANK): +1.80% on the day, +1.10 points vs the index" ] },
+  "nextEvent": "Q2 results — Today 16:00", "netImpact": -1, "items": [ "the five rows above, in order" ] }
+```
+
+Rows are `UNKNOWN` (value "Unknown", delta null, reason in evidence) when their service is disabled, stale or down.
+
+Recommendations (`GET /api/v1/today`) now carry `cautions` (`[{ "code": "VIX_RISING", "message": "India VIX up 6.0% on the day" }]`, codes in
+`docs/decisions.md`), `context` (the card above) and may be `TRADE_WITH_CAUTION`; the trading-window control is reported as `WAIT`
+(under risks) rather than `AVOID`.

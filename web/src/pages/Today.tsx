@@ -5,6 +5,7 @@ import { ApiError, request } from '../api/client';
 import { MarketEvent, PreparedOrder, Recommendation, TodayView } from '../api/types';
 import { decisionColor, formatR, rewardRisk, secondsLeft } from '../lib/today';
 import { NewsBiasPanel } from '../components/NewsBiasPanel';
+import { ContextCard } from '../components/ContextCard';
 
 function Header({ view }: { view: TodayView }) {
   const q = view.header.indexQuotes ?? {};
@@ -129,7 +130,10 @@ function BestCard({ rec, onExecute, onSkip }: { rec: Recommendation; onExecute: 
           <tr><td>Regime</td><td>{rec.regime ?? '—'}</td></tr>
         </tbody>
       </table>
+      <div data-testid="best-decision" style={{ color: decisionColor(rec.decision), fontWeight: 700, marginTop: 8 }}>{rec.decision.replace(/_/g, ' ')}</div>
+      {rec.cautions.length > 0 && <ul data-testid="best-cautions">{rec.cautions.map((c) => <li key={c.code}>⚠ {c.message}</li>)}</ul>}
       <NewsBiasPanel instrumentId={rec.instrumentId} />
+      {rec.context && <ContextCard context={rec.context} />}
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
         <button data-testid="execute-button" onClick={onExecute} style={{ background: '#1a9f57', color: '#fff', padding: '8px 16px' }}>EXECUTE</button>
         <button onClick={() => setDetails(!details)}>DETAILS</button>

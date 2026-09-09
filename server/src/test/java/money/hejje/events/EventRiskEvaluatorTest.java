@@ -105,6 +105,16 @@ class EventRiskEvaluatorTest {
         assertThat(EventRules.apply(StrategyDefinition.EventRules.DEFAULT, high).triggered()).isFalse();
         EventRisk medium = EventRiskEvaluator.evaluate(List.of(macro(DAY, "10:00")), INFY, at("08:00"), IST, RULES);
         assertThat(EventRules.apply(new StrategyDefinition.EventRules(null, StrategyDefinition.EventAction.BLOCK), medium).triggered()).isFalse();
+        // the rule follows the event that made the risk HIGH, not the next one on the calendar
+        EventRisk resultsThenRbi = EventRiskEvaluator.evaluate(List.of(instrumentEvent(EventType.RESULTS, INFY, DAY, "16:00"), macro(DAY.plusDays(1), "10:00")), INFY,
+                at("17:00"), IST, RULES);
+        assertThat(resultsThenRbi.level()).isEqualTo(EventRiskLevel.HIGH);
+        assertThat(resultsThenRbi.trigger().title()).isEqualTo("Q2 results");
+        assertThat(resultsThenRbi.triggerMinutesTo()).isZero();
+        assertThat(resultsThenRbi.nextEvent().title()).isEqualTo("RBI MPC decision"); // the passed timed event is no longer "next"
+        EventRuleOutcome afterResults = EventRules.apply(new StrategyDefinition.EventRules(15, StrategyDefinition.EventAction.CAUTION), resultsThenRbi);
+        assertThat(afterResults.cautions()).isTrue();
+        assertThat(afterResults.reason()).isEqualTo("Q2 results today (event risk HIGH, rule: caution within 15 min)");
         EventRuleOutcome unavailable = EventRules.apply(new StrategyDefinition.EventRules(null, StrategyDefinition.EventAction.BLOCK), EventRisk.unavailable("down"));
         assertThat(unavailable.triggered()).isFalse();
         assertThat(unavailable.reason()).contains("unavailable");

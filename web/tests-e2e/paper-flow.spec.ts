@@ -24,7 +24,7 @@ test('signal -> Today -> execute -> fill -> stop -> review', async ({ page, requ
 
   // instrument + strategy deployed on paper (forced past the lifecycle in dev)
   const infy = await (await request.get(`${API}/instruments/resolve?symbol=NSE:INFY`, { headers: h })).json();
-  const yaml = `name: ${slug}\nuniverse: [NSE:INFY]\ntimeframe: 5m\ndirection: long\nentry:\n  all:\n    - close > opening_range_high\nstop:\n  type: opening_range_low\ntarget:\n  type: risk_multiple\n  value: 2\ntrade_window:\n  start: "09:30"\n  end: "15:00"\nmax_trades_per_day: 1\nsignal_validity_minutes: 1440\n`;
+  const yaml = `name: ${slug}\nuniverse: [NSE:INFY]\ntimeframe: 5m\ndirection: long\nentry:\n  all:\n    - close > opening_range_high\nstop:\n  type: opening_range_low\ntarget:\n  type: risk_multiple\n  value: 2\ntrade_window:\n  start: "09:30"\n  end: "15:00"\nmax_trades_per_day: 1\nsignal_validity_minutes: 1440\nevent_rules:\n  high_risk_event_within_minutes: 600\n  action: caution\n`;
   const created = await (await request.post(`${API}/strategies`, { headers: h, data: { yaml } })).json();
   expect(created.status).toBe('DRAFT');
   await request.post(`${API}/strategies/${created.strategyId}/versions/1/status`, { headers: h, data: { status: 'PAPER', force: true, note: 'e2e' } });
@@ -45,6 +45,11 @@ test('signal -> Today -> execute -> fill -> stop -> review', async ({ page, requ
     maxConsecutiveLosses: 500 } });
   expect(relaxed.ok()).toBeTruthy();
   await request.delete(`${API}/risk/kill-switch`, { headers: { ...h, 'Idempotency-Key': `e2e-rearm-${Date.now()}` } }); // earlier runs may have tripped it
+
+  // an instrument event today: with `event_rules: caution` the recommendation becomes TRADE WITH CAUTION (M3.5)
+  const today = new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10); // IST session date
+  const event = await request.post(`${API}/events`, { headers: h, data: { type: 'RESULTS', symbol: 'NSE:INFY', title: 'Q2 results (e2e)', date: today } });
+  expect(event.status(), await event.text()).toBe(201);
 
   // seed the broker quote and the opening range + breakout bars (published to the runner)
   await request.post(`${API}/broker/dev/quote`, { headers: h, data: { instrumentId: infy.id, price: 1507.5 } });
@@ -75,6 +80,16 @@ test('signal -> Today -> execute -> fill -> stop -> review', async ({ page, requ
   expect(signal).toBeTruthy();
 
   if (await page.getByTestId('best-card').isVisible()) {
+    // the stack runs with HEJJE_RECOMMEND_MIN_SCORE=0 so the card is a decision; the injected results event makes it a caution,
+    // unless the context services are switched off (E2E_CONTEXT_OFF=1: regime/pulse/events disabled), in which case it is a plain TRADE
+    if (process.env.E2E_CONTEXT_OFF === '1') {
+      await expect(page.getByTestId('best-decision')).toHaveText('TRADE');
+      await expect(page.getByTestId('context-card')).toContainText('Unknown');
+    } else {
+      await expect(page.getByTestId('best-decision')).toHaveText('TRADE WITH CAUTION');
+      await expect(page.getByTestId('best-cautions')).toContainText('Q2 results (e2e)');
+      await expect(page.getByTestId('context-card')).toContainText('Event risk');
+    }
     await page.getByTestId('execute-button').click();
     await expect(page.getByTestId('risk-outcome')).toHaveText('APPROVED');
     await page.getByTestId('confirm-execute').click();

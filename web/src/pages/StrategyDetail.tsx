@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
 import { request } from '../api/client';
-import { Backtest, BacktestTrade, Deployment, EventRisk, RegimeBreakdown, ScoreView, Strategy, StrategyVersion } from '../api/types';
+import { Backtest, BacktestTrade, Deployment, EventRisk, RegimeBreakdown, ScoreView, Strategy, StrategyContext, StrategyVersion } from '../api/types';
+import { ContextCard } from '../components/ContextCard';
 import { NewsBiasPanel } from '../components/NewsBiasPanel';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
@@ -79,6 +80,8 @@ export function StrategyDetail() {
   const firstInstrument = deployments?.find((d) => d.instrumentIds.length > 0)?.instrumentIds[0];
   const { data: eventRisk } = useQuery({ queryKey: ['event-risk', firstInstrument], enabled: !!firstInstrument,
     queryFn: () => request<EventRisk>(`/events/risk?instrumentId=${firstInstrument}`), refetchInterval: 60_000 });
+  const { data: contextCard } = useQuery({ queryKey: ['context', version?.id, firstInstrument], enabled: !!version && !!firstInstrument,
+    queryFn: () => request<StrategyContext>(`/context/strategy?versionId=${version!.id}&instrumentId=${firstInstrument}`), refetchInterval: 60_000 });
   const shown = backtests?.find((b) => b.id === backtestId) ?? backtests?.[0];
   const { data: trades } = useQuery({ queryKey: ['backtest-trades', shown?.id], enabled: !!shown && shown.status === 'DONE',
     queryFn: () => request<BacktestTrade[]>(`/backtests/${shown!.id}/trades`) });
@@ -147,6 +150,7 @@ export function StrategyDetail() {
             </p>
           )}
           <NewsBiasPanel instrumentId={firstInstrument} />
+          {contextCard && <ContextCard context={contextCard} />}
           <h3>Deployments</h3>
           <button onClick={deploy} disabled={!['PAPER', 'LIVE'].includes(version.status)}>Deploy (PAPER, ₹2,000 risk)</button>
           <ul>

@@ -63,6 +63,20 @@ public class ScoringService {
         return breakdown;
     }
 
+    /** Runs the adjusters now without persisting (the Context Card reads live context). */
+    public List<Adjustment> adjustments(StrategyVersion version, UUID instrumentId) {
+        ScoreContext context = new ScoreContext(version, instrumentId, backtests.baseBacktest(version.id()));
+        List<Adjustment> out = new ArrayList<>();
+        for (ScoreAdjuster adjuster : adjusters) {
+            try {
+                out.add(adjuster.adjust(context));
+            } catch (RuntimeException e) {
+                out.add(Adjustment.none(adjuster.name(), adjuster.min(), adjuster.max(), "unavailable: " + e.getMessage()));
+            }
+        }
+        return out;
+    }
+
     /** Recomputes the version's score on every instrument it is deployed on, or on its resolved universe. */
     public List<ScoreBreakdown> recomputeVersion(UUID versionId) {
         StrategyVersion version = strategies.versionById(versionId)

@@ -113,3 +113,5 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.news.window` / `half-life` / `stale-after` | — | `24h` / `4h` / `2h` | Bias window, recency decay, and the age of the last successful poll after which the bias is unavailable. |
 | `hejje.news.min-relevance` / `strong-score` / `mild-score` | — | `0.3` / `0.6` / `0.2` | Contribution threshold and label cut-offs. |
 | `hejje.news.max-items-per-poll` / `title-similarity` / `fetch-timeout` | — | `25` / `0.8` / `30s` | Classification cap per poll, dedupe similarity, HTTP timeout. |
+| `hejje.recommend.min-score` | `HEJJE_RECOMMEND_MIN_SCORE` | `70` | (now overridable by env; the e2e stack sets 0 so Today carries a decision without a backtest history). |
+| `hejje.recommend.caution.vix-rise-pct` / `news-opposing-score` | — | `5` / `0.4` | PRD 15 caution thresholds (`docs/decisions.md`); the stale-quote caution uses `hejje.market.quote-stale-after`. |

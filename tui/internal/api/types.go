@@ -118,10 +118,34 @@ type Recommendation struct {
 	EventRisk            string         `json:"eventRisk"`
 	NextEvent            string         `json:"nextEvent"`
 	HardBlocks           []string       `json:"hardBlocks"`
+	Cautions             []Caution      `json:"cautions"`
 	SupportingEvidence   []string       `json:"supportingEvidence"`
 	Risks                []string       `json:"risks"`
 	Backtest             map[string]any `json:"backtest"`
 	ScoreBreakdown       map[string]any `json:"scoreBreakdown"`
+	Context              *StrategyCtx   `json:"context"`
+}
+
+// Caution is one PRD 15 reason a trade is TRADE WITH CAUTION (M3.5).
+type Caution struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// ContextItem is one row of the PRD 19 Context Card.
+type ContextItem struct {
+	Name     string   `json:"name"`
+	Status   string   `json:"status"`
+	Value    string   `json:"value"`
+	Delta    *int     `json:"delta"`
+	Evidence []string `json:"evidence"`
+}
+
+// StrategyCtx is the PRD 19 Context Card.
+type StrategyCtx struct {
+	Items     []ContextItem `json:"items"`
+	NextEvent string        `json:"nextEvent"`
+	NetImpact int           `json:"netImpact"`
 }
 
 type TodayView struct {

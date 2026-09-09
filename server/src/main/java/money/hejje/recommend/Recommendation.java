@@ -20,10 +20,12 @@ import money.hejje.common.Side;
 public record Recommendation(UUID versionId, UUID strategyId, String strategy, int version, UUID deploymentId, UUID instrumentId, String instrument,
         Integer score, Decision decision, Side direction, UUID signalId, String signalStatus, Instant signalValidUntil, BigDecimal entry, BigDecimal stop,
         BigDecimal target, Integer quantity, BigDecimal riskRupees, BigDecimal expectedRewardRupees, String regime, Double newsBias, String eventRisk,
-        String nextEvent, List<String> hardBlocks, List<String> supportingEvidence, List<String> risks, Map<String, Object> backtest, Map<String, Object> scoreBreakdown) {
+        String nextEvent, List<String> hardBlocks, List<Caution> cautions, List<String> supportingEvidence, List<String> risks, Map<String, Object> backtest,
+        Map<String, Object> scoreBreakdown, money.hejje.context.StrategyContext context) {
 
     public Recommendation {
         hardBlocks = hardBlocks == null ? List.of() : List.copyOf(hardBlocks);
+        cautions = cautions == null ? List.of() : List.copyOf(cautions);
         supportingEvidence = supportingEvidence == null ? List.of() : List.copyOf(supportingEvidence);
         risks = risks == null ? List.of() : List.copyOf(risks);
         backtest = backtest == null ? Map.of() : Map.copyOf(backtest);

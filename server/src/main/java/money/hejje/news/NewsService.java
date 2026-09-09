@@ -239,6 +239,12 @@ public class NewsService {
         }
     }
 
+    /** The sector of a symbol from config/aliases.yaml (for the Context Card's sector row). */
+    public Optional<String> sectorOf(String symbol) {
+        String upper = symbol == null ? "" : symbol.trim().toUpperCase(Locale.ROOT);
+        return matcher.aliases().stream().filter(a -> a.symbol().equals(upper)).map(InstrumentMatcher.Alias::sector).filter(x -> x != null).findFirst();
+    }
+
     public Optional<Instrument> instrument(UUID id) {
         return instruments.findById(id);
     }

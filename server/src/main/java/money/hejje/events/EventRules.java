@@ -4,8 +4,9 @@ import money.hejje.strategy.StrategyDefinition;
 
 /**
  * Applies a definition's {@code event_rules} (docs/strategy-dsl.md) to an {@link EventRisk}: the rule triggers when
- * the risk is HIGH and its event is within {@code high_risk_event_within_minutes} (any HIGH event today when the window
- * is absent); the action then decides between AVOID (block) and TRADE WITH CAUTION (caution).
+ * the risk is HIGH and its event is within {@code high_risk_event_within_minutes} (the DSL requires the window unless the
+ * action is allow; a missing window means any HIGH event today); the action then decides between AVOID (block) and
+ * TRADE WITH CAUTION (caution).
  */
 public final class EventRules {
 
@@ -24,12 +25,13 @@ public final class EventRules {
             return EventRuleOutcome.none("event risk " + risk.level() + ": rule not triggered");
         }
         Integer window = r.highRiskEventWithinMinutes();
-        boolean within = window == null || risk.minutesTo() == null || risk.minutesTo() <= window;
-        String what = risk.nextEvent() == null ? "high-risk event" : risk.nextEvent().title();
+        Long minutes = risk.triggerMinutesTo();
+        boolean within = window == null || minutes == null || minutes <= window;
+        String what = risk.trigger() == null ? "high-risk event" : risk.trigger().title();
         if (!within) {
-            return EventRuleOutcome.none(what + " in " + risk.minutesTo() + " min is outside the " + window + "-minute rule window");
+            return EventRuleOutcome.none(what + " in " + minutes + " min is outside the " + window + "-minute rule window");
         }
-        String reason = what + (risk.minutesTo() == null || risk.minutesTo() == 0 ? " today" : " in " + risk.minutesTo() + " min") + " (event risk HIGH, rule: "
+        String reason = what + (minutes == null || minutes == 0 ? " today" : " in " + minutes + " min") + " (event risk HIGH, rule: "
                 + r.action().name().toLowerCase() + (window == null ? "" : " within " + window + " min") + ")";
         return new EventRuleOutcome(true, r.action(), reason);
     }

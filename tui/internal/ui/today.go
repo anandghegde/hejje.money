@@ -90,7 +90,37 @@ func RenderBest(t api.TodayView) string {
 		b.WriteString(fmt.Sprintf("  Next event             %s\n", r.NextEvent))
 	}
 	b.WriteString(fmt.Sprintf("  Signal id              %s\n", r.SignalID))
+	b.WriteString(fmt.Sprintf("  Decision               %s\n", strings.ReplaceAll(r.Decision, "_", " ")))
+	for _, c := range r.Cautions {
+		b.WriteString("    ⚠ " + c.Message + "\n")
+	}
+	if r.Context != nil {
+		b.WriteString("  CONTEXT\n")
+		for _, item := range r.Context.Items {
+			delta := ""
+			if item.Delta != nil {
+				delta = fmt.Sprintf(" (%+d)", *item.Delta)
+			}
+			b.WriteString(fmt.Sprintf("    %-16s %s %s%s\n", item.Name, statusDot(item.Status), item.Value, delta))
+		}
+		if r.Context.NextEvent != "" {
+			b.WriteString("    Next event       " + r.Context.NextEvent + "\n")
+		}
+		b.WriteString(fmt.Sprintf("    Net impact       %+d\n", r.Context.NetImpact))
+	}
 	return b.String()
+}
+
+func statusDot(status string) string {
+	switch status {
+	case "GREEN":
+		return "🟢"
+	case "AMBER":
+		return "🟠"
+	case "RED":
+		return "🔴"
+	}
+	return "⚪"
 }
 
 // RenderDetails renders the PRD 20 evidence and risks of a recommendation.

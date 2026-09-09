@@ -66,9 +66,9 @@ public class RecommendationStore {
                     score == null ? null : ((Number) score).intValue(), Decision.valueOf(rs.getString("decision")), direction == null ? null : Side.valueOf(direction),
                     rs.getObject("signal_id", UUID.class), null, null, rs.getBigDecimal("entry"), rs.getBigDecimal("stop"), rs.getBigDecimal("target"), null,
                     risk == null ? null : java.math.BigDecimal.valueOf(((Number) risk).longValue()).movePointLeft(2), null, null, null, "UNKNOWN", null,
-                    json.readValue(rs.getString("hard_blocks"), json.getTypeFactory().constructCollectionType(List.class, String.class)),
+                    json.readValue(rs.getString("hard_blocks"), json.getTypeFactory().constructCollectionType(List.class, String.class)), null,
                     json.readValue(rs.getString("evidence"), json.getTypeFactory().constructCollectionType(List.class, String.class)),
-                    json.readValue(rs.getString("risks"), json.getTypeFactory().constructCollectionType(List.class, String.class)), null, null);
+                    json.readValue(rs.getString("risks"), json.getTypeFactory().constructCollectionType(List.class, String.class)), null, null, null);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException(e);
         }

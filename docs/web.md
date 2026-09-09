@@ -49,3 +49,12 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
   (`paper-flow.spec.ts`: seed a scripted session -> signal -> Today -> execute -> fill -> stop -> review -> attribution).
   Both passed locally on 2026-09-09 (`docs/analytics.md`, "Development seeding"); CI runs lint/test/build and the e2e
   stack in CI is still a follow-up.
+
+## Phase 3 additions
+
+- `/pulse` (Technical/Market Pulse, sector bars, VIX sparkline), the Today header (regime, breadth, event risk, next
+  event), the Best Hejje card (decision incl. TRADE WITH CAUTION, cautions, adjustment rows, news bias panel, Context
+  Card), the strategy page (regime breakdown of the shown backtest, next event, news bias, Context Card).
+- `npm run e2e` expects the dev stack started with `HEJJE_RECOMMEND_MIN_SCORE=0` (in addition to the Phase 2 recipe in
+  `plan/PROGRESS.md`) so the paper flow's Today card carries a decision; the spec injects a results event and asserts
+  `TRADE WITH CAUTION`.

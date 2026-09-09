@@ -32,6 +32,8 @@ public final class EventRiskEvaluator {
         LocalDate today = now.atZone(zone).toLocalDate();
         List<String> evidence = new ArrayList<>();
         EventRiskLevel level = EventRiskLevel.LOW;
+        MarketEvent trigger = null;
+        long triggerMinutes = 0;
         List<MarketEvent> relevant = new ArrayList<>();
         for (MarketEvent e : candidates) {
             if (!relevantTo(e, instrument)) {
@@ -45,23 +47,32 @@ public final class EventRiskEvaluator {
             }
             long minutes = Duration.between(now, e.startsAt()).toMinutes();
             boolean inProgress = e.allDay() || (!e.startsAt().isAfter(now) && Duration.between(e.startsAt(), now).toMinutes() <= rules.macroInProgressMinutes());
+            EventRiskLevel contributed = null;
             if (e.type().isResults() && e.scope() == EventScope.INSTRUMENT) {
-                level = EventRiskLevel.HIGH;
+                contributed = EventRiskLevel.HIGH;
                 evidence.add(line(e, zone, "results today") + " → HIGH");
             } else if (e.type().isMacro()) {
                 if (inProgress || (minutes >= 0 && minutes <= rules.macroHighWithinMinutes())) {
-                    level = EventRiskLevel.HIGH;
+                    contributed = EventRiskLevel.HIGH;
                     evidence.add(line(e, zone, inProgress ? "in progress" : "in " + minutes + " min") + " → HIGH");
                 } else {
-                    level = max(level, EventRiskLevel.MEDIUM);
+                    contributed = EventRiskLevel.MEDIUM;
                     evidence.add(line(e, zone, minutes < 0 ? (-minutes) + " min ago" : "in " + minutes + " min") + " → MEDIUM");
                 }
             } else if (e.type() == EventType.FNO_EXPIRY && isIndexDerivativeOf(instrument, e)) {
-                level = max(level, EventRiskLevel.MEDIUM);
+                contributed = EventRiskLevel.MEDIUM;
                 evidence.add(line(e, zone, "expiry day for " + instrument.hejjeSymbol().format()) + " → MEDIUM");
             } else if ((e.type().isExDate() || e.type() == EventType.BOARD_MEETING) && e.scope() == EventScope.INSTRUMENT) {
-                level = max(level, EventRiskLevel.MEDIUM);
+                contributed = EventRiskLevel.MEDIUM;
                 evidence.add(line(e, zone, e.type() == EventType.BOARD_MEETING ? "board meeting today" : "ex-date today") + " → MEDIUM");
+            }
+            if (contributed != null && (trigger == null || contributed.ordinal() > level.ordinal()
+                    || (contributed == level && Math.max(0, minutes) < triggerMinutes))) {
+                trigger = e;
+                triggerMinutes = inProgress || minutes < 0 ? 0 : minutes;
+            }
+            if (contributed != null) {
+                level = max(level, contributed);
             }
         }
         MarketEvent next = relevant.stream().filter(e -> e.endsAt() == null ? !e.startsAt().isBefore(now.minus(Duration.ofMinutes(rules.macroInProgressMinutes())))
@@ -71,7 +82,7 @@ public final class EventRiskEvaluator {
             evidence.add(next == null ? "No scheduled events for " + (instrument == null ? "the market" : instrument.hejjeSymbol().format()) + " in the horizon"
                     : "No event today; next: " + line(next, zone, null));
         }
-        return new EventRisk(level, next, minutesTo, evidence, true);
+        return new EventRisk(level, next, minutesTo, trigger, trigger == null ? null : triggerMinutes, evidence, true);
     }
 
     /** Market events always count; instrument events only for the instrument itself or, for derivatives, its underlying's symbol. */

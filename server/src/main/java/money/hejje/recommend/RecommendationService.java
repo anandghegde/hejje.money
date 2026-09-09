@@ -21,6 +21,11 @@ import money.hejje.events.EventRuleOutcome;
 import money.hejje.events.EventService;
 import money.hejje.news.NewsBias;
 import money.hejje.news.NewsService;
+import money.hejje.context.ContextItem;
+import money.hejje.context.ContextService;
+import money.hejje.context.StrategyContext;
+import money.hejje.pulse.PulseService;
+import money.hejje.risk.RiskService;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.market.MarketProperties;
@@ -64,14 +69,20 @@ public class RecommendationService {
     private final RegimeService regime;
     private final EventService events;
     private final NewsService news;
+    private final ContextService context;
+    private final PulseService pulse;
+    private final RiskService risk;
     private final HejjeClock clock;
 
     RecommendationService(StrategyService strategies, SignalService signals, ScoringService scoring, BacktestService backtests, InstrumentService instruments,
             MarketService market, MarketProperties marketProperties, RecommendationStore store, RecommendProperties properties, HejjeProperties hejje,
-            RegimeService regime, EventService events, NewsService news, HejjeClock clock) {
+            RegimeService regime, EventService events, NewsService news, ContextService context, PulseService pulse, RiskService risk, HejjeClock clock) {
         this.regime = regime;
         this.events = events;
         this.news = news;
+        this.context = context;
+        this.pulse = pulse;
+        this.risk = risk;
         this.strategies = strategies;
         this.signals = signals;
         this.scoring = scoring;
@@ -138,8 +149,9 @@ public class RecommendationService {
         BigDecimal entry = null;
         BigDecimal riskRupees = null;
         BigDecimal reward = null;
+        List<Caution> cautions = new ArrayList<>();
+        boolean outsideWindow = false;
         if (signal == null) {
-            decision = Decision.WAIT;
             risks.add("No active signal: waiting for the setup to form");
         } else {
             for (Map<String, Object> e : signal.evidence()) {
@@ -152,7 +164,12 @@ public class RecommendationService {
             riskRupees = new BigDecimal(String.valueOf(dry.sizing().get("riskRupees")));
             for (RiskCheck check : dry.risk().checks()) {
                 if (!check.passed()) {
-                    hardBlocks.add(check.name() + ": " + check.message());
+                    if (check.name().equals("tradingWindow")) {
+                        outsideWindow = true;
+                        risks.add("⚠ Outside the trading window: " + check.message());
+                    } else {
+                        hardBlocks.add(check.name() + ": " + check.message());
+                    }
                 }
             }
             for (String note : dry.notes()) {
@@ -167,28 +184,62 @@ public class RecommendationService {
                 if (rr.compareTo(BigDecimal.ONE) < 0) {
                     risks.add("⚠ Reward:risk has fallen below 1 since the signal bar");
                 }
-            }
-            if (!hardBlocks.isEmpty()) {
-                decision = Decision.AVOID;
-            } else if (finalScore == null) {
-                decision = Decision.WAIT;
-                risks.add("⚠ Strategy has no Hejje Score yet (no completed backtest)");
-            } else if (finalScore < properties.minScore()) {
-                decision = Decision.WAIT;
-                risks.add("⚠ Hejje Score " + finalScore + " is below the minimum " + properties.minScore());
-            } else {
-                decision = Decision.TRADE;
-            }
-            // strategy event rules (PRD 18.3): block is already a hard block through the risk pipeline's eventRule check; caution downgrades
-            if (eventRule.cautions()) {
-                risks.add("⚠ " + eventRule.reason());
-                if (decision == Decision.TRADE) {
-                    decision = Decision.TRADE_WITH_CAUTION;
+                BigDecimal strategyMin = version.definition().riskOverrides() == null ? null : version.definition().riskOverrides().minRewardRisk();
+                if (strategyMin != null && rr.compareTo(strategyMin) < 0) {
+                    cautions.add(new Caution("REWARD_RISK", "Reward:risk " + rr.toPlainString() + " is below the strategy's minimum " + strategyMin.toPlainString()
+                            + " (above the global minimum " + globalMinRewardRisk() + ")"));
                 }
-            } else if (eventRule.blocks() && decision != Decision.AVOID) {
-                hardBlocks.add("eventRule: " + eventRule.reason());
-                decision = Decision.AVOID;
             }
+            if (eventRule.blocks()) {
+                if (hardBlocks.stream().noneMatch(b -> b.startsWith("eventRule"))) {
+                    hardBlocks.add("eventRule: " + eventRule.reason());
+                }
+            } else if (eventRule.cautions()) {
+                cautions.add(new Caution("EVENT_CAUTION", eventRule.reason()));
+            }
+            pulse.vixChangePct().filter(v -> v > properties.caution().vixRisePct())
+                    .ifPresent(v -> cautions.add(new Caution("VIX_RISING", String.format(java.util.Locale.ROOT, "India VIX up %.1f%% on the day", v))));
+            regimeSnapshot().ifPresent(snapshot -> version.definition().regimePreferences().forEach((key, pref) -> {
+                if (pref == money.hejje.strategy.StrategyDefinition.RegimePreference.AVOID && snapshot.matches(key)) {
+                    cautions.add(new Caution("REGIME_AVOID", "Strategy avoids the '" + key + "' regime, which is current (" + snapshot.key() + ")"));
+                }
+            }));
+            if (newsBias.available()) {
+                double opposing = signal.side() == Side.BUY ? -newsBias.score() : newsBias.score();
+                if (opposing >= properties.caution().newsOpposingScore()) {
+                    cautions.add(new Caution("NEWS_OPPOSING", String.format(java.util.Locale.ROOT, "News bias %s %+.2f opposes the %s signal", newsBias.label(),
+                            newsBias.score(), signal.side() == Side.BUY ? "long" : "short")));
+                }
+            }
+            // stale beyond the readiness threshold is already a hard block; the cache's own staleness flag covers the gap before it
+            Optional<QuoteSnapshot> quote = market.quote(instrumentId);
+            if (quote.isEmpty() || quote.get().stale()) {
+                cautions.add(new Caution("MARKET_DATA_STALE", quote.isEmpty() ? "No quote for the instrument"
+                        : "Last quote is " + java.time.Duration.between(quote.get().ts(), clock.now()).getSeconds() + " s old (stale after "
+                                + marketProperties.quoteStaleAfter().getSeconds() + " s)"));
+            }
+            for (Caution c : cautions) {
+                risks.add("⚠ " + c.message());
+            }
+            if (finalScore == null && hardBlocks.isEmpty() && !outsideWindow) {
+                risks.add("⚠ Strategy has no Hejje Score yet (no completed backtest)");
+            } else if (finalScore != null && finalScore < properties.minScore() && hardBlocks.isEmpty() && !outsideWindow) {
+                risks.add("⚠ Hejje Score " + finalScore + " is below the minimum " + properties.minScore());
+            }
+        }
+        decision = DecisionRules.decide(signal != null, hardBlocks, outsideWindow, finalScore, properties.minScore(), cautions);
+        StrategyContext card = null;
+        try {
+            card = context.strategyContext(version.id(), instrumentId);
+            for (ContextItem item : card.items()) {
+                if (item.status() == ContextItem.Status.GREEN) {
+                    evidence.add("✓ " + contextLine(item));
+                } else if (item.status() == ContextItem.Status.RED) {
+                    risks.add("⚠ " + contextLine(item));
+                }
+            }
+        } catch (RuntimeException e) {
+            // the card is optional context; Today renders without it
         }
         score.ifPresent(s -> {
             for (Adjustment a : s.adjustments()) {
@@ -217,7 +268,34 @@ public class RecommendationService {
                 instrumentId, symbol, finalScore, decision, signal == null ? null : signal.side(), signal == null ? null : signal.id(),
                 signal == null ? null : signal.status().name(), signal == null ? null : signal.validUntil(), entry, signal == null ? null : signal.stop(),
                 signal == null ? null : signal.target(), quantity, riskRupees, reward, regimeLabel(), newsBias.available() ? newsBias.score() : null, eventRisk.available() ? eventRisk.level().name() : "UNKNOWN",
-                nextEvent, hardBlocks, evidence, risks, backtest, breakdown);
+                nextEvent, hardBlocks, cautions, evidence, risks, backtest, breakdown, card);
+    }
+
+    private static String contextLine(ContextItem item) {
+        return switch (item.name()) {
+            case "Market regime" -> item.status() == ContextItem.Status.GREEN ? "Strategy performs strongly in the current regime" : "Strategy performs poorly in the current regime";
+            case "Sector" -> "Sector " + item.value().toLowerCase(java.util.Locale.ROOT) + (item.status() == ContextItem.Status.GREEN ? " (outperforming)" : " (underperforming)");
+            case "News bias" -> "News bias " + item.value();
+            case "Event risk" -> "Event risk " + item.value();
+            default -> item.name() + " " + item.value().toLowerCase(java.util.Locale.ROOT);
+        };
+    }
+
+    private Optional<RegimeSnapshot> regimeSnapshot() {
+        try {
+            RegimeSnapshot s = regime.current();
+            return s.isUnknown() ? Optional.empty() : Optional.of(s);
+        } catch (RuntimeException e) {
+            return Optional.empty();
+        }
+    }
+
+    private String globalMinRewardRisk() {
+        try {
+            return risk.limits(hejje.mode()).minRewardRisk().toPlainString();
+        } catch (RuntimeException e) {
+            return "?";
+        }
     }
 
     private String regimeLabel() {

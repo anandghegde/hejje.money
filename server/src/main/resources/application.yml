@@ -107,7 +107,7 @@ hejje:
     warmup-days: 20
     default-risk-rupees: 2000
   recommend:
-    min-score: 70
+    min-score: ${HEJJE_RECOMMEND_MIN_SCORE:70}
   llm:
     enabled: ${HEJJE_LLM_ENABLED:false}
     providers:

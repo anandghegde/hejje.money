@@ -124,8 +124,8 @@ export interface Recommendation {
   versionId: string; strategyId: string; strategy: string; version: number; deploymentId: string; instrumentId: string; instrument: string;
   score?: number; decision: 'TRADE' | 'TRADE_WITH_CAUTION' | 'WAIT' | 'AVOID'; direction?: 'BUY' | 'SELL'; signalId?: string; signalStatus?: string; signalValidUntil?: string;
   entry?: number; stop?: number; target?: number; quantity?: number; riskRupees?: number; expectedRewardRupees?: number; regime?: string;
-  newsBias?: number; eventRisk: string; nextEvent?: string; hardBlocks: string[]; supportingEvidence: string[]; risks: string[];
-  backtest: Record<string, unknown>; scoreBreakdown: Record<string, unknown>;
+  newsBias?: number; eventRisk: string; nextEvent?: string; hardBlocks: string[]; cautions: { code: string; message: string }[]; supportingEvidence: string[]; risks: string[];
+  backtest: Record<string, unknown>; scoreBreakdown: Record<string, unknown>; context?: StrategyContext;
 }
 
 export interface TodayView {
@@ -165,3 +165,10 @@ export interface NewsContribution {
   summary?: string;
 }
 export interface NewsBias { instrumentId: string; computedAt: string; score: number; label: string; items: number; evidence: string[]; available: boolean; sources: NewsContribution[] }
+
+// --- Phase 3 (M3.5) ---
+export interface ContextItem { name: string; status: 'GREEN' | 'AMBER' | 'RED' | 'UNKNOWN'; value: string; delta?: number; evidence: string[] }
+export interface StrategyContext {
+  versionId: string; instrumentId?: string; asOf: string; technicalFit: ContextItem; marketRegime: ContextItem; newsBias: ContextItem; eventRisk: ContextItem;
+  sector: ContextItem; nextEvent?: string; netImpact: number; items: ContextItem[];
+}

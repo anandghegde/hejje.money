@@ -47,13 +47,14 @@ For an instrument (market-only when none), over today's events plus the horizon:
 The highest matching rule wins; each match is one evidence line ("RBI MPC decision (2026-10-07 10:00, in 45 min)
 → HIGH"). Instrument events count for the instrument itself and, for derivatives, for their underlying's symbol.
 `nextEvent` is the most imminent relevant event still ahead (or in progress), `minutesTo` its distance; the Today
-card renders it as "Q2 Results — Today 16:00".
+card renders it as "Q2 Results — Today 16:00". `trigger` / `triggerMinutesTo` name the event that set the level (the
+strategy rules below measure their window against it, not against `nextEvent`).
 
 ## Strategy event rules
 
-`event_rules: { high_risk_event_within_minutes: N, action: block | caution | allow }` (docs/strategy-dsl.md). The rule
-triggers when the instrument's risk is `HIGH` and the HIGH event is within N minutes (any HIGH event today when N is
-absent; all-day events count as 0 minutes away). Then:
+`event_rules: { high_risk_event_within_minutes: N, action: block | caution | allow }` (docs/strategy-dsl.md; the DSL
+requires N unless the action is `allow`). The rule triggers when the instrument's risk is `HIGH` and the HIGH event is
+within N minutes (all-day events such as results dates count as 0 minutes away, so they trigger for any N). Then:
 
 - `block` → the recommendation is `AVOID` with the hard block `eventRule: …`, and the risk pipeline's `eventRule`
   control rejects any `STRATEGY_SIGNAL` intent for that signal (so a manual execute fails deterministically; closing

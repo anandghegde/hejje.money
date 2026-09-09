@@ -52,7 +52,7 @@ regime_preferences:             # optional; keys are lower-case regime names (Ph
   trending: preferred           # preferred | neutral | avoid
   ranging: avoid
 event_rules:                    # optional (default allow); docs/events.md
-  high_risk_event_within_minutes: 15   # window around a HIGH-risk event (omit = any HIGH event today)
+  high_risk_event_within_minutes: 15   # window around a HIGH-risk event; required unless action is allow
   action: block                 # block -> AVOID + risk rejection | caution -> TRADE WITH CAUTION | allow
 risk_overrides:                 # optional
   min_reward_risk: 1.5

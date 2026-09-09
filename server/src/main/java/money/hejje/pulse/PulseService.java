@@ -3,6 +3,7 @@ package money.hejje.pulse;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import money.hejje.common.time.HejjeClock;
 import money.hejje.pulse.internal.PulseEngine;
 import money.hejje.pulse.internal.PulseStore;
@@ -60,6 +61,19 @@ public class PulseService {
             store.insert(snapshot);
         }
         return snapshot;
+    }
+
+    /** VIX change since its previous close, percent, from the current pulse's components (null when unavailable). */
+    public Optional<Double> vixChangePct() {
+        for (PulseComponent c : current().technical().components()) {
+            if (c.name().equals("vix") && c.available()) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("([+-][0-9.]+)% on the day").matcher(c.evidence());
+                if (m.find()) {
+                    return Optional.of(Double.parseDouble(m.group(1)));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     public List<PulseSnapshot> history(LocalDate date) {
