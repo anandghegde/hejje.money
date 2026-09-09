@@ -19,6 +19,9 @@ type model struct {
 	positions []api.Position
 	orders    []api.Order
 	risk      api.RiskDashboard
+	today     api.TodayView
+	prepared  *api.PreparedOrder
+	details   bool
 	err       string
 	status    string
 	quitting  bool
@@ -48,6 +51,7 @@ func (m model) refresh() tea.Cmd {
 			positions: fetchPositions(m.client),
 			orders:    fetchOrders(m.client),
 			risk:      fetchRisk(m.client),
+			today:     fetchToday(m.client),
 		}
 	}
 }
@@ -57,12 +61,14 @@ type loaded struct {
 	positions []api.Position
 	orders    []api.Order
 	risk      api.RiskDashboard
+	today     api.TodayView
 }
 
 func fetchHealth(c *api.Client) api.Health { h, _ := c.Health(); return h }
 func fetchPositions(c *api.Client) []api.Position { p, _ := c.Positions(); return p }
 func fetchOrders(c *api.Client) []api.Order { o, _ := c.Orders(); return o }
 func fetchRisk(c *api.Client) api.RiskDashboard { r, _ := c.Risk(); return r }
+func fetchToday(c *api.Client) api.TodayView     { t, _ := c.Today(); return t }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -73,12 +79,58 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.positions = msg.positions
 		m.orders = msg.orders
 		m.risk = msg.risk
+		m.today = msg.today
 		return m, nil
 	case tea.KeyMsg:
+		// a prepared order waits for an explicit y/N
+		if m.prepared != nil {
+			switch msg.String() {
+			case "y", "Y":
+				if m.prepared.Risk.Outcome != "APPROVED" {
+					m.status = "risk " + m.prepared.Risk.Outcome + "; not executed"
+				} else if o, err := m.client.ExecuteSignal(m.prepared.Signal.ID); err != nil {
+					m.status = "execute failed: " + err.Error()
+				} else {
+					m.status = "order " + o.ID + " " + o.State
+				}
+				m.prepared = nil
+				return m, m.refresh()
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			default:
+				m.prepared = nil
+				m.status = "execution cancelled"
+				return m, nil
+			}
+		}
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "E":
+			if m.today.Best != nil && m.today.Best.SignalID != "" {
+				p, err := m.client.PrepareSignal(m.today.Best.SignalID)
+				if err != nil {
+					m.status = "prepare failed: " + err.Error()
+				} else {
+					m.prepared = &p
+				}
+			}
+			return m, nil
+		case "D":
+			m.details = !m.details
+			return m, nil
+		case "S":
+			if m.today.Best != nil && m.today.Best.SignalID != "" {
+				_, err := m.client.SkipSignal(m.today.Best.SignalID, "skipped from dashboard")
+				if err != nil {
+					m.status = "skip failed: " + err.Error()
+				} else {
+					m.status = "signal skipped"
+				}
+			}
+			return m, m.refresh()
 		case "r":
 			return m, m.refresh()
 		case "c":
@@ -167,8 +219,19 @@ func (m model) View() string {
 	b.WriteString(banner + "\n")
 	b.WriteString(dim.Render("HEJJE") + "\n\n")
 
-	b.WriteString("BEST HEJJE\n")
-	b.WriteString(dim.Render("  No strategies deployed") + "\n\n")
+	if m.today.Best == nil && m.today.NoTrade == "" {
+		b.WriteString("BEST HEJJE\n" + dim.Render("  No strategies deployed") + "\n\n")
+	} else {
+		b.WriteString(RenderBest(m.today))
+		if m.details && m.today.Best != nil {
+			b.WriteString(RenderDetails(*m.today.Best))
+		}
+		if m.prepared != nil {
+			b.WriteString(RenderPrepared(*m.prepared))
+			b.WriteString(liveStyle.Render("  Execute this order? [y/N]") + "\n")
+		}
+		b.WriteString("\n")
+	}
 
 	b.WriteString("POSITIONS\n")
 	for i, p := range openPositions(m.positions) {
@@ -196,7 +259,7 @@ func (m model) View() string {
 	if m.status != "" {
 		b.WriteString(dim.Render(m.status) + "\n")
 	}
-	b.WriteString(dim.Render("[c] cancel  [x] close  [K] kill  [r] refresh  [q] quit") + "\n")
+	b.WriteString(dim.Render("[E] execute  [D] details  [S] skip  [c] cancel  [x] close  [K] kill  [r] refresh  [q] quit") + "\n")
 	return b.String()
 }
 

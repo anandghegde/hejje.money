@@ -192,3 +192,71 @@ func (c *Client) BaseWSURL() string {
 }
 
 func (c *Client) APIKey() string { return c.apiKey }
+
+// --- Phase 2 (M2.8) ---
+
+func (c *Client) Today() (TodayView, error) {
+	var t TodayView
+	return t, c.do(http.MethodGet, "/today", nil, false, &t)
+}
+
+func (c *Client) Strategies() ([]Strategy, error) {
+	var s []Strategy
+	return s, c.do(http.MethodGet, "/strategies", nil, false, &s)
+}
+
+func (c *Client) Strategy(id string) (Strategy, error) {
+	var s Strategy
+	return s, c.do(http.MethodGet, "/strategies/"+url.PathEscape(id), nil, false, &s)
+}
+
+func (c *Client) StrategyVersions(id string) ([]StrategyVersion, error) {
+	var v []StrategyVersion
+	return v, c.do(http.MethodGet, "/strategies/"+url.PathEscape(id)+"/versions", nil, false, &v)
+}
+
+func (c *Client) Score(id string) (ScoreView, error) {
+	var s ScoreView
+	return s, c.do(http.MethodGet, "/strategies/"+url.PathEscape(id)+"/score", nil, false, &s)
+}
+
+func (c *Client) Deployments() ([]Deployment, error) {
+	var d []Deployment
+	return d, c.do(http.MethodGet, "/deployments", nil, false, &d)
+}
+
+func (c *Client) Backtests(versionID string) ([]Backtest, error) {
+	var b []Backtest
+	return b, c.do(http.MethodGet, "/backtests?versionId="+url.QueryEscape(versionID), nil, false, &b)
+}
+
+func (c *Client) Signals(status string) ([]Signal, error) {
+	var s []Signal
+	path := "/signals"
+	if status != "" {
+		path += "?status=" + url.QueryEscape(status)
+	}
+	return s, c.do(http.MethodGet, path, nil, false, &s)
+}
+
+func (c *Client) ActiveSignals() ([]Signal, error) {
+	var s []Signal
+	return s, c.do(http.MethodGet, "/signals/active", nil, false, &s)
+}
+
+// PrepareSignal sizes the order and dry-runs risk; nothing is submitted.
+func (c *Client) PrepareSignal(id string) (PreparedOrder, error) {
+	var p PreparedOrder
+	return p, c.do(http.MethodPost, "/signals/"+url.PathEscape(id)+"/prepare", nil, false, &p)
+}
+
+// ExecuteSignal is the human confirmation: it submits the prepared order with a fresh Idempotency-Key.
+func (c *Client) ExecuteSignal(id string) (Order, error) {
+	var o Order
+	return o, c.do(http.MethodPost, "/signals/"+url.PathEscape(id)+"/execute", nil, true, &o)
+}
+
+func (c *Client) SkipSignal(id, reason string) (Signal, error) {
+	var s Signal
+	return s, c.do(http.MethodPost, "/signals/"+url.PathEscape(id)+"/skip", map[string]string{"reason": reason}, false, &s)
+}

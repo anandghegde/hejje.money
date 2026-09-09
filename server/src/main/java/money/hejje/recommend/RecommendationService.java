@@ -138,7 +138,11 @@ public class RecommendationService {
                     hardBlocks.add(check.name() + ": " + check.message());
                 }
             }
-            dry.notes().forEach(hardBlocks::add);
+            for (String note : dry.notes()) {
+                if (hardBlocks.stream().noneMatch(b -> b.endsWith(note))) {
+                    hardBlocks.add(note);
+                }
+            }
             if (signal.target() != null && signal.riskPerUnit().signum() > 0) {
                 BigDecimal rr = signal.target().subtract(entry).abs().divide(entry.subtract(signal.stop()).abs(), 2, RoundingMode.HALF_UP);
                 reward = riskRupees.multiply(rr).setScale(0, RoundingMode.HALF_UP);

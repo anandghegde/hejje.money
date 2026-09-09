@@ -27,3 +27,19 @@ deployed" until Phase 2), positions with live P&L, open orders, daily P&L vs lim
     cd tui
     go vet ./... && go test ./... && go build ./cmd/hejje
     ./build.sh v0.1.0   # cross-compiles linux/mac binaries into dist/
+
+## Phase 2 commands (M2.8)
+
+- `hejje best` — the Today screen: Best Hejje card (score, direction, signal validity, backtest metrics, score
+  adjustments, entry/stop/target, risk, expected reward) and the ranked opportunities table with the decision and the
+  first reasons (`--json` for the full PRD 29 objects).
+- `hejje strategies` — strategies with family, latest version, status and deployments.
+- `hejje strategy <id>` — versions, the Hejje Score breakdown (components, base, adjustments, final), backtests of the
+  latest version and deployments.
+- `hejje signals [--status ACTIVE|PREPARED|EXECUTED|EXPIRED|SKIPPED]` — signals (default: the actionable ones).
+- `hejje execute <signal-id> [-y]` — prepares the order (sizing on the live quote, dry-run risk checks), prints it and
+  asks `Execute? [y/N]`; the confirmation submits it with a fresh `Idempotency-Key` (scope `orders:execute`).
+- `hejje skip <signal-id> [--reason ...]`.
+
+Dashboard: the Best Hejje card replaces the placeholder; `[E]` prepares the best signal's order and shows the risk
+checks, then `y` executes (anything else cancels), `[D]` toggles the evidence and risks, `[S]` skips the signal.
