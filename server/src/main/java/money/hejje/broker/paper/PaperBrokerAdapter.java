@@ -104,6 +104,7 @@ public class PaperBrokerAdapter implements BrokerAdapter {
     }
 
     @Override public String brokerCode() { return BROKER_CODE; }
+    @Override public String instrumentBrokerCode() { return delegate.instrumentBrokerCode(); }
 
     // --- session and market data delegate to the real adapter --------------------------------------------------------
 

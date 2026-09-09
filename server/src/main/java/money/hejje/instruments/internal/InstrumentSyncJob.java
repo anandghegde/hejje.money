@@ -66,11 +66,12 @@ public class InstrumentSyncJob {
     @Transactional
     public synchronized InstrumentSyncResult run() {
         Instant start = clock.now();
+        String brokerCode = broker.instrumentBrokerCode();
         List<BrokerInstrument> rows = broker.getInstruments();
-        int upserted = store.upsertAll(broker.brokerCode(), rows, start);
-        int deactivated = store.deactivateMissing(broker.brokerCode(), start, start);
+        int upserted = store.upsertAll(brokerCode, rows, start);
+        int deactivated = store.deactivateMissing(brokerCode, start, start);
         long active = store.countActive();
-        InstrumentSyncResult result = new InstrumentSyncResult(broker.brokerCode(), rows.size(), upserted, deactivated, active, start);
+        InstrumentSyncResult result = new InstrumentSyncResult(brokerCode, rows.size(), upserted, deactivated, active, start);
         log.info("Instrument sync from {}: received={} upserted={} deactivated={} active={}", result.broker(), result.received(),
                 result.upserted(), result.deactivated(), result.activeAfter());
         audit.record(AuditEvent.of(AuditEventType.INSTRUMENTS_SYNCED, ActorType.SYSTEM).withActorId("instrument-sync")

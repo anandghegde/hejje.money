@@ -102,4 +102,10 @@ class PaperBrokerAdapterTest {
         assertThat(paper.getOrder(buy).status()).isEqualTo(BrokerOrderStatus.COMPLETE);
         assertThat(paper.getOrder(buy).averagePrice()).isEqualByComparingTo("1011.00");
     }
+    @Test
+    void instrumentBrokerCodeIsTheDelegates() {
+        Mockito.when(delegate.instrumentBrokerCode()).thenReturn("zerodha");
+        assertThat(paper.brokerCode()).isEqualTo("paper");
+        assertThat(paper.instrumentBrokerCode()).isEqualTo("zerodha");
+    }
 }

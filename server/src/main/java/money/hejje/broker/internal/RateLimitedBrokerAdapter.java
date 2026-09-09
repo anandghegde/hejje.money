@@ -52,6 +52,7 @@ public class RateLimitedBrokerAdapter implements BrokerAdapter {
     }
 
     @Override public String brokerCode() { return delegate.brokerCode(); }
+    @Override public String instrumentBrokerCode() { return delegate.instrumentBrokerCode(); }
     @Override public String loginUrl() { return delegate.loginUrl(); }
     @Override public BrokerSession authenticate(String requestToken) { return delegate.authenticate(requestToken); }
     @Override public void restoreSession(String accessToken) { delegate.restoreSession(accessToken); }

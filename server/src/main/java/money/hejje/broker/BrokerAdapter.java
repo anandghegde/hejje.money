@@ -13,8 +13,17 @@ import money.hejje.common.Timeframe;
  */
 public interface BrokerAdapter {
 
-    /** Stable broker code used in {@code broker_instrument_mapping.broker} and {@code hejje_order.broker}. */
+    /** Stable broker code used in {@code hejje_order.broker}. */
     String brokerCode();
+
+    /**
+     * Broker code the instrument master from {@link #getInstruments()} is stored under in
+     * {@code broker_instrument_mapping.broker}. Wrappers that delegate market data (paper) return the delegate's code so
+     * that lookups by the delegate find the mappings.
+     */
+    default String instrumentBrokerCode() {
+        return brokerCode();
+    }
 
     // --- session -------------------------------------------------------------------------------------------------
 
