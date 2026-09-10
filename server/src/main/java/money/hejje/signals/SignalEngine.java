@@ -157,6 +157,8 @@ public class SignalEngine {
                 runners.put(e.getKey(), runner);
             }
             runner.setPaused(!d.enabled());
+            StrategyRunner r = runner;
+            strategies.versionById(d.versionId()).ifPresent(v -> r.setRiskPerTrade(riskPerTrade(d, v))); // size multiplier changes (M5.1)
         }
         // paused runners are kept (their indicator state stays warm for a resume); only deleted deployments are dropped above
     }
@@ -188,8 +190,16 @@ public class SignalEngine {
         return runner;
     }
 
-    /** Deployment {@code risk_rupees}, else the definition's, else the module default. */
+    /** Deployment {@code risk_rupees}, else the definition's, else the module default; times the deployment's size multiplier (M5.1). */
     public Money riskPerTrade(StrategyDeployment d, StrategyVersion version) {
+        Money base = baseRiskPerTrade(d, version);
+        if (d == null || d.sizeMultiplier().compareTo(BigDecimal.ONE) >= 0) {
+            return base;
+        }
+        return Money.of(base.toRupees().multiply(d.sizeMultiplier()).setScale(2, java.math.RoundingMode.HALF_UP));
+    }
+
+    private Money baseRiskPerTrade(StrategyDeployment d, StrategyVersion version) {
         Object param = d == null ? null : d.params().get("risk_rupees");
         if (param instanceof Number n && n.doubleValue() > 0) {
             return Money.of(BigDecimal.valueOf(n.doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP));

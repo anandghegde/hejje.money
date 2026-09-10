@@ -1,0 +1,22 @@
+# Live-vs-backtest drift monitor (plan M5.1; rules in docs/analytics.md, "Live-vs-backtest drift").
+# A level is reached when ANY of its configured criteria is met; levels are checked FAILED, DEGRADING, WATCH.
+hejje:
+  drift:
+    enabled: true
+    interval: 10m               # sweep over enabled deployments (also evaluated after every reviewed strategy trade)
+    trailing-trades: 30         # newest closed trades compared ...
+    trailing-sessions: 60       # ... within this many trading sessions
+    min-trades: 10              # fewer trades: INSUFFICIENT_DATA, no action
+    bootstrap-samples: 2000
+    confidence: 0.90            # two-sided bootstrap interval of the live expectancy (R)
+    size-multiplier: 0.50       # what REDUCE_SIZE sets the deployment's size multiplier to
+    thresholds:
+      watch:     { win-rate-p-value: 0.20, expectancy-ratio: 0.50, drawdown-multiple: 1.0 }
+      degrading: { win-rate-p-value: 0.05, expectancy-upper-ratio: 1.0, drawdown-multiple: 1.5 }
+      failed:    { expectancy-upper-r: 0.0, drawdown-multiple: 2.0 }
+    # ALERT, LOWER_SCORE, REDUCE_SIZE, MOVE_TO_PAPER (CONFIRM/AUTO deployments only), PAUSE
+    actions:
+      WATCH: [ALERT, LOWER_SCORE]
+      DEGRADING: [ALERT, LOWER_SCORE, REDUCE_SIZE]
+      FAILED: [ALERT, LOWER_SCORE, PAUSE]
+    score-points: { WATCH: -5, DEGRADING: -10, FAILED: -15 }   # clamped to -15..0

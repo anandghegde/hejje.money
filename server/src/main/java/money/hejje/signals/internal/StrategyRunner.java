@@ -70,7 +70,7 @@ public final class StrategyRunner {
     private final ExecutionPort port;
     private final Callbacks callbacks;
     private final int defaultValidityMinutes;
-    private final money.hejje.common.Money riskPerTrade;
+    private volatile money.hejje.common.Money riskPerTrade;
     private final IndicatorContext ctx;
     private final Side side;
 
@@ -359,6 +359,11 @@ public final class StrategyRunner {
 
     public money.hejje.common.Money riskPerTrade() {
         return riskPerTrade;
+    }
+
+    /** The deployment's risk per trade changed (size multiplier); applies to the next entry. */
+    public void setRiskPerTrade(money.hejje.common.Money riskPerTrade) {
+        this.riskPerTrade = riskPerTrade;
     }
 
     private static boolean passes(RuleSet rules, List<EvalResult> results) {

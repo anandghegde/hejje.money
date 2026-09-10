@@ -70,8 +70,32 @@ export interface StrategyVersion {
 
 export interface Deployment {
   id: string; versionId: string; strategyId: string; mode: ExecutionMode; instrumentIds: string[]; autonomyLevel: number;
-  enabled: boolean; params: Record<string, unknown>; createdAt: string; pausedAt?: string; pauseReason?: string;
+  enabled: boolean; params: Record<string, unknown>; createdAt: string; pausedAt?: string; pauseReason?: string; sizeMultiplier: number;
 }
+
+export type DriftStatus = 'INSUFFICIENT_DATA' | 'HEALTHY' | 'WATCH' | 'DEGRADING' | 'FAILED';
+
+export interface DriftSide {
+  trades: number; winRate: number; expectancyR: number; profitFactor?: number; maxDrawdownR: number; backtestId?: string; split?: string;
+}
+
+export interface DriftReport {
+  deploymentId: string; versionId: string; version: number; strategyId: string; mode: ExecutionMode; enabled: boolean; sizeMultiplier: number;
+  status: DriftStatus; window: { maxTrades: number; sessions: number; from: string; to: string }; live: DriftSide; backtest?: DriftSide;
+  stats?: { winRatePValue: number; expectancyLow: number; expectancyHigh: number; confidence: number; expectancyRatio?: number; drawdownMultiple?: number };
+  triggered: string[]; evidence: string[]; assessedAt: string;
+}
+
+export interface DriftState {
+  deploymentId: string; status: DriftStatus; actedStatus: DriftStatus; triggered: string[]; overrideStatus?: DriftStatus; overrideReason?: string;
+  overrideBy?: string; overrideAt?: string; updatedAt: string;
+}
+
+export interface DeploymentDrift {
+  report: DriftReport; state?: DriftState; history: { id: string; status: DriftStatus; actions: string[]; triggered: string[]; at: string }[];
+}
+
+export interface StrategyDrift { strategyId: string; enabled: boolean; deployments: DeploymentDrift[] }
 
 export interface BacktestMetrics {
   totalTrades: number; winningTrades: number; losingTrades: number; winRate: number; expectancyR: number; profitFactor?: number;

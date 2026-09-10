@@ -70,7 +70,8 @@ func strategyCmd() *cobra.Command {
 			if len(versions) > 0 {
 				backtests, _ = client.Backtests(versions[len(versions)-1].ID)
 			}
-			view := map[string]any{"strategy": s, "versions": versions, "score": score, "deployments": deployments, "backtests": backtests}
+			drift, _ := client.StrategyDrift(s.ID)
+			view := map[string]any{"strategy": s, "versions": versions, "score": score, "deployments": deployments, "backtests": backtests, "drift": drift}
 			emit(view, func() {
 				fmt.Printf("%s (%s) latest v%d %s\n\n", s.Slug, s.Family, s.LatestVersion, s.LatestStatus)
 				fmt.Println("VERSIONS")
@@ -99,9 +100,14 @@ func strategyCmd() *cobra.Command {
 						if !d.Enabled {
 							state = "paused (" + d.PauseReason + ")"
 						}
+						if d.SizeMultiplier > 0 && d.SizeMultiplier < 1 {
+							state += fmt.Sprintf(" size x%.2f", d.SizeMultiplier)
+						}
 						fmt.Printf("  %s %s %d instrument(s) %s\n", d.ID, d.Mode, len(d.InstrumentIDs), state)
 					}
 				}
+				fmt.Println()
+				fmt.Print(ui.RenderDrift(drift))
 			})
 			return nil
 		}}

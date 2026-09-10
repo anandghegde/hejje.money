@@ -246,8 +246,65 @@ type Deployment struct {
 	StrategyID    string   `json:"strategyId"`
 	Mode          string   `json:"mode"`
 	InstrumentIDs []string `json:"instrumentIds"`
-	Enabled       bool     `json:"enabled"`
-	PauseReason   string   `json:"pauseReason"`
+	Enabled        bool     `json:"enabled"`
+	PauseReason    string   `json:"pauseReason"`
+	SizeMultiplier float64  `json:"sizeMultiplier"`
+}
+
+// DriftSide is one side of the live-vs-backtest comparison (M5.1).
+type DriftSide struct {
+	Trades       int      `json:"trades"`
+	WinRate      float64  `json:"winRate"`
+	ExpectancyR  float64  `json:"expectancyR"`
+	ProfitFactor *float64 `json:"profitFactor"`
+	MaxDrawdownR float64  `json:"maxDrawdownR"`
+	Split        string   `json:"split"`
+}
+
+type DriftReport struct {
+	DeploymentID   string     `json:"deploymentId"`
+	Version        int        `json:"version"`
+	Mode           string     `json:"mode"`
+	Enabled        bool       `json:"enabled"`
+	SizeMultiplier float64    `json:"sizeMultiplier"`
+	Status         string     `json:"status"`
+	Live           DriftSide  `json:"live"`
+	Backtest       *DriftSide `json:"backtest"`
+	Window         struct {
+		MaxTrades int `json:"maxTrades"`
+		Sessions  int `json:"sessions"`
+	} `json:"window"`
+	Stats *struct {
+		WinRatePValue  float64 `json:"winRatePValue"`
+		ExpectancyLow  float64 `json:"expectancyLow"`
+		ExpectancyHigh float64 `json:"expectancyHigh"`
+	} `json:"stats"`
+	Triggered []string `json:"triggered"`
+	Evidence  []string `json:"evidence"`
+}
+
+type DriftState struct {
+	Status         string `json:"status"`
+	ActedStatus    string `json:"actedStatus"`
+	OverrideStatus string `json:"overrideStatus"`
+	OverrideReason string `json:"overrideReason"`
+	OverrideBy     string `json:"overrideBy"`
+}
+
+type DeploymentDrift struct {
+	Report  DriftReport `json:"report"`
+	State   *DriftState `json:"state"`
+	History []struct {
+		Status  string   `json:"status"`
+		Actions []string `json:"actions"`
+		At      string   `json:"at"`
+	} `json:"history"`
+}
+
+type StrategyDrift struct {
+	StrategyID  string            `json:"strategyId"`
+	Enabled     bool              `json:"enabled"`
+	Deployments []DeploymentDrift `json:"deployments"`
 }
 
 type Backtest struct {

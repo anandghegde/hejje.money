@@ -138,14 +138,18 @@ public class StrategyStore {
 
     public void insertDeployment(StrategyDeployment d) {
         jdbc.sql("""
-                INSERT INTO strategy_deployment (id, version_id, mode, instrument_ids, autonomy_level, enabled, params, created_at, paused_at, pause_reason)
-                VALUES (:id, :versionId, :mode, CAST(:instruments AS jsonb), :autonomy, :enabled, CAST(:params AS jsonb), :createdAt, :pausedAt, :pauseReason)
+                INSERT INTO strategy_deployment (id, version_id, mode, instrument_ids, autonomy_level, enabled, params, created_at, paused_at, pause_reason, size_multiplier)
+                VALUES (:id, :versionId, :mode, CAST(:instruments AS jsonb), :autonomy, :enabled, CAST(:params AS jsonb), :createdAt, :pausedAt, :pauseReason, :size)
                 """)
                 .param("id", d.id()).param("versionId", d.versionId()).param("mode", d.mode().name())
                 .param("instruments", write(d.instrumentIds())).param("autonomy", d.autonomyLevel()).param("enabled", d.enabled())
                 .param("params", write(d.params())).param("createdAt", d.createdAt().atOffset(ZoneOffset.UTC))
                 .param("pausedAt", d.pausedAt() == null ? null : d.pausedAt().atOffset(ZoneOffset.UTC))
-                .param("pauseReason", d.pauseReason()).update();
+                .param("pauseReason", d.pauseReason()).param("size", d.sizeMultiplier()).update();
+    }
+
+    public void updateSizeMultiplier(UUID id, java.math.BigDecimal multiplier) {
+        jdbc.sql("UPDATE strategy_deployment SET size_multiplier = :m WHERE id = :id").param("m", multiplier).param("id", id).update();
     }
 
     public void updateDeployment(UUID id, boolean enabled, Instant pausedAt, String pauseReason) {
@@ -182,7 +186,8 @@ public class StrategyStore {
         return new StrategyDeployment(rs.getObject("id", UUID.class), rs.getObject("version_id", UUID.class),
                 rs.getObject("strategy_id", UUID.class), ExecutionMode.valueOf(rs.getString("mode")),
                 read(rs.getString("instrument_ids"), UUIDS), rs.getInt("autonomy_level"), rs.getBoolean("enabled"),
-                read(rs.getString("params"), MAP), instant(rs, "created_at"), instant(rs, "paused_at"), rs.getString("pause_reason"));
+                read(rs.getString("params"), MAP), instant(rs, "created_at"), instant(rs, "paused_at"), rs.getString("pause_reason"),
+                rs.getBigDecimal("size_multiplier"));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

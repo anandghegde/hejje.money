@@ -290,7 +290,7 @@ public class StrategyService {
             throw new IllegalArgumentException("No instruments resolved for the deployment");
         }
         StrategyDeployment deployment = new StrategyDeployment(Ids.newId(), version.id(), strategyId, mode, instrumentIds, autonomyLevel,
-                true, params == null ? Map.of() : params, clock.now(), null, null);
+                true, params == null ? Map.of() : params, clock.now(), null, null, null);
         store.insertDeployment(deployment);
         audit.record(AuditEvent.of(AuditEventType.STRATEGY_DEPLOYED, actorOf(by)).withActorId(by).withStrategyId(strategyId)
                 .withPayload(Map.of("deploymentId", deployment.id().toString(), "versionId", version.id().toString(), "mode", mode.name(),
@@ -328,6 +328,49 @@ public class StrategyService {
         audit.record(AuditEvent.of(AuditEventType.STRATEGY_DEPLOYMENT_UPDATED, actorOf(by)).withActorId(by).withStrategyId(d.strategyId())
                 .withPayload(Map.of("deploymentId", d.id().toString(), "enabled", false, "reason", reason)));
         events.publishEvent(new DeploymentChanged(EventMeta.create(clock), d.id(), d.versionId(), false));
+    }
+
+    /** Sets the deployment's size multiplier (0.01-1.00); audited with the reason. Takes effect for the next signal. */
+    @Transactional
+    public StrategyDeployment setSizeMultiplier(UUID id, java.math.BigDecimal multiplier, String reason, String by) {
+        StrategyDeployment d = store.findDeployment(id).orElseThrow(() -> new StrategyException.NotFound("Deployment " + id + " not found"));
+        java.math.BigDecimal m = multiplier.setScale(2, java.math.RoundingMode.HALF_UP);
+        if (m.signum() <= 0 || m.compareTo(java.math.BigDecimal.ONE) > 0) {
+            throw new IllegalArgumentException("Size multiplier must be above 0 and at most 1");
+        }
+        if (m.compareTo(d.sizeMultiplier()) == 0) {
+            return d;
+        }
+        store.updateSizeMultiplier(id, m);
+        audit.record(AuditEvent.of(AuditEventType.STRATEGY_DEPLOYMENT_UPDATED, actorOf(by)).withActorId(by).withStrategyId(d.strategyId())
+                .withPayload(Map.of("deploymentId", id.toString(), "sizeMultiplier", m.toPlainString(), "from", d.sizeMultiplier().toPlainString(),
+                        "reason", reason == null ? "" : reason)));
+        events.publishEvent(new DeploymentChanged(EventMeta.create(clock), id, d.versionId(), d.enabled()));
+        return store.findDeployment(id).orElseThrow();
+    }
+
+    /**
+     * Moves a CONFIRM/AUTO deployment to paper: pauses it with {@code reason} and deploys the same version on the same
+     * instruments, parameters and size multiplier in PAPER at autonomy 0 (the drift monitor's MOVE_TO_PAPER action).
+     */
+    @Transactional
+    public StrategyDeployment moveToPaper(UUID id, String reason, String by) {
+        StrategyDeployment d = store.findDeployment(id).orElseThrow(() -> new StrategyException.NotFound("Deployment " + id + " not found"));
+        if (d.mode() == ExecutionMode.PAPER) {
+            throw new StrategyException.Conflict("Deployment " + id + " is already PAPER");
+        }
+        if (d.enabled()) {
+            pauseDeployment(d, reason, by);
+        }
+        StrategyDeployment paper = new StrategyDeployment(Ids.newId(), d.versionId(), d.strategyId(), ExecutionMode.PAPER, d.instrumentIds(), 0, true,
+                d.params(), clock.now(), null, null, d.sizeMultiplier());
+        store.insertDeployment(paper);
+        audit.record(AuditEvent.of(AuditEventType.STRATEGY_DEPLOYED, actorOf(by)).withActorId(by).withStrategyId(d.strategyId())
+                .withPayload(Map.of("deploymentId", paper.id().toString(), "versionId", d.versionId().toString(), "mode", "PAPER",
+                        "instruments", d.instrumentIds().stream().map(UUID::toString).toList(), "autonomyLevel", 0, "movedFrom", d.id().toString(),
+                        "reason", reason)));
+        events.publishEvent(new DeploymentChanged(EventMeta.create(clock), paper.id(), d.versionId(), true));
+        return paper;
     }
 
     public Optional<StrategyDeployment> deployment(UUID id) {

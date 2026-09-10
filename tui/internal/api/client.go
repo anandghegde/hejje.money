@@ -221,6 +221,12 @@ func (c *Client) Score(id string) (ScoreView, error) {
 	return s, c.do(http.MethodGet, "/strategies/"+url.PathEscape(id)+"/score", nil, false, &s)
 }
 
+// StrategyDrift is the live-vs-backtest drift of every deployment of a strategy.
+func (c *Client) StrategyDrift(id string) (StrategyDrift, error) {
+	var d StrategyDrift
+	return d, c.do(http.MethodGet, "/strategies/"+url.PathEscape(id)+"/drift", nil, false, &d)
+}
+
 func (c *Client) Deployments() ([]Deployment, error) {
 	var d []Deployment
 	return d, c.do(http.MethodGet, "/deployments", nil, false, &d)

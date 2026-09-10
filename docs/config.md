@@ -121,6 +121,13 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.agent.approvals.expiry-sweep` | — | `30s` | How often expired approvals are marked EXPIRED (also done whenever approvals are read or decided). |
 | `hejje.backtest.experiments.parallelism` | — | `2` | Experiment variants backtested at once. |
 | `hejje.backtest.experiments.max-variants` | — | `12` | Variants per experiment (baseline not counted). |
+| `hejje.drift.enabled` | — | `true` | Live-vs-backtest drift monitor (`docs/analytics.md`); thresholds and actions live in `config/drift.yaml`. |
+| `hejje.drift.interval` | — | `10m` | Sweep over enabled deployments (each reviewed strategy trade also re-evaluates its deployment). |
+| `hejje.drift.trailing-trades` / `trailing-sessions` / `min-trades` | — | `30` / `60` / `10` | Newest trades compared, within this many sessions; fewer than `min-trades` is INSUFFICIENT_DATA. |
+| `hejje.drift.bootstrap-samples` / `confidence` | — | `2000` / `0.90` | Bootstrap interval of the live expectancy (fixed seed, deterministic). |
+| `hejje.drift.thresholds.{watch,degrading,failed}` | — | see `config/drift.yaml` | `win-rate-p-value`, `expectancy-ratio`, `expectancy-upper-ratio`, `expectancy-upper-r`, `drawdown-multiple`; any met criterion reaches the level. |
+| `hejje.drift.actions.<STATUS>` | — | WATCH `[ALERT, LOWER_SCORE]`, DEGRADING `+ REDUCE_SIZE`, FAILED `[ALERT, LOWER_SCORE, PAUSE]` | Actions per status: `ALERT`, `LOWER_SCORE`, `REDUCE_SIZE`, `MOVE_TO_PAPER`, `PAUSE`. |
+| `hejje.drift.size-multiplier` / `score-points` | — | `0.50` / WATCH −5, DEGRADING −10, FAILED −15 | What REDUCE_SIZE sets; the drift adjuster's points (clamped to −15..0). |
 | `hejje.news.enabled` | `HEJJE_NEWS_ENABLED` | `false` | News polling and classification (`docs/news.md`). |
 | `hejje.news.poll-minutes` | — | `5` | Poll interval. |
 | `hejje.news.sources` / `aliases` | — | `classpath:news-sources.yaml` / `classpath:aliases.yaml` | Feed list and instrument alias map (`file:` paths override the bundled copies). |

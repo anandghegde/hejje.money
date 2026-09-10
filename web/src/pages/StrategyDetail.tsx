@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { request } from '../api/client';
 import { Backtest, BacktestTrade, Deployment, EventRisk, RegimeBreakdown, ScoreView, Strategy, StrategyContext, StrategyVersion } from '../api/types';
 import { ContextCard } from '../components/ContextCard';
+import { DriftPanel } from '../components/DriftPanel';
 import { NewsBiasPanel } from '../components/NewsBiasPanel';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
@@ -156,9 +157,11 @@ export function StrategyDetail() {
           <ul>
             {(deployments ?? []).map((d) => (
               <li key={d.id}>{d.mode} · {d.instrumentIds.length} instrument(s) · {d.enabled ? 'enabled' : `paused (${d.pauseReason ?? ''})`}
+                {d.sizeMultiplier < 1 && <> · size ×{d.sizeMultiplier.toFixed(2)}</>}
                 <button onClick={() => toggle(d)} style={{ marginLeft: 8 }}>{d.enabled ? 'Pause' : 'Enable'}</button></li>
             ))}
           </ul>
+          <DriftPanel strategyId={strategy.id} />
           <h3>Backtests</h3>
           <select value={shown?.id ?? ''} onChange={(e) => setBacktestId(e.target.value)}>
             {(backtests ?? []).map((b) => <option key={b.id} value={b.id}>{new Date(b.createdAt).toLocaleString()} — {b.status} {b.progressPct}%</option>)}

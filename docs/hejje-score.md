@@ -44,8 +44,9 @@ Adjusters implement `ScoreAdjuster` and are bounded; the breakdown lists each on
 | Event risk | −8 … 0 | `docs/events.md` proximity level for the instrument: HIGH −8, MEDIUM −3, LOW 0; 0 with the reason when the calendar is unavailable |
 | News context | −3 … +3 | `docs/news.md` bias for the instrument: `round(3 × score)`; 0 with the reason when news is off, the LLM is off or the feed is stale |
 | Recent paper/live performance | −5 … +5 | Last 20 round trips attributed to the strategy in the current mode (fills paired per instrument until flat) vs the base backtest's expectancy in money: ratio ≥ 1 → +5, ≥ 0.5 → +2, ≥ 0 → −2, < 0 → −5; no round trips → 0 |
+| Live-vs-backtest drift | −15 … 0 | The worst stored drift status across the version's deployments (docs/analytics.md, "Live-vs-backtest drift"): WATCH −5, DEGRADING −10, FAILED −15 (`hejje.drift.score-points`), only when that status's configured actions include `LOWER_SCORE` and no override covers it; otherwise 0 with the reason |
 
-Adjuster order: technical (10), regime (15), recent performance (20), event risk (30), news (40).
+Adjuster order: technical (10), regime (15), recent performance (20), event risk (30), news (40), drift (50).
 
 `final = clip(round(base) + Σ deltas, 0, 100)`.
 

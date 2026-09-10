@@ -1018,3 +1018,29 @@ See `docs/backtesting.md`.
 
 Preview body `{ "versionId", "delta" }` → `{ "valid", "errors", "yaml", "entryConditions", "parameterCount", "conditionCount" }`. Promote → 201 with the new
 DRAFT version; 409 for the baseline, an unfinished or an already promoted variant.
+
+## Live-vs-backtest drift (Phase 5, M5.1)
+
+See `docs/analytics.md`. Deployments now carry `sizeMultiplier` (1.00 unless lowered by drift; scales the risk per trade).
+
+### `GET /api/v1/strategies/{id}/drift` (`strategies:read`)
+
+Every deployment of every version, newest version first: a fresh report, the stored state and the last five assessments.
+
+```json
+{ "strategyId": "0192…", "enabled": true, "deployments": [ {
+  "report": { "deploymentId": "0192…", "version": 2, "mode": "PAPER", "enabled": true, "sizeMultiplier": 0.50, "status": "DEGRADING",
+    "window": { "maxTrades": 30, "sessions": 60, "from": "2026-06-15", "to": "2026-09-10" },
+    "live": { "trades": 30, "winRate": 0.37, "expectancyR": 0.34, "profitFactor": 1.1, "maxDrawdownR": 3.5 },
+    "backtest": { "trades": 60, "winRate": 0.6, "expectancyR": 0.3, "profitFactor": 1.8, "maxDrawdownR": 4.0, "backtestId": "0192…", "split": "OUT_OF_SAMPLE" },
+    "stats": { "winRatePValue": 0.0083, "expectancyLow": 0.05, "expectancyHigh": 0.62, "confidence": 0.9, "expectancyRatio": 1.14, "drawdownMultiple": 0.88 },
+    "triggered": [ "win rate 37% vs 60% backtest is unlikely by chance (p = 0.008 < 0.05)" ], "evidence": [ "…" ] },
+  "state": { "status": "DEGRADING", "actedStatus": "DEGRADING", "overrideStatus": null, … },
+  "history": [ { "status": "DEGRADING", "actions": [ "ALERT", "LOWER_SCORE -10", "REDUCE_SIZE 1.00 -> 0.50" ], "at": "…" } ] } ] }
+```
+
+### `POST /api/v1/deployments/{id}/drift/override` (`strategies:write`)
+
+Body `{ "reason": "reviewed: regime shift" }` (required, 400 when blank) → the stored state with `overrideStatus`. Suppresses drift actions for the
+current status and anything no worse, sets the size multiplier back to 1.00 and audits `STRATEGY_DRIFT_OVERRIDDEN`; a paused deployment stays
+paused (re-enable it with `PUT /deployments/{id}`). 409 when the status is HEALTHY or INSUFFICIENT_DATA.

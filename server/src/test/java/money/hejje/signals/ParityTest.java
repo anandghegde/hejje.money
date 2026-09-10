@@ -171,7 +171,7 @@ class ParityTest {
                 UUID strategyId = UUID.randomUUID();
                 StrategyVersion version = new StrategyVersion(UUID.randomUUID(), strategyId, 1, "", def, "h", "parity", null, "test", Instant.EPOCH, VersionStatus.PAPER);
                 StrategyDeployment deployment = new StrategyDeployment(UUID.randomUUID(), version.id(), strategyId, ExecutionMode.PAPER, List.of(INSTRUMENT), 0, true,
-                        Map.of(), Instant.EPOCH, null, null);
+                        Map.of(), Instant.EPOCH, null, null, null);
 
                 // live runner: warm up on the earlier sessions, then replay the recorded ones bar by bar
                 Recording recording = new Recording();

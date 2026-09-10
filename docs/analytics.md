@@ -98,3 +98,38 @@ Endpoints (`market:read`, period defaults to month to date): `GET /analytics/los
 `get_slippage_stats`, `get_rule_adherence`, `run_counterfactual`; Hejje AI's `losses` flow ("What lost me money this
 month?") composes them and keeps ACTUAL and SIMULATED evidence apart. The web Analytics page has a "Loss investigation"
 section with a counterfactual panel (actual and simulated columns side by side).
+
+## Live-vs-backtest drift (Phase 5, M5.1)
+
+`money.hejje.analytics.drift` compares each deployment's trailing paper/live trades with the version's base backtest
+(PRD 25). PAPER and LIVE (CONFIRM/AUTO) deployments are separate: a deployment's trades are the reviewed strategy trades
+(`trade_review` with a strategy position) of its own mode whose strategy position belongs to it.
+
+- **Window**: the newest `trailing-trades` (30) trades closed within the last `trailing-sessions` (60) trading sessions;
+  outcomes are the reviews' R multiples; a win is a trade with positive net P&L.
+- **Baseline**: the base backtest (`BacktestService.baseBacktest`, the one the score uses); its out-of-sample slice when it
+  has trades, else the whole run (stated in the evidence). No completed backtest → INSUFFICIENT_DATA.
+- **Statistics**: one-sided binomial p-value of the live wins under the backtest win rate; a percentile bootstrap interval
+  (2000 resamples, 90 %, fixed seed so the same trades give the same interval) of the live expectancy; expectancy ratio
+  (live ÷ backtest, when the backtest's is positive); drawdown multiple (live max drawdown in R ÷ the backtest's).
+- **Status**: fewer than `min-trades` (10) → INSUFFICIENT_DATA. Otherwise the levels in `config/drift.yaml` are checked
+  FAILED, DEGRADING, WATCH and the first level with any met criterion is the status (else HEALTHY). Defaults: WATCH at
+  p < 0.20, expectancy below 50 % of the backtest's, or drawdown ≥ 1×; DEGRADING at p < 0.05, the interval's upper bound
+  below the backtest expectancy, or drawdown ≥ 1.5×; FAILED when the upper bound is below 0R (losing with confidence) or
+  drawdown ≥ 2×. The criteria that fired are templated sentences (`triggered`).
+- **Actions** (per status, `hejje.drift.actions`): `ALERT` (`/ws/events` `drift` message + WARN log; notification channels
+  arrive with M5.5), `LOWER_SCORE` (the `Live-vs-backtest drift` score adjuster applies the status's points and the
+  version is rescored), `REDUCE_SIZE` (deployment `size_multiplier` → 0.50; the risk per trade is multiplied by it),
+  `MOVE_TO_PAPER` (a CONFIRM/AUTO deployment is paused and the version redeployed in PAPER on the same instruments,
+  parameters and size at autonomy 0; skipped for PAPER deployments), `PAUSE` (`STRATEGY_PAUSED` audited with the
+  statistics, actor SYSTEM). Actions run only when the status is worse than the worst status already acted on and the
+  deployment is enabled, so a pause fires once; an improvement lowers that mark (a later relapse acts again). A size
+  reduction is never undone automatically.
+- **Override**: `POST /deployments/{id}/drift/override` with a reason suppresses actions for the current status and
+  anything no worse and restores the size multiplier; a worse status acts again and ends the override, as does HEALTHY.
+- **When**: after every reviewed strategy trade (its deployment) and every `hejje.drift.interval` (10 min) for enabled
+  deployments. Status changes are audited (`STRATEGY_DRIFT_CHANGED` with the statistics and the actions) and kept in
+  `drift_assessment`; the current state is `drift_state`.
+
+Views: `GET /strategies/{id}/drift`, the strategy detail page's "Live vs backtest drift" panel (PRD 25 table, criteria,
+history, Override…), and `hejje strategy <id>` (DRIFT section).

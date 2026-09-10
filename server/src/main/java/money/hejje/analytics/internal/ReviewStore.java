@@ -67,6 +67,14 @@ public class ReviewStore {
                 .query(this::map).list();
     }
 
+    /** Reviewed strategy trades (with a strategy position) of one strategy and mode closed at or after {@code since}, oldest first (drift, M5.1). */
+    public List<TradeReview> listStrategyTrades(UUID strategyId, ExecutionMode mode, Instant since) {
+        return jdbc.sql("""
+                SELECT * FROM trade_review WHERE strategy_id = :strategyId AND mode = :mode AND closed_at >= :since AND strategy_position_id IS NOT NULL
+                ORDER BY closed_at, created_at
+                """).param("strategyId", strategyId).param("mode", mode.name()).param("since", ts(since)).query(this::map).list();
+    }
+
     private TradeReview map(ResultSet rs, int i) throws SQLException {
         try {
             return new TradeReview(rs.getObject("id", UUID.class), ExecutionMode.valueOf(rs.getString("mode")), uuid(rs, "position_id"), uuid(rs, "strategy_position_id"),
