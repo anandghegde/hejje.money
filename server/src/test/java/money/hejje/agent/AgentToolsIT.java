@@ -80,6 +80,21 @@ class AgentToolsIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aResearchKeyCannotCallAnyTransactionalTool() {
+        String research = key(adminAccessToken(), "research");
+        List<Map<String, Object>> tools = rest.exchange("/api/v1/agents/tools", HttpMethod.GET, new HttpEntity<>(bearer(research)), List.class).getBody();
+        List<String> transactional = tools.stream().filter(t -> Boolean.TRUE.equals(t.get("transactional"))).map(t -> (String) t.get("name")).toList();
+        assertThat(transactional).contains("submit_order_intent", "modify_order_intent", "cancel_order_intent", "close_position_intent", "create_strategy_draft",
+                "run_experiment");
+        for (String tool : transactional) {
+            ResponseEntity<Map> refused = call(research, tool, Map.of());
+            assertThat(refused.getStatusCode()).as(tool).isEqualTo(HttpStatus.FORBIDDEN);
+            assertThat(refused.getBody()).as(tool).containsEntry("toolStatus", "FORBIDDEN");
+        }
+        assertThat(call(research, "prepare_order", Map.of()).getBody()).containsEntry("toolStatus", "FORBIDDEN"); // a dry run, but still orders:prepare
+    }
+
+    @Test
     void presetsCreateNarrowCredentials() throws InterruptedException {
         String admin = adminAccessToken();
         ResponseEntity<Map> research = rest.postForEntity("/api/v1/auth/clients",

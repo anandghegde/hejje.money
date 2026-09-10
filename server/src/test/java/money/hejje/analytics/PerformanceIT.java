@@ -59,7 +59,9 @@ class PerformanceIT extends AbstractIntegrationTest {
         quoteCache.clear();
         clock.setIst("2026-09-08T09:50:00");
         events.add(EventType.RESULTS, "NSE:INFY", EVENT_TITLE, LocalDate.parse("2026-09-08"), null, null, 1.0, "it");
-        // a news-bias snapshot five minutes before the first entry: the review records it as the trade's news context
+        // a news-bias snapshot five minutes before the first entry: the review records it as the trade's news context; snapshots
+        // other suites computed for INFY that morning (their clocks share the date) would be newer, so they are cleared first
+        jdbc.update("DELETE FROM news_bias WHERE instrument_id = ? AND computed_at > '2026-09-08T00:00:00Z' AND computed_at <= '2026-09-08T08:00:00Z'", infy);
         jdbc.update("INSERT INTO news_bias (id, instrument_id, computed_at, score, label, items, evidence) VALUES (?, ?, '2026-09-08T04:25:00Z', -0.45, 'BEARISH', 2, '[]')",
                 UUID.randomUUID(), infy);
     }
