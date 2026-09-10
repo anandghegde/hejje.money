@@ -99,6 +99,18 @@ public class OrderProposals {
     }
 
     private Prepared fromSignal(UUID signalId, HejjePrincipal principal) {
+        return fromSignal(signalId, principal, null);
+    }
+
+    /**
+     * A strategy signal the AUTO policy sent to a human (plan M5.2): the same sizing and dry-run risk as an agent's signal
+     * proposal, with the AUTO policy result kept as the reason instead of an agent policy decision.
+     */
+    public Prepared forHeldSignal(UUID signalId, PolicyResult autoPolicy) {
+        return fromSignal(signalId, null, autoPolicy);
+    }
+
+    private Prepared fromSignal(UUID signalId, HejjePrincipal principal, PolicyResult autoPolicy) {
         Signal signal = signals.find(signalId).orElseThrow(() -> ToolException.notFound("Unknown signal " + signalId));
         if (signal.mode() != mode()) {
             throw ToolException.conflict("Signal belongs to mode " + signal.mode() + "; the server runs in " + mode());
@@ -110,7 +122,7 @@ public class OrderProposals {
             throw ToolException.conflict("Signal is " + signal.status());
         }
         PreparedOrder p = signals.dryRun(signal, principal);
-        OrderIntentCommand c = agentCommand(p.proposal(), principal);
+        OrderIntentCommand c = autoPolicy != null ? p.proposal() : agentCommand(p.proposal(), principal);
         int qty = p.sizing().get("quantity") instanceof Integer q ? q : 0;
         StrategyVersion version = strategies.versionById(signal.versionId()).orElse(null);
         Strategy strategy = strategies.find(signal.strategyId()).orElse(null);
@@ -118,8 +130,8 @@ public class OrderProposals {
         String eventRisk = eventRisk(signal.instrumentId());
         Integer score = scoring.latest(signal.versionId(), signal.instrumentId()).map(ScoreBreakdown::finalScore).orElse(null);
         boolean newVersion = version != null && version.status() != VersionStatus.LIVE;
-        PolicyResult policy = policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.AGENT, mode(), autonomy, eventRisk, score, newVersion,
-                signal.strategyId(), signal.instrumentId()));
+        PolicyResult policy = autoPolicy != null ? autoPolicy : policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.AGENT, mode(), autonomy,
+                eventRisk, score, newVersion, signal.strategyId(), signal.instrumentId()));
         BigDecimal entry = new BigDecimal(String.valueOf(p.sizing().get("entryReference")));
         BigDecimal riskRupees = new BigDecimal(String.valueOf(p.sizing().get("riskRupees")));
         String symbol = symbol(signal.instrumentId());

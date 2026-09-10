@@ -8,6 +8,7 @@ import { Orders } from './pages/Orders';
 import { Positions } from './pages/Positions';
 import { Trades } from './pages/Trades';
 import { Risk } from './pages/Risk';
+import { Policies } from './pages/Policies';
 import { System } from './pages/System';
 import { Settings } from './pages/Settings';
 import { Today } from './pages/Today';
@@ -50,6 +51,7 @@ export function App() {
             <Route path="/positions" element={<Protected><Positions /></Protected>} />
             <Route path="/trades" element={<Protected><Trades /></Protected>} />
             <Route path="/risk" element={<Protected><Risk /></Protected>} />
+            <Route path="/risk/policies" element={<Protected><Policies /></Protected>} />
             <Route path="/broker" element={<Protected><Broker /></Protected>} />
             <Route path="/system" element={<Protected><System /></Protected>} />
             <Route path="/settings" element={<Protected><Settings /></Protected>} />

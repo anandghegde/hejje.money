@@ -261,3 +261,12 @@ export interface Experiment {
   id: string; baseVersionId: string; strategyId: string; goal: string | null; status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'; createdBy: string; createdAt: string;
   finishedAt: string | null; error: string | null; notes: string[]; variants: ExperimentVariant[]; dataset: { from: string; to: string };
 }
+
+export type PolicyDecision = 'ALLOW' | 'REQUIRE_APPROVAL' | 'DENY';
+
+export interface PolicyRule {
+  id: string; name: string; priority: number; condition: string; actions: string[]; decision: PolicyDecision; params: Record<string, unknown>;
+  enabled: boolean; description: string; updatedAt: string; updatedBy: string;
+}
+
+export interface PolicyView { rules: PolicyRule[]; defaultDecision: PolicyDecision; notes: string[] }

@@ -42,6 +42,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class SignalService {
 
+    /** Client id of AUTO submissions (plan M5.2). */
+    public static final UUID AUTO_CLIENT = UUID.nameUUIDFromBytes("hejje:auto".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
     private final SignalStore store;
     private final SignalEngine engine;
     private final StrategyService strategies;
@@ -177,8 +180,40 @@ public class SignalService {
         OrderIntentCommand c = prepared.proposal();
         OrderIntentCommand command = new OrderIntentCommand(c.clientId(), idempotencyKey, c.source(), c.actorId(), c.strategyId(), c.signalId(), c.instrumentId(),
                 c.side(), c.quantity(), c.orderType(), c.product(), c.limitPrice(), c.triggerPrice(), c.stopPrice(), c.targetPrice(), c.maxRisk(), c.reason());
+        HejjeOrder order = submitSignal(signal, prepared.signal(), command);
+        audit.record(AuditEvent.of(AuditEventType.USER_APPROVED, ActorType.USER).withActorId(command.actorId()).withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withOrderIntentId(order.intentId()).withOrderId(order.id())
+                .withPayload(Map.of("quantity", command.quantity().value(), "stop", signal.stop().toPlainString())));
+        return order;
+    }
+
+    /**
+     * AUTO (plan M5.2): the policy allowed this signal. Sizes it like the confirmation path and submits it as actor
+     * STRATEGY through the same pipeline (validation, risk, kill switch, gate); the idempotency key is the signal's, so a
+     * redelivered signal can never place a second entry. Audits {@code AUTO_EXECUTED} with the policy decision.
+     */
+    public HejjeOrder executeAuto(UUID signalId, String actorId, Map<String, Object> decision) {
+        Signal signal = actionable(signalId);
+        PreparedOrder prepared = dryRun(signal, null);
+        if (!(prepared.sizing().get("quantity") instanceof Integer q) || q <= 0) {
+            throw new SignalException.NotActionable("Signal cannot be sized: " + String.join("; ", prepared.notes()));
+        }
+        OrderIntentCommand c = prepared.proposal();
+        OrderIntentCommand command = new OrderIntentCommand(AUTO_CLIENT, "auto:" + signal.id(), ActorType.STRATEGY, actorId, c.strategyId(), c.signalId(),
+                c.instrumentId(), c.side(), c.quantity(), c.orderType(), c.product(), c.limitPrice(), c.triggerPrice(), c.stopPrice(), c.targetPrice(), c.maxRisk(),
+                c.reason());
+        HejjeOrder order = submitSignal(signal, signal, command);
+        Map<String, Object> payload = new LinkedHashMap<>(decision);
+        payload.put("quantity", command.quantity().value());
+        payload.put("stop", signal.stop().toPlainString());
+        audit.record(AuditEvent.of(AuditEventType.AUTO_EXECUTED, ActorType.STRATEGY).withActorId(actorId).withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withOrderIntentId(order.intentId()).withOrderId(order.id()).withPayload(payload));
+        return order;
+    }
+
+    private HejjeOrder submitSignal(Signal signal, Signal consumed, OrderIntentCommand command) {
         // the pending position exists before the order does, so a fast fill always finds it
-        StrategyPosition pending = engine.signalExecuting(prepared.signal());
+        StrategyPosition pending = engine.signalExecuting(consumed);
         HejjeOrder order;
         try {
             order = execution.submit(command);
@@ -190,10 +225,38 @@ public class SignalService {
         Signal executed = store.find(signal.id()).orElse(signal).with(SignalStatus.EXECUTED, null, order.intentId(), order.id(), clock.now());
         store.update(executed);
         engine.entrySubmitted(pending, order.id());
-        audit.record(AuditEvent.of(AuditEventType.USER_APPROVED, ActorType.USER).withActorId(command.actorId()).withStrategyId(signal.strategyId())
-                .withSignalId(signal.id()).withOrderIntentId(order.intentId()).withOrderId(order.id())
-                .withPayload(Map.of("quantity", command.quantity().value(), "stop", signal.stop().toPlainString())));
         return order;
+    }
+
+    /** The policy denied an AUTO signal (plan M5.2): the signal is BLOCKED with the reason and leaves the runner. */
+    public Signal block(UUID signalId, String reason) {
+        Signal signal = store.find(signalId).orElseThrow(() -> new SignalException.NotFound("Signal " + signalId + " not found"));
+        if (!signal.status().isActionable()) {
+            return signal;
+        }
+        Signal blocked = signal.with(SignalStatus.BLOCKED, reason, null, null, clock.now());
+        store.update(blocked);
+        audit.record(AuditEvent.of(AuditEventType.SIGNAL_SKIPPED, ActorType.SYSTEM).withActorId("auto").withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withPayload(Map.of("reason", reason, "status", "BLOCKED")));
+        engine.signalGone(blocked);
+        return blocked;
+    }
+
+    /** Closed paper trades of a version (AUTO qualification). */
+    public int closedPaperTrades(UUID versionId) {
+        return store.closedPaperTrades(versionId);
+    }
+
+    /** A deployment's day so far: entries on any instrument and gross realized P&L (AUTO daily budgets). */
+    public record DeploymentDay(int entries, Money realized) {}
+
+    public DeploymentDay deploymentDay(UUID deploymentId, Instant since) {
+        return new DeploymentDay(store.entriesSince(deploymentId, since), Money.of(store.realizedSince(deploymentId, since).setScale(2, java.math.RoundingMode.HALF_UP)));
+    }
+
+    /** Entries of a deployment on one instrument since {@code since} (the runner's per-day counter). */
+    public int entriesSince(UUID deploymentId, UUID instrumentId, Instant since) {
+        return store.openedSince(deploymentId, instrumentId, since);
     }
 
     public Signal skip(UUID signalId, String reason, HejjePrincipal principal) {

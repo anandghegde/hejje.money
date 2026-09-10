@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { request } from '../api/client';
 import { KillSwitch, RiskDashboard } from '../api/types';
 import { formatPaise } from '../lib/sizing';
@@ -22,6 +23,7 @@ export function Risk() {
   return (
     <div>
       <h1>Risk</h1>
+      <p><Link to="/risk/policies">Approval policies (PRD 49) →</Link></p>
       {data && (
         <table>
           <tbody>

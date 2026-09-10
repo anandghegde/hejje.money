@@ -121,6 +121,11 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.agent.approvals.expiry-sweep` | — | `30s` | How often expired approvals are marked EXPIRED (also done whenever approvals are read or decided). |
 | `hejje.backtest.experiments.parallelism` | — | `2` | Experiment variants backtested at once. |
 | `hejje.backtest.experiments.max-variants` | — | `12` | Variants per experiment (baseline not counted). |
+| `hejje.auto.acknowledged` | `HEJJE_AUTO_ACKNOWLEDGED` | `false` | Required (with the `prod` profile) for `hejje.mode=AUTO`; startup fails otherwise. |
+| `hejje.auto.min-paper-trades` | — | `30` | Closed paper trades a version needs before an AUTO deployment at autonomy 4-5 ("a new strategy version is never automatic"). |
+| `hejje.auto.default-max-trades-per-day` / `default-max-loss-rupees` | — | `3` / `5000` | Per-deployment daily budget at autonomy 4-5 (entries; gross realized loss); deployment params `daily_max_trades` / `daily_max_loss_rupees` override. |
+| `hejje.auto.self-pause-drift` | — | `DEGRADING` | Drift status at which an autonomy-5 deployment pauses itself. |
+| `hejje.auto.sweep` | — | `30s` | Re-offers actionable signals of autonomy 4-5 deployments (also on startup). |
 | `hejje.drift.enabled` | — | `true` | Live-vs-backtest drift monitor (`docs/analytics.md`); thresholds and actions live in `config/drift.yaml`. |
 | `hejje.drift.interval` | — | `10m` | Sweep over enabled deployments (each reviewed strategy trade also re-evaluates its deployment). |
 | `hejje.drift.trailing-trades` / `trailing-sessions` / `min-trades` | — | `30` / `60` / `10` | Newest trades compared, within this many sessions; fewer than `min-trades` is INSUFFICIENT_DATA. |

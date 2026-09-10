@@ -272,4 +272,15 @@ class DriftIT extends AbstractIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT actions::text FROM drift_assessment WHERE deployment_id = ?", String.class, deployment.id()))
                 .contains("MOVE_TO_PAPER skipped: already PAPER");
     }
+
+    @Test
+    void autonomyFivePausesItselfOnceDriftIsDegrading() {
+        StrategyDeployment five = strategies.deploy(version.strategyId(), 1, ExecutionMode.PAPER, List.of("NSE:INFY"), 5, Map.of("risk_rupees", 2000), "test");
+        trades(five, DriftMathTest.stream(11, 1.8, 19, -0.5));
+        assertThat(drift.evaluate(five.id()).status()).isEqualTo(DriftStatus.DEGRADING);
+        assertThat(reload(five).enabled()).isFalse();
+        assertThat(reload(five).sizeMultiplier()).isEqualByComparingTo("0.50");
+        assertThat(jdbc.queryForObject("SELECT actions::text FROM drift_assessment WHERE deployment_id = ?", String.class, five.id())).contains("REDUCE_SIZE", "PAUSE");
+        assertThat(reload(deployment).enabled()).isTrue(); // the autonomy-0 deployment is untouched
+    }
 }

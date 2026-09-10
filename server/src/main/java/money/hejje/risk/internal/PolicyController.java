@@ -30,8 +30,10 @@ class PolicyController {
     static final List<String> NOTES = List.of(
             "Rules are evaluated by priority; the first enabled rule whose actions and condition match decides.",
             "No match means REQUIRE_APPROVAL.",
-            "Agents are capped at REQUIRE_APPROVAL (Automation Level 3) until AUTO mode arrives in Phase 5.",
-            "Autonomy levels are set per deployment (0-3); agent proposals without a strategy use hejje.agent.approvals.account-autonomy-level.");
+            "Agents are capped at REQUIRE_APPROVAL (Automation Level 3); only AUTO_ELIGIBLE rules may ALLOW, and only strategy signals of a qualified deployment at autonomy 4-5 reach it.",
+            "Autonomy levels are set per deployment (0-5; 4-5 on PAPER and AUTO deployments only); agent proposals without a strategy use hejje.agent.approvals.account-autonomy-level.",
+            "Qualified: the version is promoted for the mode (LIVE for live trading) and, for live modes, has hejje.auto.min-paper-trades closed paper trades.",
+            "Autonomy 4 automates the first entry per instrument and day; autonomy 5 also re-enters within the deployment's daily budget and pauses itself on drift.");
 
     private final PolicyEngine policies;
 

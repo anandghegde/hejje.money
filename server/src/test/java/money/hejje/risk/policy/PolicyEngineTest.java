@@ -31,13 +31,14 @@ class PolicyEngineTest {
     static List<PolicyRule> seed() {
         return List.of(
                 rule("daily_loss_block", 10, PolicyCondition.DAILY_LOSS_EXCEEDED, Set.of(ORDER_NEW), PolicyDecision.DENY, Map.of("lossLimitPct", 100)),
-                rule("autonomy_above_phase", 20, PolicyCondition.AUTONOMY_ABOVE_PHASE, Set.of(), PolicyDecision.DENY, Map.of("maxLevel", 3)),
+                rule("deployment_budget", 15, PolicyCondition.DEPLOYMENT_BUDGET_EXCEEDED, Set.of(ORDER_NEW), PolicyDecision.DENY, Map.of()),
                 rule("agent_needs_prepare_level", 30, PolicyCondition.AUTONOMY_BELOW_PREPARE, Set.of(ORDER_NEW), PolicyDecision.DENY, Map.of("minLevel", 2)),
                 rule("event_risk_high", 40, PolicyCondition.EVENT_RISK_HIGH, Set.of(ORDER_NEW), PolicyDecision.REQUIRE_APPROVAL, Map.of()),
                 rule("new_strategy_version", 50, PolicyCondition.NEW_STRATEGY_VERSION, Set.of(ORDER_NEW), PolicyDecision.REQUIRE_APPROVAL, Map.of()),
                 rule("agent_actions", 60, PolicyCondition.ACTOR_AGENT, Set.of(), PolicyDecision.REQUIRE_APPROVAL, Map.of()),
                 rule("manual_orders", 70, PolicyCondition.ACTOR_USER, Set.of(), PolicyDecision.REQUIRE_APPROVAL, Map.of()),
                 rule("score_below_80", 80, PolicyCondition.SCORE_BELOW, Set.of(ORDER_NEW), PolicyDecision.REQUIRE_APPROVAL, Map.of("threshold", 80)),
+                rule("auto_strategy", 85, PolicyCondition.AUTO_ELIGIBLE, Set.of(ORDER_NEW), PolicyDecision.ALLOW, Map.of("minLevel", 4)),
                 rule("strategy_signals", 90, PolicyCondition.ACTOR_STRATEGY, Set.of(ORDER_NEW), PolicyDecision.REQUIRE_APPROVAL, Map.of()));
     }
 
@@ -64,8 +65,9 @@ class PolicyEngineTest {
         assertThat(level1.rule()).isEqualTo("agent_needs_prepare_level");
         assertThat(level1.reason()).contains("autonomy level 1 < 2");
         assertThat(decide(agent(ORDER_NEW, 0, null)).decision()).isEqualTo(PolicyDecision.DENY);
+        // levels 4-5 no longer deny outright (M5.2), but an agent never executes automatically
         assertThat(decide(agent(ORDER_NEW, 4, "LOW"))).extracting(PolicyResult::decision, PolicyResult::rule)
-                .containsExactly(PolicyDecision.DENY, "autonomy_above_phase");
+                .containsExactly(PolicyDecision.REQUIRE_APPROVAL, "agent_actions");
         // the prepare-level rule is about new exposure: a level-1 strategy's position can still be closed with approval
         assertThat(decide(agent(POSITION_CLOSE, 1, "LOW"))).extracting(PolicyResult::decision, PolicyResult::rule)
                 .containsExactly(PolicyDecision.REQUIRE_APPROVAL, "agent_actions");
@@ -121,5 +123,42 @@ class PolicyEngineTest {
         assertThat(none.decision()).isEqualTo(PolicyDecision.REQUIRE_APPROVAL);
         assertThat(none.rule()).isNull();
         assertThat(none.trace()).contains("agent_actions: disabled");
+    }
+
+    static PolicyRequest strategy(int autonomy, boolean qualified, Integer score, String eventRisk, String budgetBreach) {
+        return new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.PAPER, autonomy, eventRisk, score, false, null, null, qualified, budgetBreach);
+    }
+
+    @Test
+    void qualifiedAutoStrategiesAreAllowedAndEveryRowAheadOfThemStillHolds() {
+        assertThat(decide(strategy(4, true, 85, "LOW", null))).extracting(PolicyResult::decision, PolicyResult::rule)
+                .containsExactly(PolicyDecision.ALLOW, "auto_strategy");
+        assertThat(decide(strategy(5, true, 85, "LOW", null)).decision()).isEqualTo(PolicyDecision.ALLOW);
+        // not qualified, unscored or below level 4: human confirmation
+        assertThat(decide(strategy(4, false, 85, "LOW", null)).rule()).isEqualTo("strategy_signals");
+        assertThat(decide(strategy(4, true, null, "LOW", null)).rule()).isEqualTo("strategy_signals");
+        assertThat(decide(strategy(3, true, 85, "LOW", null)).rule()).isEqualTo("strategy_signals");
+        // the PRD 49 rows ahead of auto_strategy keep holding at level 5
+        assertThat(decide(strategy(5, true, 70, "LOW", null)).rule()).isEqualTo("score_below_80");
+        assertThat(decide(strategy(5, true, 90, "HIGH", null)).rule()).isEqualTo("event_risk_high");
+        assertThat(decide(new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.AUTO, 5, "LOW", 90, true, null, null, true, null)).rule())
+                .isEqualTo("new_strategy_version");
+        PolicyResult budget = decide(strategy(5, true, 90, "LOW", "the deployment has made 3 of its 3 entries today"));
+        assertThat(budget).extracting(PolicyResult::decision, PolicyResult::rule).containsExactly(PolicyDecision.DENY, "deployment_budget");
+        assertThat(budget.reason()).contains("3 of its 3 entries");
+        assertThat(PolicyEngine.evaluate(seed(), strategy(5, true, 90, "LOW", null), net(-500_000)).rule()).isEqualTo("daily_loss_block");
+    }
+
+    @Test
+    void agentsNeverExecuteAutomaticallyEvenWhenQualified() {
+        PolicyRequest agentAtFive = new PolicyRequest(ORDER_NEW, ActorType.AGENT, ExecutionMode.PAPER, 5, "LOW", 95, false, null, null, true, null);
+        assertThat(decide(agentAtFive).rule()).isEqualTo("agent_actions");
+        List<PolicyRule> allowAll = List.of(rule("allow_everything", 1, PolicyCondition.ALWAYS, Set.of(), PolicyDecision.ALLOW, Map.of()));
+        assertThat(PolicyEngine.evaluate(allowAll, agentAtFive, net(0)).decision()).isEqualTo(PolicyDecision.REQUIRE_APPROVAL);
+        assertThat(PolicyEngine.evaluate(allowAll, strategy(4, true, 85, "LOW", null), net(0)).decision()).isEqualTo(PolicyDecision.ALLOW);
+        assertThat(PolicyEngine.evaluate(allowAll, strategy(4, false, 85, "LOW", null), net(0)).decision()).isEqualTo(PolicyDecision.REQUIRE_APPROVAL);
+        // a hand-lowered minLevel cannot automate below level 4
+        List<PolicyRule> lowered = List.of(rule("auto_strategy", 85, PolicyCondition.AUTO_ELIGIBLE, Set.of(ORDER_NEW), PolicyDecision.ALLOW, Map.of("minLevel", 2)));
+        assertThat(PolicyEngine.evaluate(lowered, strategy(3, true, 85, "LOW", null), net(0)).decision()).isEqualTo(PolicyDecision.REQUIRE_APPROVAL);
     }
 }

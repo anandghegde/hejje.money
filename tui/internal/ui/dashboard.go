@@ -220,8 +220,10 @@ func (m model) View() string {
 		mode = "…"
 	}
 	banner := paperStyle.Render("● PAPER " + mode)
-	if mode == "CONFIRM" || mode == "AUTO" {
+	if mode == "CONFIRM" {
 		banner = liveStyle.Render("● LIVE " + mode)
+	} else if mode == "AUTO" {
+		banner = liveStyle.Render("● LIVE · AUTO")
 	}
 	b.WriteString(banner + "\n")
 	b.WriteString(dim.Render("HEJJE") + "\n\n")

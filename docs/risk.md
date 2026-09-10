@@ -55,19 +55,22 @@ priority, and the first enabled rule whose actions and condition match decides; 
 | Priority | Rule | Condition | Actions | Decision |
 |---|---|---|---|---|
 | 10 | `daily_loss_block` | net P&L today ≤ −`lossLimitPct`% (100) of the daily loss limit | new orders | DENY |
-| 20 | `autonomy_above_phase` | autonomy level > 3 | all | DENY |
+| 15 | `deployment_budget` | the deployment's daily budget is used up (entries ≥ `daily_max_trades`, or gross realized loss ≥ `daily_max_loss_rupees`; M5.2) | new orders | DENY |
 | 30 | `agent_needs_prepare_level` | an agent on a strategy with autonomy < 2 (research, recommend) | new orders | DENY |
 | 40 | `event_risk_high` | the instrument's event risk is HIGH | new orders | REQUIRE_APPROVAL |
-| 50 | `new_strategy_version` | the version is not LIVE | new orders | REQUIRE_APPROVAL |
+| 50 | `new_strategy_version` | the version is not promoted for the mode (not LIVE; for AUTO paper rehearsal: not PAPER or LIVE) | new orders | REQUIRE_APPROVAL |
 | 60 | `agent_actions` | actor AGENT | all | REQUIRE_APPROVAL |
 | 70 | `manual_orders` | actor USER | all | REQUIRE_APPROVAL |
 | 80 | `score_below_80` | score < 80 | new orders | REQUIRE_APPROVAL |
+| 85 | `auto_strategy` | AUTO_ELIGIBLE: actor STRATEGY at autonomy ≥ `minLevel` (4), version qualified for automation, score known (M5.2) | new orders | ALLOW |
 | 90 | `strategy_signals` | actor STRATEGY | new orders | REQUIRE_APPROVAL |
 
-In this phase anything but the local user is capped at REQUIRE_APPROVAL (Automation Level 3 maximum), and editing a rule
-to ALLOW is refused; AUTO arrives in Phase 5. Autonomy levels are stored per deployment (0–3); agent proposals without a
-deployed strategy use `hejje.agent.approvals.account-autonomy-level` (3), and a named strategy without an enabled
-deployment counts as level 0. The engine is consulted for agent proposals and again when they are approved; manual orders
+ALLOW reaches only the local user and strategy signals of a qualified deployment at autonomy 4-5 (`docs/execution.md`,
+"AUTO mode"); agents and everything else are capped at REQUIRE_APPROVAL (Automation Level 3), and only AUTO_ELIGIBLE
+rules may be edited to ALLOW (PRD 49 "Approved AUTO strategy → Auto"; the web `/risk/policies` page edits rules). The
+M4.4 rule `autonomy_above_phase` was removed by V28. Autonomy levels are stored per deployment (0–5; 4–5 on PAPER and
+AUTO deployments only); agent proposals without a deployed strategy use `hejje.agent.approvals.account-autonomy-level`
+(3), and a named strategy without an enabled deployment counts as level 0. The engine is consulted for agent proposals and again when they are approved; manual orders
 and signal executions keep their own confirmation steps.
 
 `GET /api/v1/risk/policies` (`risk:read`) lists the rules; `PUT /api/v1/risk/policies/{id}` (`risk:write`,

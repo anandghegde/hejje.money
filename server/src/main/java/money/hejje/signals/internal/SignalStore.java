@@ -168,6 +168,26 @@ public class SignalStore {
                 .param("d", deploymentId).param("i", instrumentId).param("since", ts(since)).query(Integer.class).single();
     }
 
+    /** Closed paper trades of a version (an entry filled and the position closed), for AUTO qualification (plan M5.2). */
+    public int closedPaperTrades(UUID versionId) {
+        return jdbc.sql("SELECT count(*) FROM strategy_position WHERE version_id = :v AND mode = 'PAPER' AND status = 'CLOSED' AND entry_price IS NOT NULL "
+                + "AND close_reason <> 'ENTRY_FAILED'").param("v", versionId).query(Integer.class).single();
+    }
+
+    /** Entries of a deployment since {@code since} on any instrument (failed entries do not count). */
+    public int entriesSince(UUID deploymentId, Instant since) {
+        return jdbc.sql("SELECT count(*) FROM strategy_position WHERE deployment_id = :d AND opened_at >= :since AND (status <> 'CLOSED' OR close_reason <> 'ENTRY_FAILED')")
+                .param("d", deploymentId).param("since", ts(since)).query(Integer.class).single();
+    }
+
+    /** Gross realized P&L (rupees) of a deployment's positions closed since {@code since}. */
+    public java.math.BigDecimal realizedSince(UUID deploymentId, Instant since) {
+        return jdbc.sql("""
+                SELECT COALESCE(SUM(CASE WHEN side = 'BUY' THEN exit_price - entry_price ELSE entry_price - exit_price END * quantity), 0)
+                FROM strategy_position WHERE deployment_id = :d AND status = 'CLOSED' AND closed_at >= :since AND entry_price IS NOT NULL AND exit_price IS NOT NULL
+                """).param("d", deploymentId).param("since", ts(since)).query(java.math.BigDecimal.class).single();
+    }
+
     private Signal mapSignal(ResultSet rs, int i) throws SQLException {
         return new Signal(rs.getObject("id", UUID.class), rs.getObject("version_id", UUID.class), rs.getObject("strategy_id", UUID.class),
                 uuid(rs, "deployment_id"), rs.getObject("instrument_id", UUID.class), ExecutionMode.valueOf(rs.getString("mode")), Side.valueOf(rs.getString("side")),

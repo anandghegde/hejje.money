@@ -64,7 +64,7 @@ export function Layout({ children }: { children: ReactNode }) {
             display: 'flex', justifyContent: 'space-between',
           }}
         >
-          <span>{live ? '● LIVE' : '● PAPER'} — {mode}</span>
+          <span>{mode === 'AUTO' ? '● LIVE · AUTO' : `${live ? '● LIVE' : '● PAPER'} — ${mode}`}</span>
           <span style={{ display: 'flex', gap: 16, fontWeight: 400 }}>
             {pending > 0 && <NavLink to="/approvals" data-testid="approvals-badge" style={{ color: '#fff', fontWeight: 700 }}>⚑ {pending} awaiting approval</NavLink>}
             <Dot ok={health?.status === 'UP'} label="Server" />

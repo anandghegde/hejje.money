@@ -36,8 +36,8 @@ class PolicyIT extends AbstractIntegrationTest {
         String admin = adminAccessToken();
         Map<String, Object> view = rest.exchange("/api/v1/risk/policies", HttpMethod.GET, new HttpEntity<>(bearer(admin)), Map.class).getBody();
         List<Map<String, Object>> rules = (List<Map<String, Object>>) view.get("rules");
-        assertThat(rules).extracting(r -> r.get("name")).containsExactly("daily_loss_block", "autonomy_above_phase", "agent_needs_prepare_level", "event_risk_high",
-                "new_strategy_version", "agent_actions", "manual_orders", "score_below_80", "strategy_signals");
+        assertThat(rules).extracting(r -> r.get("name")).containsExactly("daily_loss_block", "deployment_budget", "agent_needs_prepare_level", "event_risk_high",
+                "new_strategy_version", "agent_actions", "manual_orders", "score_below_80", "auto_strategy", "strategy_signals");
         assertThat(view).containsEntry("defaultDecision", "REQUIRE_APPROVAL");
         assertThat(rules.get(0)).containsEntry("decision", "DENY").containsEntry("condition", "DAILY_LOSS_EXCEEDED");
         assertThat((List<String>) rules.get(0).get("actions")).containsExactly("ORDER_NEW");
@@ -59,5 +59,13 @@ class PolicyIT extends AbstractIntegrationTest {
         assertThat(put(writer, id, Map.of("decision", "ALLOW")).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(put(writer, id, Map.of("enabled", true)).getBody()).containsEntry("enabled", true);
         assertThat(put(writer, UUID.randomUUID().toString(), Map.of("enabled", true)).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        // only the AUTO_ELIGIBLE rule may ALLOW (M5.2); a second key keeps within the transactional burst
+        String autoWriter = clients.create("policy-writer-" + UUID.randomUUID(), Set.of("risk:read", "risk:write"), null, actor).key();
+        Map<String, Object> auto = rules.stream().filter(r -> r.get("name").equals("auto_strategy")).findFirst().orElseThrow();
+        assertThat(auto).containsEntry("condition", "AUTO_ELIGIBLE").containsEntry("decision", "ALLOW");
+        String autoId = (String) auto.get("id");
+        assertThat(put(autoWriter, autoId, Map.of("decision", "REQUIRE_APPROVAL")).getBody()).containsEntry("decision", "REQUIRE_APPROVAL");
+        assertThat(put(autoWriter, autoId, Map.of("decision", "ALLOW")).getBody()).containsEntry("decision", "ALLOW");
     }
 }

@@ -22,7 +22,8 @@ import org.springframework.stereotype.Service;
 /**
  * {@code Policy.decide(action, actorType, autonomyLevel, mode, context) → ALLOW | REQUIRE_APPROVAL | DENY} (plan M4.4).
  * The first enabled rule (by priority) whose actions and condition match decides; no match means REQUIRE_APPROVAL.
- * Anything but the local user is capped at REQUIRE_APPROVAL in this phase (Automation Level 3 maximum, PRD 27).
+ * ALLOW reaches only the local user and, from M5.2, strategy signals of a qualified deployment at autonomy 4-5; every
+ * other actor (agents always) is capped at REQUIRE_APPROVAL.
  */
 @Service
 public class PolicyEngine {
@@ -49,11 +50,12 @@ public class PolicyEngine {
         return store.findAll();
     }
 
-    /** Edits a rule ({@code risk:write}). ALLOW is refused: automatic execution arrives with AUTO mode in Phase 5. */
+    /** Edits a rule ({@code risk:write}). ALLOW is accepted only on AUTO_ELIGIBLE rules (automatic execution of qualified strategy signals). */
     public PolicyRule update(UUID id, Boolean enabled, PolicyDecision decision, Integer priority, Map<String, Object> params, String by) {
         PolicyRule current = store.find(id).orElseThrow(() -> new NoSuchElementException("Unknown policy rule " + id));
-        if (decision == PolicyDecision.ALLOW) {
-            throw new IllegalArgumentException("ALLOW arrives with AUTO mode in Phase 5; a rule may require approval or deny");
+        if (decision == PolicyDecision.ALLOW && current.condition() != PolicyCondition.AUTO_ELIGIBLE) {
+            throw new IllegalArgumentException("Only an AUTO_ELIGIBLE rule may ALLOW (automatic execution of qualified strategy signals); "
+                    + "this rule may require approval or deny");
         }
         PolicyRule next = new PolicyRule(current.id(), current.name(), priority != null ? priority : current.priority(), current.condition(), current.actions(),
                 decision != null ? decision : current.decision(), params != null ? params : current.params(), enabled != null ? enabled : current.enabled(),
@@ -95,14 +97,19 @@ public class PolicyEngine {
             }
             PolicyDecision decision = rule.decision();
             String reason = rule.description() + " (" + why + ")";
-            if (decision == PolicyDecision.ALLOW && r.actorType() != ActorType.USER) {
+            if (decision == PolicyDecision.ALLOW && r.actorType() != ActorType.USER && !autoAllowed(r)) {
                 decision = PolicyDecision.REQUIRE_APPROVAL;
-                reason += "; capped at human confirmation (Automation Level 3 maximum in this phase)";
+                reason += "; capped at human confirmation (Automation Level 3: only a qualified strategy deployment at autonomy 4-5 executes automatically)";
             }
             trace.add(rule.name() + ": " + decision);
             return new PolicyResult(decision, rule.name(), reason, trace);
         }
         return new PolicyResult(DEFAULT, null, "No rule matched; human confirmation is the default", trace);
+    }
+
+    /** ALLOW may reach this request: a strategy signal of a qualified deployment at autonomy 4-5 (plan M5.2). */
+    static boolean autoAllowed(PolicyRequest r) {
+        return r.actorType() == ActorType.STRATEGY && r.autoQualified() && r.autonomyLevel() != null && r.autonomyLevel() >= 4;
     }
 
     /** Null when the condition does not hold, else a short explanation. */
@@ -128,6 +135,12 @@ public class PolicyEngine {
                 int max = intParam(p, "maxLevel", 3);
                 yield r.autonomyLevel() != null && r.autonomyLevel() > max ? "autonomy level " + r.autonomyLevel() + " > " + max : null;
             }
+            case AUTO_ELIGIBLE -> {
+                int min = Math.max(4, intParam(p, "minLevel", 4));
+                yield r.actorType() == ActorType.STRATEGY && r.autonomyLevel() != null && r.autonomyLevel() >= min && r.autoQualified() && r.score() != null
+                        ? "strategy deployment at autonomy " + r.autonomyLevel() + ", qualified for automation, score " + r.score() : null;
+            }
+            case DEPLOYMENT_BUDGET_EXCEEDED -> r.budgetBreach();
             case DAILY_LOSS_EXCEEDED -> {
                 RiskDashboard d = dashboard.get();
                 long threshold = d.dailyLossLimit().paise() * intParam(p, "lossLimitPct", 100) / 100;

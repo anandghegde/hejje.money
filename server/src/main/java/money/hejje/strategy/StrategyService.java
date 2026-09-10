@@ -50,6 +50,8 @@ public class StrategyService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final HejjeClock clock;
+    private final org.springframework.beans.factory.ObjectProvider<PaperTradeEvidence> paperTrades;
+    private final money.hejje.common.config.AutoProperties auto;
     private final JsonMapper canonical = JsonMapper.builder()
             .addModule(new JavaTimeModule())
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
@@ -59,7 +61,9 @@ public class StrategyService {
 
     StrategyService(StrategyStore store, DefinitionParser parser, StrategyValidator validator, StrategyLifecycle lifecycle,
             InstrumentService instruments, StrategyProperties properties, AuditService audit, ApplicationEventPublisher events,
-            HejjeClock clock) {
+            HejjeClock clock, org.springframework.beans.factory.ObjectProvider<PaperTradeEvidence> paperTrades, money.hejje.common.config.AutoProperties auto) {
+        this.paperTrades = paperTrades;
+        this.auto = auto;
         this.store = store;
         this.parser = parser;
         this.validator = validator;
@@ -280,8 +284,21 @@ public class StrategyService {
             throw new StrategyException.Conflict("Version " + number + " is " + version.status() + "; a " + mode + " deployment needs "
                     + (mode == ExecutionMode.PAPER ? "PAPER or LIVE" : "LIVE"));
         }
-        if (autonomyLevel < 0 || autonomyLevel > 3) {
-            throw new IllegalArgumentException("Autonomy level must be between 0 and 3 in this phase");
+        if (autonomyLevel < 0 || autonomyLevel > 5) {
+            throw new IllegalArgumentException("Autonomy level must be between 0 and 5");
+        }
+        if (autonomyLevel >= 4) {
+            // levels 4-5 (plan M5.2): never on CONFIRM; the mode rules above already require PAPER/LIVE (PAPER) or LIVE (AUTO), i.e. past VALIDATED
+            if (mode == ExecutionMode.CONFIRM) {
+                throw new IllegalArgumentException("A CONFIRM deployment confirms every trade: autonomy 4-5 needs an AUTO deployment (or PAPER to rehearse)");
+            }
+            if (mode == ExecutionMode.AUTO) {
+                int closed = paperTrades.getIfAvailable(() -> v -> 0).closedPaperTrades(version.id());
+                if (closed < auto.minPaperTrades()) {
+                    throw new StrategyException.Conflict("Version " + number + " has " + closed + " closed paper trade(s); autonomy 4-5 in AUTO needs at least "
+                            + auto.minPaperTrades() + " (hejje.auto.min-paper-trades): a new strategy version is never automatic");
+                }
+            }
         }
         List<UUID> instrumentIds = symbols == null || symbols.isEmpty()
                 ? resolveUniverse(version.definition()).stream().map(Instrument::id).toList()

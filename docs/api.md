@@ -1044,3 +1044,30 @@ Every deployment of every version, newest version first: a fresh report, the sto
 Body `{ "reason": "reviewed: regime shift" }` (required, 400 when blank) → the stored state with `overrideStatus`. Suppresses drift actions for the
 current status and anything no worse, sets the size multiplier back to 1.00 and audits `STRATEGY_DRIFT_OVERRIDDEN`; a paused deployment stays
 paused (re-enable it with `PUT /deployments/{id}`). 409 when the status is HEALTHY or INSUFFICIENT_DATA.
+
+## AUTO mode, autonomy 4-5 and policies (Phase 5, M5.2)
+
+See `docs/execution.md` ("AUTO mode") and `docs/risk.md` (policy table).
+
+### `POST /api/v1/strategies/{id}/versions/{v}/deployments`
+
+`autonomyLevel` is 0-5. Levels 4-5 are refused on CONFIRM deployments (400) and, on AUTO deployments, until the version
+has `hejje.auto.min-paper-trades` closed paper trades (409, "a new strategy version is never automatic"). New optional
+`params` for autonomy 4-5: `daily_max_trades`, `daily_max_loss_rupees` (defaults `hejje.auto.default-*`).
+
+### `GET /api/v1/risk/policies` · `PUT /api/v1/risk/policies/{id}`
+
+The table now has `deployment_budget` (15, DEPLOYMENT_BUDGET_EXCEEDED → DENY) and `auto_strategy` (85, AUTO_ELIGIBLE →
+ALLOW); `autonomy_above_phase` is gone. `PUT … {"decision": "ALLOW"}` is accepted only on an AUTO_ELIGIBLE rule (400
+otherwise). Web: `/risk/policies`.
+
+### Approvals held by the AUTO policy
+
+A signal of an autonomy 4-5 deployment that the policy sends to a human appears in `GET /api/v1/approvals` as an
+ORDER_NEW approval with `"requestedByType": "STRATEGY"`, `"requestedBy": "<strategy slug>"`, no `requestedBySession`,
+the AUTO policy result in `policy` and its reason in `rationale`; it expires with the signal and is approved or rejected
+like any other (approving executes the signal through the confirmation path).
+
+Audit types: `AUTO_EXECUTED` (actor STRATEGY, with the policy decision, rule, trace and context), `AUTO_HELD` (outcome
+HELD / DENIED / FAILED with the reason), `APPROVAL_CREATED` (a held signal's approval).
+

@@ -54,10 +54,12 @@ public class DriftService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final DriftProperties properties;
+    private final money.hejje.common.config.AutoProperties auto;
     private final HejjeClock clock;
 
     DriftService(DriftStore store, ReviewStore reviews, SignalService signals, StrategyService strategies, BacktestService backtests, ScoringService scoring,
-            AuditService audit, ApplicationEventPublisher events, DriftProperties properties, HejjeClock clock) {
+            AuditService audit, ApplicationEventPublisher events, DriftProperties properties, money.hejje.common.config.AutoProperties auto, HejjeClock clock) {
+        this.auto = auto;
         this.store = store;
         this.reviews = reviews;
         this.signals = signals;
@@ -188,7 +190,11 @@ public class DriftService {
             } else if (prev.isPresent() && prev.get().overrides(report.status())) {
                 results.add("no action: overridden by " + prev.get().overrideBy() + " (" + prev.get().overrideReason() + ")");
             } else {
-                toRun = actionsFor.apply(report.status());
+                toRun = new ArrayList<>(actionsFor.apply(report.status()));
+                // autonomy 5 manages its own lifecycle (plan M5.2): it pauses itself once drift reaches hejje.auto.self-pause-drift
+                if (d.autonomyLevel() >= 5 && !DriftStatus.valueOf(auto.selfPauseDrift()).worseThan(report.status()) && !toRun.contains(DriftAction.PAUSE)) {
+                    toRun.add(DriftAction.PAUSE);
+                }
                 acted = report.status();
                 if (prev.isPresent() && prev.get().overrideStatus() != null) {
                     store.clearOverride(d.id()); // the status went past what was overridden

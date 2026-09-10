@@ -51,6 +51,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ApprovalService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApprovalService.class);
+
     private final ApprovalStore store;
     private final OrderProposals proposals;
     private final OrderService orders;
@@ -110,6 +112,51 @@ public class ApprovalService {
                 p.proposal().summary(), rationale, json.valueToTree(p.proposal()), json.valueToTree(p.risk()), json.valueToTree(p.policy()), now, expires, null, null,
                 null, null, null);
         return recordProposal(a, ctx);
+    }
+
+    /** Principal of approvals requested by the AUTO executor for strategy signals the policy held (plan M5.2). */
+    public static final UUID STRATEGY_PRINCIPAL = UUID.nameUUIDFromBytes("hejje:auto".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+    /**
+     * An approval for a strategy signal the AUTO policy held (plan M5.2): requested by the strategy (type STRATEGY, no
+     * agent session), with the AUTO policy result and reason, expiring with the signal. One per signal; empty when the
+     * signal is no longer actionable or would not size or pass risk (a human could not execute it either).
+     */
+    public Optional<Approval> proposeHeldSignal(UUID signalId, String requestedBy, PolicyResult policy, String reason) {
+        String key = "held:" + signalId;
+        Optional<Approval> existing = store.findByRequestKey(STRATEGY_PRINCIPAL, key);
+        if (existing.isPresent()) {
+            return existing;
+        }
+        OrderProposals.Prepared p;
+        try {
+            p = proposals.forHeldSignal(signalId, policy);
+        } catch (ToolException e) {
+            log.info("No approval for held signal {}: {}", signalId, e.getMessage());
+            return Optional.empty();
+        }
+        if (p.proposal().quantity() <= 0 || !p.risk().isApproved()) {
+            log.info("No approval for held signal {}: quantity {} / risk {}", signalId, p.proposal().quantity(), p.risk().failures());
+            return Optional.empty();
+        }
+        Instant now = clock.now();
+        UUID id = Ids.newId();
+        Instant expires = p.signal().validUntil() != null && p.signal().validUntil().isAfter(now) ? p.signal().validUntil() : now.plus(props.approvals().ttl());
+        var c = p.command();
+        ExecutionMode mode = proposals.mode();
+        OrderIntent proposed = new OrderIntent(Ids.newId(), "proposal:" + id, STRATEGY_PRINCIPAL, ActorType.STRATEGY, requestedBy, c.strategyId(), c.signalId(),
+                c.instrumentId(), c.side(), c.quantity(), c.orderType(), c.product(), c.limitPrice(), c.triggerPrice(), c.stopPrice(), c.targetPrice(), c.maxRisk(),
+                OrderReason.STRATEGY_SIGNAL, mode, IntentStatus.PROPOSED, List.of(), now);
+        orders.saveIntent(proposed);
+        Approval a = new Approval(id, ApprovalKind.ORDER_NEW, ApprovalStatus.PENDING, mode.name(), proposed.id(), signalId, c.strategyId(), c.instrumentId(),
+                p.proposal().instrument(), null, null, requestedBy, STRATEGY_PRINCIPAL, "STRATEGY", key, p.proposal().summary(), reason,
+                json.valueToTree(p.proposal()), json.valueToTree(p.risk()), json.valueToTree(policy), now, expires, null, null, null, null, null);
+        store.insert(a);
+        audit.record(AuditEvent.of(AuditEventType.APPROVAL_CREATED, ActorType.STRATEGY).withActorId(requestedBy).withOrderIntentId(a.intentId())
+                .withStrategyId(a.strategyId()).withSignalId(signalId).withPayload(Map.of("approvalId", id.toString(), "kind", a.kind().name(),
+                        "summary", a.summary(), "expiresAt", expires.toString(), "reason", reason)));
+        notify(a);
+        return Optional.of(a);
     }
 
     public Approval proposeModify(ToolContext ctx, HejjeOrder order, Integer quantity, OrderType orderType, java.math.BigDecimal limitPrice,

@@ -16,7 +16,7 @@ function ApprovalCard({ a, now, busy, onDecide }: { a: Approval; now: number; bu
         <span style={{ color: left === 'expired' ? '#c62828' : '#616161' }}>expires in {left}</span>
       </div>
       <div style={{ fontSize: 13, color: '#616161', margin: '4px 0 8px' }}>
-        {a.kind} · requested by {a.requestedBy} ({a.requestedByType === 'CLIENT' ? 'agent key' : 'Hejje AI'}) · {new Date(a.createdAt).toLocaleTimeString()}
+        {a.kind} · requested by {a.requestedBy} ({a.requestedByType === 'CLIENT' ? 'agent key' : a.requestedByType === 'STRATEGY' ? 'strategy, held by the AUTO policy' : 'Hejje AI'}) · {new Date(a.createdAt).toLocaleTimeString()}
       </div>
       {a.rationale && <p style={{ margin: '4px 0' }}>“{a.rationale}”</p>}
       <table style={{ fontSize: 13 }}><tbody>
