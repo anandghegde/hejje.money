@@ -244,6 +244,15 @@ class HejjeAiIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void whatLostMeMoneyRunsTheLossInvestigationFlow() {
+        Map<String, Object> turn = ask(adminAccessToken(), "What lost me money this month?", null);
+        assertThat(turn).containsEntry("flow", "losses");
+        assertThat(tools(turn)).startsWith("get_loss_attribution", "get_slippage_stats", "get_rule_adherence");
+        LlmRequest request = fixture.requests().stream().filter(r -> r.userPrompt().startsWith("What lost me money")).findFirst().orElseThrow();
+        assertThat(request.userPrompt()).contains("ACTUAL [get_loss_attribution]").contains("keep ACTUAL and SIMULATED figures clearly separate");
+    }
+
+    @Test
     void statusReportsProfilesAndLimits() {
         Map<String, Object> status = rest.exchange("/api/v1/agents/ai/status", HttpMethod.GET, new HttpEntity<>(bearer(adminAccessToken())), Map.class).getBody();
         assertThat(status).containsEntry("enabled", true).containsEntry("profile", "reasoning").containsEntry("followUpProfile", "fast").containsEntry("maxSteps", 8);

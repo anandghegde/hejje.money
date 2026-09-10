@@ -171,6 +171,19 @@ public class NewsService {
     }
 
     /** The bias for an instrument as of now (computed from the retained assessments and stored). Never throws. */
+    /**
+     * The bias snapshot stored at or before {@code at} within the aggregation window, if any (trade reviews record the
+     * news context as of the entry, plan M4.5). Never throws.
+     */
+    public Optional<NewsBias> biasSnapshotAt(UUID instrumentId, Instant at) {
+        try {
+            return store.latestBias(instrumentId, at.minus(props.window()), at);
+        } catch (RuntimeException e) {
+            log.warn("News snapshot lookup failed for {}: {}", instrumentId, e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public NewsBias bias(UUID instrumentId) {
         Instant now = clock.now();
         if (!props.enabled()) {

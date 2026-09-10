@@ -46,12 +46,16 @@ public class ReviewService {
     private final MarketService market;
     private final ReviewStore store;
     private final money.hejje.regime.RegimeService regime;
+    private final money.hejje.events.EventService events;
+    private final money.hejje.news.NewsService news;
     private final HejjeClock clock;
 
     ReviewService(AnalyticsService analytics, OrderService orders, SignalService signals, StrategyService strategies, MarketService market, ReviewStore store,
-            money.hejje.regime.RegimeService regime, HejjeClock clock) {
+            money.hejje.regime.RegimeService regime, money.hejje.events.EventService events, money.hejje.news.NewsService news, HejjeClock clock) {
         this.analytics = analytics;
         this.regime = regime;
+        this.events = events;
+        this.news = news;
         this.orders = orders;
         this.signals = signals;
         this.strategies = strategies;
@@ -118,12 +122,21 @@ public class ReviewService {
         } else if (version.isPresent()) {
             adherence = Boolean.TRUE.equals(setupValid) ? 50 : 0;
         }
-        Map<String, Object> context = new LinkedHashMap<>(); // news and event arrive with M3.3/M3.4; UNKNOWN survives JSON non-null serialisation
+        Map<String, Object> context = new LinkedHashMap<>(); // UNKNOWN (not null) when a source has nothing: survives JSON non-null serialisation
         money.hejje.regime.RegimeSnapshot regimeAtClose = regimeAt(trip.closedAt());
         context.put("regime", regimeAtClose == null ? "UNKNOWN" : regimeAtClose.key());
         context.put("breadth", regimeAtClose == null ? "UNKNOWN" : regimeAtClose.breadth().name());
-        context.put("news", "UNKNOWN");
-        context.put("event", "UNKNOWN");
+        // news and event as they stood at the entry (plan M4.5): the latest stored news-bias snapshot, and the event risk then
+        money.hejje.news.NewsBias newsAtEntry = news.biasSnapshotAt(trip.instrumentId(), trip.openedAt()).orElse(null);
+        context.put("news", newsAtEntry == null ? "UNKNOWN" : newsAtEntry.label().name());
+        if (newsAtEntry != null) {
+            context.put("newsScore", newsAtEntry.score());
+        }
+        money.hejje.events.EventRisk eventAtEntry = events.riskAt(trip.instrumentId(), trip.openedAt());
+        context.put("event", eventAtEntry.available() && eventAtEntry.level() != null ? eventAtEntry.level().name() : "UNKNOWN");
+        if (eventAtEntry.trigger() != null) {
+            context.put("eventTrigger", eventAtEntry.trigger().title());
+        }
         String notes = sp.isPresent() ? "strategy trade" : version.isPresent() ? "manual trade compared against " + version.get().definition().name() : "manual trade";
         return new TradeReview(Ids.newId(), p.mode(), p.id(), sp.map(StrategyPosition::id).orElse(null), strategyId, version.map(StrategyVersion::id).orElse(null),
                 signal.map(Signal::id).orElse(null), trip.instrumentId(), trip.entryOrderId(), trip.side(), trip.quantity(), trip.entryPrice(), trip.exitPrice(),

@@ -4,8 +4,9 @@ import { request } from '../api/client';
 import { PnlReport } from '../api/types';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
+import { LossInvestigation } from '../components/LossInvestigation';
 
-const GROUPS = ['strategy', 'version', 'instrument', 'weekday', 'hour', 'regime'];
+const GROUPS = ['strategy', 'version', 'instrument', 'weekday', 'hour', 'regime', 'family', 'eventContext', 'newsBias', 'exitReason'];
 
 export function Analytics() {
   const [groupBy, setGroupBy] = useState('strategy');
@@ -29,6 +30,7 @@ export function Analytics() {
           ))}
         </tbody>
       </table>
+      <LossInvestigation />
     </div>
   );
 }

@@ -22,14 +22,16 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code why_ranked_first} — rankings, then the chosen row's score breakdown and rules;</li>
  *   <li>{@code compare} — two strategies (latest versions) or two versions of one strategy;</li>
- *   <li>{@code working_today} — rankings plus today's P&L by strategy.</li>
+ *   <li>{@code working_today} — rankings plus today's P&L by strategy;</li>
+ *   <li>{@code losses} — "what lost me money this month": loss attribution, slippage, rule adherence and, for the largest
+ *   family × trend loss bucket, a counterfactual kept apart as SIMULATED (PRD 57).</li>
  * </ul>
  */
 @Component
 public class AnalystFlows {
 
     public enum Flow {
-        WHY_RANKED_FIRST, COMPARE, WORKING_TODAY;
+        WHY_RANKED_FIRST, COMPARE, WORKING_TODAY, LOSSES;
 
         public String id() {
             return name().toLowerCase(Locale.ROOT);
@@ -47,6 +49,8 @@ public class AnalystFlows {
     private static final Pattern WHY = Pattern.compile("(?i)\\bwhy\\s+is\\s+(.+?)\\s+(?:ranked|rated|placed)\\s+(?:first|top|#?1|number\\s+one)\\b");
     private static final Pattern COMPARE = Pattern.compile("(?i)\\bcompare\\s+(.+?)\\s+(?:and|vs\\.?|versus|with|to)\\s+(.+?)\\s*[?.!]*$");
     private static final Pattern WORKING = Pattern.compile("(?i)\\bwhat(?:'s|\\s+is)\\s+working\\s+today\\b");
+    private static final Pattern LOSSES = Pattern.compile(
+            "(?i)\\b(?:what|which)\\b[^?]*\\b(?:lost|losing|cost)\\b[^?]*\\bmoney\\b|\\bwhy\\s+am\\s+i\\s+losing\\b|\\bwhat\\s+caused\\s+(?:most\\s+of\\s+)?my\\s+losses\\b|\\bwhere\\s+did\\s+i\\s+lose\\b");
     private static final Pattern VERSIONED = Pattern.compile("(?i)^(.*?)\\s*v(\\d+)$");
 
     private final AgentToolService tools;
@@ -78,6 +82,7 @@ public class AnalystFlows {
             case WHY_RANKED_FIRST -> WHY.matcher(q);
             case COMPARE -> COMPARE.matcher(q);
             case WORKING_TODAY -> WORKING.matcher(q);
+            case LOSSES -> LOSSES.matcher(q);
         };
         if (!m.find()) {
             return null;
@@ -96,6 +101,7 @@ public class AnalystFlows {
             case WHY_RANKED_FIRST -> whyRankedFirst(d.args().isEmpty() ? null : d.args().get(0), ctx, onTool, e);
             case COMPARE -> compare(d.args(), ctx, onTool, e);
             case WORKING_TODAY -> workingToday(ctx, onTool, e);
+            case LOSSES -> losses(ctx, onTool, e);
         }
         return e.toString();
     }
@@ -259,6 +265,68 @@ public class AnalystFlows {
                         .append(r.path("hardBlocks").size() > 0 ? ", blocked: " + join(r.path("hardBlocks")) : "").append('\n');
             }
         }
+    }
+
+    private void losses(ToolContext ctx, Consumer<ToolResult> onTool, StringBuilder e) {
+        JsonNode report = call("get_loss_attribution", Map.of(), ctx, onTool, e);
+        JsonNode combo = null;
+        if (report != null) {
+            JsonNode a = report.path("attribution");
+            e.append("- ACTUAL [get_loss_attribution] ").append(v(report, "from")).append(" to ").append(v(report, "to")).append(": ").append(v(a, "trades"))
+                    .append(" closed trades, net ").append(v(a, "netPnl")).append(" rupees; ").append(v(a, "losers")).append(" losers lost ").append(v(a, "grossLosses"))
+                    .append(" rupees, ").append(v(a, "winners")).append(" winners made ").append(v(a, "grossWins")).append(" rupees.\n");
+            if (a.hasNonNull("headline")) {
+                e.append("- ACTUAL [get_loss_attribution]: ").append(a.path("headline").asText()).append('\n');
+            }
+            for (JsonNode d : a.path("dimensions")) {
+                String name = d.path("name").asText();
+                if (!List.of("family", "trend", "event", "news", "exitReason").contains(name)) {
+                    continue;
+                }
+                List<String> parts = new ArrayList<>();
+                for (JsonNode b : d.path("buckets")) {
+                    if (parts.size() == 3 || b.path("losses").decimalValue().signum() == 0) {
+                        break;
+                    }
+                    parts.add(b.path("key").asText() + " " + b.path("lossSharePct").asText() + "% of losses (" + b.path("losses").asText() + " rupees, "
+                            + b.path("losers").asText() + " of " + b.path("trades").asText() + " trades lost)");
+                }
+                if (!parts.isEmpty()) {
+                    e.append("- ACTUAL losses by ").append(name).append(" [get_loss_attribution]: ").append(String.join("; ", parts)).append('\n');
+                }
+            }
+            JsonNode top = a.path("familyByTrend").path(0);
+            if (!top.isMissingNode() && top.path("losses").decimalValue().signum() > 0 && top.path("key").asText().contains(" × ")) {
+                combo = top;
+            }
+        }
+        JsonNode slippage = call("get_slippage_stats", Map.of(), ctx, onTool, e);
+        if (slippage != null) {
+            JsonNode s = slippage.path("slippage");
+            e.append("- ACTUAL slippage [get_slippage_stats]: entry mean ").append(v(s.path("entry"), "meanBps")).append(" bps over ").append(v(s.path("entry"), "trades"))
+                    .append(" trades, exit mean ").append(v(s.path("exit"), "meanBps")).append(" bps over ").append(v(s.path("exit"), "trades"))
+                    .append(" trades, estimated cost ").append(v(s, "totalCostRupees")).append(" rupees\n");
+        }
+        JsonNode adherence = call("get_rule_adherence", Map.of(), ctx, onTool, e);
+        if (adherence != null) {
+            JsonNode a = adherence.path("adherence");
+            e.append("- ACTUAL rule adherence [get_rule_adherence]: mean ").append(v(a, "meanAdherencePct")).append("% over ").append(v(a, "withAdherence"))
+                    .append(" reviewed trades; ").append(v(a, "fullAdherence")).append(" fully adherent, ").append(v(a, "setupInvalid")).append(" with an invalid setup, ")
+                    .append(v(a, "manualExits")).append(" manual exits\n");
+        }
+        if (combo != null) {
+            String[] key = combo.path("key").asText().split(" × ", 2);
+            JsonNode cf = call("run_counterfactual", Map.of("exclude", Map.of("families", List.of(key[0]), "trends", List.of(key[1]))), ctx, onTool, e);
+            if (cf != null) {
+                JsonNode c = cf.path("counterfactual");
+                e.append("- SIMULATED — a counterfactual, NOT actual results [run_counterfactual]: without the ").append(v(c, "excludedTrades")).append(' ')
+                        .append(key[0]).append(" trades during ").append(key[1]).append(" sessions, net would have been ").append(v(c.path("simulated"), "netPnl"))
+                        .append(" rupees instead of the actual ").append(v(c.path("actual"), "netPnl")).append(", and max drawdown ")
+                        .append(v(c.path("simulated"), "maxDrawdown")).append(" rupees instead of the actual ").append(v(c.path("actual"), "maxDrawdown"))
+                        .append(". ").append(v(c, "note")).append('\n');
+            }
+        }
+        e.append("- When answering, keep ACTUAL and SIMULATED figures clearly separate and say that the counterfactual is hypothetical.\n");
     }
 
     private static void row(StringBuilder e, String tool, JsonNode r) {

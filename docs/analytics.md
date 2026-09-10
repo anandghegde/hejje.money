@@ -68,3 +68,33 @@ re-runs one.
 
 The Playwright paper flow (`web/tests-e2e/paper-flow.spec.ts`) uses exactly these: seed → signal → Today → execute →
 fill → stop → review → attribution.
+
+## Performance investigation (Phase 4, M4.5)
+
+Trade reviews now record the context **as of the entry**: `event` (the instrument's event risk level then, with
+`eventTrigger` naming the event) and `news` (the latest stored news-bias snapshot within the aggregation window before
+the entry, with `newsScore`), next to the regime/breadth of the session. Missing sources are recorded as `UNKNOWN`.
+
+`GET /analytics/pnl?groupBy=` gains `family`, `eventContext`, `newsBias` and `exitReason`.
+
+`PerformanceMath` (pure, `money.hejje.analytics`) works on `TradeFact`s (a closed round trip plus its review context):
+
+- **Loss attribution**: losses are the absolute net P&L of losing trades; every bucket (by family, strategy, trend,
+  regime, event, news, exit reason, hour, instrument, and family × trend) carries its losses and share of all losses,
+  sorted by losses. The headline is templated from the largest family × trend bucket ("83.3% of losses came from mean
+  reversion strategies during strong up sessions").
+- **Slippage**: entry and exit basis points (positive = worse for the trader): mean, median, p90 (nearest rank), worst,
+  and cost ≈ bps × price × quantity, overall and per strategy.
+- **Rule adherence**: mean adherence %, fully adherent trades, invalid setups, manual exits, and net P&L of fully vs
+  partly adherent trades.
+- **Counterfactual**: removes the trades matching **every** given category (AND across categories, OR within one) from
+  the actual sequence and recomputes trades, net P&L, peak-to-trough drawdown of the cumulative net, win rate and profit
+  factor. The result always has `basis: "SIMULATED"`, a note that it is hypothetical, and the actual figures next to the
+  simulated ones (PRD 57). It does not model trades that might have been taken instead.
+
+Endpoints (`market:read`, period defaults to month to date): `GET /analytics/losses`, `GET /analytics/slippage`,
+`GET /analytics/adherence`, `POST /analytics/counterfactual` (`{ "from", "to", "exclude": { "families": [...], "trends": [...],
+"regimes", "strategies", "events", "news", "hours", "instruments" } }`). Agent tools: `get_loss_attribution`,
+`get_slippage_stats`, `get_rule_adherence`, `run_counterfactual`; Hejje AI's `losses` flow ("What lost me money this
+month?") composes them and keeps ACTUAL and SIMULATED evidence apart. The web Analytics page has a "Loss investigation"
+section with a counterfactual panel (actual and simulated columns side by side).

@@ -16,13 +16,16 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_account_risk` | `risk:read` | read | Account risk dashboard (PRD 54): P&L vs the daily loss limit, exposure, open positions, trades today, consecutive losses, margin use and the kill switch. |
 | `get_audit_trail` | `admin` | read | Audit events, newest first, filtered by order id, event type or start date (at most 50). |
 | `get_event_calendar` | `market:read` | read | Market and instrument events (holidays, expiries, results, RBI/FOMC/CPI) between two dates (default the next 7 days, at most 62), plus the instrument's current event risk when an instrument is given. |
+| `get_loss_attribution` | `market:read` | read | Where the period's losses came from (default month to date): totals, and per strategy family, strategy, trend, regime, event risk at entry, news bias at entry, exit reason, hour and instrument each bucket's share of all losses; plus family × trend combinations and a templated headline. |
 | `get_market_regime` | `market:read` | read | Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) with one evidence sentence per dimension, from the deterministic regime classifier. |
 | `get_market_snapshot` | `market:read` | read | Latest quote (last price, bid/ask, volume, open interest, staleness) for one or up to 20 instruments. |
 | `get_news_context` | `market:read` | read | News bias for an instrument (score -1..1, label, evidence per story) plus the last 24 hours of matched headlines. |
 | `get_orders` | `market:read` | read | Today's orders in the current execution mode, optionally filtered by state (newest first). |
-| `get_pnl_breakdown` | `market:read` | read | Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour or market regime, between two dates (default today, at most 92 days). |
+| `get_pnl_breakdown` | `market:read` | read | Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour, market regime, strategy family, event risk at entry (eventContext), news bias at entry (newsBias) or exit reason, between two dates (default today, at most 92 days). |
 | `get_positions` | `market:read` | read | Open positions in the current execution mode with average price, last price and unrealized/realized P&L (rupees). |
 | `get_pulse` | `market:read` | read | Technical Pulse (direction, strength, -100..100 score, per-rule components) and Market Pulse rows (regime, volatility, breadth, sector strength). |
+| `get_rule_adherence` | `market:read` | read | Rule adherence of reviewed trades (mean %, fully adherent, invalid setups, manual exits, net P&L of adherent vs partly adherent trades, per strategy) for the period (default month to date). |
+| `get_slippage_stats` | `market:read` | read | Entry and exit slippage in basis points (mean, median, p90, worst; positive = worse) with its estimated cost in rupees and per strategy, for the period (default month to date). |
 | `get_strategy` | `strategies:read` | read | One strategy version (default the latest): rules in words (entry/exit conditions, stop, target, trailing, window), regime preferences, event rules, the best instrument's score breakdown and its deployments. |
 | `get_strategy_backtest` | `strategies:read` | read | A backtest by id, or the base backtest of a version: metrics overall and per split (IS / validation / OOS), quality warnings, data coverage and the result hash. |
 | `get_strategy_rankings` | `strategies:read` | read | Today's ranked recommendations as PRD 29 decision objects (score, TRADE / TRADE_WITH_CAUTION / WAIT / AVOID, direction, entry/stop/target, risk, regime, news bias, event risk, hard blocks, cautions) and the best one. |
@@ -31,6 +34,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `list_strategies` | `strategies:read` | read | Every strategy in the library with its latest version, lifecycle status and headline Hejje Score. |
 | `modify_order_intent` | `orders:prepare` | transactional | Asks a human to approve modifying an open order (quantity, order type, limit or trigger price). |
 | `prepare_order` | `orders:prepare` | read | Dry run of an order: Hejje sizes it from the rupee risk and stop (or the signal), runs the risk checks and the approval policy, and returns the proposal. Nothing is created; use submit_order_intent to ask a human to approve it. |
+| `run_counterfactual` | `market:read` | read | SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical. |
 | `submit_order_intent` | `orders:prepare` | transactional | Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale. |
 
 ## `calculate_position_size`
@@ -762,6 +766,146 @@ Output schema:
 }
 ```
 
+## `get_loss_attribution`
+
+Where the period's losses came from (default month to date): totals, and per strategy family, strategy, trend, regime, event risk at entry, news bias at entry, exit reason, hour and instrument each bucket's share of all losses; plus family × trend combinations and a templated headline.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "from" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default the first day of this month"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default today"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "attribution" : {
+      "type" : "object",
+      "properties" : {
+        "trades" : {
+          "type" : "integer"
+        },
+        "winners" : {
+          "type" : "integer"
+        },
+        "losers" : {
+          "type" : "integer"
+        },
+        "netPnl" : {
+          "type" : "number"
+        },
+        "grossLosses" : {
+          "type" : "number"
+        },
+        "grossWins" : {
+          "type" : "number"
+        },
+        "dimensions" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "name" : {
+                "type" : "string"
+              },
+              "buckets" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "object",
+                  "properties" : {
+                    "key" : {
+                      "type" : "string"
+                    },
+                    "trades" : {
+                      "type" : "integer"
+                    },
+                    "losers" : {
+                      "type" : "integer"
+                    },
+                    "netPnl" : {
+                      "type" : "number"
+                    },
+                    "losses" : {
+                      "type" : "number"
+                    },
+                    "lossSharePct" : {
+                      "type" : "number"
+                    }
+                  },
+                  "required" : [ "trades", "losers" ]
+                }
+              }
+            }
+          }
+        },
+        "familyByTrend" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "key" : {
+                "type" : "string"
+              },
+              "trades" : {
+                "type" : "integer"
+              },
+              "losers" : {
+                "type" : "integer"
+              },
+              "netPnl" : {
+                "type" : "number"
+              },
+              "losses" : {
+                "type" : "number"
+              },
+              "lossSharePct" : {
+                "type" : "number"
+              }
+            },
+            "required" : [ "trades", "losers" ]
+          }
+        },
+        "headline" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "trades", "winners", "losers" ]
+    }
+  }
+}
+```
+
 ## `get_market_regime`
 
 Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) with one evidence sentence per dimension, from the deterministic regime classifier.
@@ -1098,7 +1242,7 @@ Output schema:
 
 ## `get_pnl_breakdown`
 
-Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour or market regime, between two dates (default today, at most 92 days).
+Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour, market regime, strategy family, event risk at entry (eventContext), news bias at entry (newsBias) or exit reason, between two dates (default today, at most 92 days).
 
 Scope `market:read`, read-only.
 
@@ -1110,7 +1254,7 @@ Input schema:
   "properties" : {
     "groupBy" : {
       "type" : "string",
-      "enum" : [ "strategy", "version", "instrument", "weekday", "hour", "regime" ]
+      "enum" : [ "strategy", "version", "instrument", "weekday", "hour", "regime", "family", "eventContext", "newsBias", "exitReason" ]
     },
     "from" : {
       "type" : "string",
@@ -1374,6 +1518,230 @@ Output schema:
     }
   },
   "required" : [ "available" ]
+}
+```
+
+## `get_rule_adherence`
+
+Rule adherence of reviewed trades (mean %, fully adherent, invalid setups, manual exits, net P&L of adherent vs partly adherent trades, per strategy) for the period (default month to date).
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "from" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default the first day of this month"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default today"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "adherence" : {
+      "type" : "object",
+      "properties" : {
+        "trades" : {
+          "type" : "integer"
+        },
+        "withAdherence" : {
+          "type" : "integer"
+        },
+        "meanAdherencePct" : {
+          "type" : "number"
+        },
+        "fullAdherence" : {
+          "type" : "integer"
+        },
+        "setupInvalid" : {
+          "type" : "integer"
+        },
+        "manualExits" : {
+          "type" : "integer"
+        },
+        "netFullAdherence" : {
+          "type" : "number"
+        },
+        "netPartialAdherence" : {
+          "type" : "number"
+        },
+        "byStrategy" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "strategy" : {
+                "type" : "string"
+              },
+              "trades" : {
+                "type" : "integer"
+              },
+              "meanAdherencePct" : {
+                "type" : "number"
+              },
+              "setupInvalid" : {
+                "type" : "integer"
+              }
+            },
+            "required" : [ "trades", "setupInvalid" ]
+          }
+        }
+      },
+      "required" : [ "trades", "withAdherence", "fullAdherence", "setupInvalid", "manualExits" ]
+    }
+  }
+}
+```
+
+## `get_slippage_stats`
+
+Entry and exit slippage in basis points (mean, median, p90, worst; positive = worse) with its estimated cost in rupees and per strategy, for the period (default month to date).
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "from" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default the first day of this month"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default today"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "slippage" : {
+      "type" : "object",
+      "properties" : {
+        "entry" : {
+          "type" : "object",
+          "properties" : {
+            "trades" : {
+              "type" : "integer"
+            },
+            "meanBps" : {
+              "type" : "number"
+            },
+            "medianBps" : {
+              "type" : "number"
+            },
+            "p90Bps" : {
+              "type" : "number"
+            },
+            "worstBps" : {
+              "type" : "number"
+            },
+            "costRupees" : {
+              "type" : "number"
+            }
+          },
+          "required" : [ "trades" ]
+        },
+        "exit" : {
+          "type" : "object",
+          "properties" : {
+            "trades" : {
+              "type" : "integer"
+            },
+            "meanBps" : {
+              "type" : "number"
+            },
+            "medianBps" : {
+              "type" : "number"
+            },
+            "p90Bps" : {
+              "type" : "number"
+            },
+            "worstBps" : {
+              "type" : "number"
+            },
+            "costRupees" : {
+              "type" : "number"
+            }
+          },
+          "required" : [ "trades" ]
+        },
+        "totalCostRupees" : {
+          "type" : "number"
+        },
+        "byStrategy" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "strategy" : {
+                "type" : "string"
+              },
+              "trades" : {
+                "type" : "integer"
+              },
+              "meanEntryBps" : {
+                "type" : "number"
+              },
+              "meanExitBps" : {
+                "type" : "number"
+              }
+            },
+            "required" : [ "trades" ]
+          }
+        }
+      }
+    }
+  }
 }
 ```
 
@@ -2478,6 +2846,244 @@ Output schema:
     }
   },
   "required" : [ "quantity", "newStrategyVersion" ]
+}
+```
+
+## `run_counterfactual`
+
+SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "from" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default the first day of this month"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Default today"
+    },
+    "exclude" : {
+      "type" : "object",
+      "properties" : {
+        "regimes" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "trends" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "families" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "strategies" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "events" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "news" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        },
+        "hours" : {
+          "type" : "array",
+          "items" : {
+            "type" : "integer",
+            "minimum" : 0,
+            "maximum" : 23
+          },
+          "maxItems" : 24
+        },
+        "instruments" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20
+        }
+      },
+      "additionalProperties" : false
+    }
+  },
+  "required" : [ "exclude" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "counterfactual" : {
+      "type" : "object",
+      "properties" : {
+        "basis" : {
+          "type" : "string"
+        },
+        "note" : {
+          "type" : "string"
+        },
+        "filter" : {
+          "type" : "object",
+          "properties" : {
+            "regimes" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "trends" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "families" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "strategies" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "events" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "news" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "hours" : {
+              "type" : "array",
+              "items" : {
+                "type" : "integer"
+              }
+            },
+            "instruments" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            }
+          }
+        },
+        "actual" : {
+          "type" : "object",
+          "properties" : {
+            "trades" : {
+              "type" : "integer"
+            },
+            "winners" : {
+              "type" : "integer"
+            },
+            "netPnl" : {
+              "type" : "number"
+            },
+            "maxDrawdown" : {
+              "type" : "number"
+            },
+            "winRate" : {
+              "type" : "number"
+            },
+            "profitFactor" : {
+              "type" : "number"
+            }
+          },
+          "required" : [ "trades", "winners" ]
+        },
+        "simulated" : {
+          "type" : "object",
+          "properties" : {
+            "trades" : {
+              "type" : "integer"
+            },
+            "winners" : {
+              "type" : "integer"
+            },
+            "netPnl" : {
+              "type" : "number"
+            },
+            "maxDrawdown" : {
+              "type" : "number"
+            },
+            "winRate" : {
+              "type" : "number"
+            },
+            "profitFactor" : {
+              "type" : "number"
+            }
+          },
+          "required" : [ "trades", "winners" ]
+        },
+        "excludedTrades" : {
+          "type" : "integer"
+        },
+        "excludedNetPnl" : {
+          "type" : "number"
+        },
+        "netDifference" : {
+          "type" : "number"
+        },
+        "drawdownDifference" : {
+          "type" : "number"
+        }
+      },
+      "required" : [ "excludedTrades" ]
+    }
+  }
 }
 ```
 

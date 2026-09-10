@@ -195,3 +195,24 @@ export interface Approval {
   risk: { outcome: string; checks: ApprovalCheck[] } | null; policy: { decision: string; rule: string | null; reason: string } | null;
   createdAt: string; expiresAt: string; decidedBy: string | null; decidedAt: string | null; decisionNote: string | null; result: any;
 }
+
+// Performance investigation (M4.5)
+export interface LossBucket { key: string; trades: number; losers: number; netPnl: number; losses: number; lossSharePct: number }
+export interface LossReport {
+  mode: string; from: string; to: string;
+  attribution: { trades: number; winners: number; losers: number; netPnl: number; grossLosses: number; grossWins: number;
+    dimensions: { name: string; buckets: LossBucket[] }[]; familyByTrend: LossBucket[]; headline: string | null };
+}
+export interface SlippageSide { trades: number; meanBps: number | null; medianBps: number | null; p90Bps: number | null; worstBps: number | null; costRupees: number }
+export interface SlippageReport { mode: string; from: string; to: string; slippage: { entry: SlippageSide; exit: SlippageSide; totalCostRupees: number } }
+export interface AdherenceReport {
+  mode: string; from: string; to: string;
+  adherence: { trades: number; withAdherence: number; meanAdherencePct: number | null; fullAdherence: number; setupInvalid: number; manualExits: number;
+    netFullAdherence: number; netPartialAdherence: number };
+}
+export interface Outcome { trades: number; winners: number; netPnl: number; maxDrawdown: number; winRate: number | null; profitFactor: number | null }
+export interface CounterfactualReport {
+  mode: string; from: string; to: string;
+  counterfactual: { basis: 'SIMULATED'; note: string; actual: Outcome; simulated: Outcome; excludedTrades: number; excludedNetPnl: number;
+    netDifference: number; drawdownDifference: number };
+}

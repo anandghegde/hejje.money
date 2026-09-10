@@ -943,3 +943,33 @@ own proposal, 422 re-validation failed (`errors` lists the policy or risk failur
 `risk:read` / `risk:write`. `{ "rules": [ { "id", "name", "priority", "condition", "actions", "decision", "params", "enabled",
 "description", "updatedAt", "updatedBy" } ], "defaultDecision": "REQUIRE_APPROVAL", "notes": [ … ] }`. `decision: "ALLOW"` is a 400
 in this phase.
+
+## Performance investigation (Phase 4, M4.5)
+
+See `docs/analytics.md`. `market:read`; `from`/`to` default to month to date.
+
+### `GET /api/v1/analytics/losses?from=&to=`
+
+```json
+{ "mode": "PAPER", "from": "2026-09-01", "to": "2026-09-30",
+  "attribution": { "trades": 5, "winners": 2, "losers": 3, "netPnl": -50.00, "grossLosses": 600.00, "grossWins": 550.00,
+    "dimensions": [ { "name": "family", "buckets": [ { "key": "MEAN_REVERSION", "trades": 3, "losers": 2, "netPnl": -350.00, "losses": 500.00, "lossSharePct": 83.3 } ] } ],
+    "familyByTrend": [ { "key": "MEAN_REVERSION × STRONG_UP", "trades": 2, "losers": 2, "netPnl": -500.00, "losses": 500.00, "lossSharePct": 83.3 } ],
+    "headline": "83.3% of losses came from mean reversion strategies during strong up sessions (2 of 2 trades lost)." } }
+```
+
+### `GET /api/v1/analytics/slippage?from=&to=` · `GET /api/v1/analytics/adherence?from=&to=`
+
+`{ "slippage": { "entry": { "trades", "meanBps", "medianBps", "p90Bps", "worstBps", "costRupees" }, "exit": {…}, "totalCostRupees", "byStrategy": [...] } }` and
+`{ "adherence": { "trades", "withAdherence", "meanAdherencePct", "fullAdherence", "setupInvalid", "manualExits", "netFullAdherence", "netPartialAdherence", "byStrategy": [...] } }`.
+
+### `POST /api/v1/analytics/counterfactual`
+
+Body `{ "from": "2026-09-01", "to": "2026-09-30", "exclude": { "families": ["MEAN_REVERSION"], "trends": ["STRONG_UP"] } }` (at least one category).
+
+```json
+{ "counterfactual": { "basis": "SIMULATED", "note": "Hypothetical: …", "actual": { "trades": 5, "netPnl": -50.00, "maxDrawdown": 600.00, … },
+  "simulated": { "trades": 3, "netPnl": 450.00, "maxDrawdown": 100.00, … }, "excludedTrades": 2, "excludedNetPnl": -500.00, "netDifference": 500.00, "drawdownDifference": -500.00 } }
+```
+
+`GET /api/v1/analytics/pnl` also accepts `groupBy=family|eventContext|newsBias|exitReason`.

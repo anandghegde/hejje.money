@@ -149,6 +149,22 @@ public class AnalyticsService {
                     key = String.format("%02d", hour);
                     label = key + ":00";
                 }
+                case "eventcontext" -> {
+                    key = contextOf(r, "event");
+                    label = key;
+                }
+                case "newsbias" -> {
+                    key = contextOf(r, "news");
+                    label = key;
+                }
+                case "family" -> {
+                    key = familyOf(r.strategyId());
+                    label = key;
+                }
+                case "exitreason" -> {
+                    key = exitReasonOf(r);
+                    label = key;
+                }
                 case "regime" -> {
                     money.hejje.regime.RegimeSnapshot snapshot = regimeLabels.get(r.openedAt().atZone(clock.zone()).toLocalDate());
                     key = snapshot == null ? "UNKNOWN × UNKNOWN" : snapshot.key();
@@ -198,6 +214,60 @@ public class AnalyticsService {
 
     public ExecutionMode mode() {
         return properties.mode();
+    }
+
+    private String contextOf(RoundTrip r, String key) {
+        return reviews.findByEntryOrder(r.entryOrderId()).map(TradeReview::context).map(c -> c.get(key)).map(String::valueOf).orElse("UNKNOWN");
+    }
+
+    private String familyOf(UUID strategyId) {
+        return strategyId == null ? MANUAL : strategies.find(strategyId).map(st -> st.family() == null ? "UNKNOWN" : st.family().name()).orElse("UNKNOWN");
+    }
+
+    private String exitReasonOf(RoundTrip r) {
+        return reviews.findByEntryOrder(r.entryOrderId()).map(TradeReview::closeReason).filter(java.util.Objects::nonNull)
+                .orElse(r.strategyId() == null ? MANUAL : "UNKNOWN");
+    }
+
+    /** Closed round trips with their review context, oldest close first: the unit of performance investigation (plan M4.5). */
+    public List<TradeFact> facts(ExecutionMode mode, Instant from, Instant to) {
+        List<TradeFact> out = new ArrayList<>();
+        for (RoundTrip r : roundTrips(mode, from, to)) {
+            Optional<TradeReview> review = reviews.findByEntryOrder(r.entryOrderId());
+            Map<String, Object> ctx = review.map(TradeReview::context).orElse(Map.of());
+            String regime = String.valueOf(ctx.getOrDefault("regime", "UNKNOWN"));
+            String trend = regime.contains(" × ") ? regime.substring(0, regime.indexOf(" × ")) : regime;
+            out.add(new TradeFact(r.entryOrderId(), r.instrumentId(), instruments.findById(r.instrumentId()).map(i -> i.hejjeSymbol().format()).orElse(r.instrumentId().toString()),
+                    r.strategyId(), strategyLabel(r.strategyId()), familyOf(r.strategyId()), r.openedAt(), r.closedAt(), r.side().name(), r.quantity(), r.entryPrice(),
+                    r.exitPrice(), r.grossPnl().paise(), r.fees().paise(), r.netPnl().paise(), review.map(TradeReview::outcomeR).orElse(null), regime, trend,
+                    String.valueOf(ctx.getOrDefault("event", "UNKNOWN")), String.valueOf(ctx.getOrDefault("news", "UNKNOWN")), exitReasonOf(r),
+                    review.map(TradeReview::entrySlippageBps).orElse(null), review.map(TradeReview::exitSlippageBps).orElse(null),
+                    review.map(TradeReview::ruleAdherencePct).orElse(null), review.map(TradeReview::expectedSetupValid).orElse(null),
+                    r.openedAt().atZone(clock.zone()).getHour()));
+        }
+        out.sort(java.util.Comparator.comparing(TradeFact::closedAt));
+        return out;
+    }
+
+    private List<TradeFact> facts(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {
+        return facts(mode, from.atStartOfDay(clock.zone()).toInstant(), to.plusDays(1).atStartOfDay(clock.zone()).toInstant());
+    }
+
+    public LossReport losses(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {
+        return new LossReport(mode.name(), from, to, PerformanceMath.attribute(facts(mode, from, to)));
+    }
+
+    public SlippageReport slippage(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {
+        return new SlippageReport(mode.name(), from, to, PerformanceMath.slippage(facts(mode, from, to)));
+    }
+
+    public AdherenceReport adherence(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {
+        return new AdherenceReport(mode.name(), from, to, PerformanceMath.adherence(facts(mode, from, to)));
+    }
+
+    /** A counterfactual over the actual trade set: always SIMULATED, with the actual figures alongside (PRD 57). */
+    public CounterfactualReport counterfactual(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to, PerformanceMath.CounterfactualFilter filter) {
+        return new CounterfactualReport(mode.name(), from, to, PerformanceMath.counterfactual(facts(mode, from, to), filter));
     }
 
     public Map<String, Object> summary(ExecutionMode mode, Instant from, Instant to) {

@@ -168,4 +168,23 @@ public class NewsStore {
     private List<NewsBias.Contribution> contributions(String s) throws JsonProcessingException {
         return json.readValue(s, CONTRIBUTIONS);
     }
+
+    /** The latest stored bias snapshot for the instrument in {@code (from, to]} (plan M4.5: news context of a trade). */
+    public java.util.Optional<money.hejje.news.NewsBias> latestBias(UUID instrumentId, Instant from, Instant to) {
+        return jdbc.sql("""
+                SELECT * FROM news_bias WHERE instrument_id = :i AND computed_at > :from AND computed_at <= :to ORDER BY computed_at DESC LIMIT 1
+                """).param("i", instrumentId).param("from", from.atOffset(java.time.ZoneOffset.UTC)).param("to", to.atOffset(java.time.ZoneOffset.UTC))
+                .query((rs, n) -> {
+                    java.util.List<String> evidence;
+                    try {
+                        evidence = BIAS_JSON.readValue(rs.getString("evidence"), new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {});
+                    } catch (Exception e) {
+                        evidence = java.util.List.of();
+                    }
+                    return new money.hejje.news.NewsBias(instrumentId, rs.getObject("computed_at", java.time.OffsetDateTime.class).toInstant(), rs.getDouble("score"),
+                            money.hejje.news.NewsBiasLabel.valueOf(rs.getString("label")), rs.getInt("items"), evidence, true, java.util.List.of());
+                }).optional();
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper BIAS_JSON = new com.fasterxml.jackson.databind.ObjectMapper();
 }

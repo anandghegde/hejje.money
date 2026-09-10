@@ -68,7 +68,9 @@ The key is shown once; revoke it with `DELETE /api/v1/auth/clients/{id}`.
 1. **Canned analyst flows** run first when the question matches (or `flow` is given): `why_ranked_first`
    ("why is X ranked first": rankings, then the chosen row's score breakdown and rules), `compare` ("compare A and B":
    two strategies on their latest versions, or two versions of one strategy with `slug v2` / `slug v3`), `working_today`
-   ("what is working today": today's P&L by strategy plus the current decisions). Their tool outputs are rendered into
+   ("what is working today": today's P&L by strategy plus the current decisions), `losses` ("what lost me money this
+   month": loss attribution, slippage, rule adherence and a counterfactual for the largest family × trend loss bucket,
+   the counterfactual always labelled SIMULATED and kept apart from the ACTUAL lines). Their tool outputs are rendered into
    a templated evidence block appended to the question.
 2. **Tool loop**: the model (profile `reasoning` for the first question of a conversation, `fast` for follow-ups) is
    offered only the tools the caller's credential may call; each tool call goes through `AgentToolService` (scope,

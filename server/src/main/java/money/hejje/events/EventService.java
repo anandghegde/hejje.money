@@ -67,11 +67,15 @@ public class EventService {
 
     /** Proximity risk for an instrument (market-only when null) as of now. Never throws: LOW with an "unavailable" line instead. */
     public EventRisk risk(UUID instrumentId) {
+        return riskAt(instrumentId, clock.now());
+    }
+
+    /** Event risk as it stood at {@code now} (trade reviews record it as of the entry, plan M4.5). Never throws. */
+    public EventRisk riskAt(UUID instrumentId, Instant now) {
         if (!props.enabled()) {
             return EventRisk.unavailable("event service disabled (hejje.events.enabled=false)");
         }
         try {
-            Instant now = clock.now();
             LocalDate today = now.atZone(clock.zone()).toLocalDate();
             Instrument instrument = instrumentId == null ? null : instruments.findById(instrumentId).orElse(null);
             Instant start = today.atStartOfDay(clock.zone()).toInstant();
