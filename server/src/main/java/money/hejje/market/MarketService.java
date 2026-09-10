@@ -100,6 +100,11 @@ public class MarketService {
         streamer.subscribe(instrumentIds);
     }
 
+    /** Streams the instruments in FULL mode (volume and open interest), e.g. an option chain (M5.4). */
+    public void subscribeFull(Set<UUID> instrumentIds) {
+        streamer.subscribeFull(instrumentIds);
+    }
+
     public void unsubscribe(Set<UUID> instrumentIds) {
         streamer.unsubscribe(instrumentIds);
     }

@@ -24,7 +24,11 @@ class AutoSignalListener {
     private static final Logger log = LoggerFactory.getLogger(AutoSignalListener.class);
 
     private final AutoExecutor auto;
-    private final ExecutorService worker = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("auto-executor").factory());
+    private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "auto-executor"); // a platform thread: decisions block on JDBC inside synchronized sections
+        t.setDaemon(true);
+        return t;
+    });
 
     AutoSignalListener(AutoExecutor auto) {
         this.auto = auto;

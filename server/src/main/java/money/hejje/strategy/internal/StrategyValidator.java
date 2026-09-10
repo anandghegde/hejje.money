@@ -108,6 +108,17 @@ public class StrategyValidator {
             }
         }
 
+        // options legs (plan M5.4)
+        if (!d.legs().isEmpty() && d.family() != money.hejje.strategy.StrategyFamily.OPTIONS) {
+            errors.add(new ValidationError("legs", "legs are for options strategies (family: options)"));
+        }
+        if (d.family() == money.hejje.strategy.StrategyFamily.OPTIONS && d.legs().isEmpty()) {
+            errors.add(new ValidationError("legs", "an options strategy needs legs: the options it trades on each signal"));
+        }
+        if (d.combinedExit() != null && d.legs().isEmpty()) {
+            errors.add(new ValidationError("combined_exit", "needs legs"));
+        }
+
         // universe aliases must be known
         for (int i = 0; i < d.universe().size(); i++) {
             var entry = d.universe().get(i);

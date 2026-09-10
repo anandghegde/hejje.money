@@ -1,0 +1,48 @@
+# NIFTY opening range breakout traded as a defined-risk bull call spread (docs/strategies/nifty_bull_call_spread.md)
+name: nifty_bull_call_spread
+family: options
+description: On the NIFTY opening-range breakout, buy the ATM weekly call (placed first) and sell the call 100 points higher; exits on the combined P&L, the underlying's stop or 15:10. The bear put spread is the same legs with direction short.
+
+universe:
+  - NIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close > opening_range_high(15m)
+    - close > vwap
+    - relative_volume(20) > 1.2
+
+stop:
+  type: opening_range_low
+
+trade_window:
+  start: "09:30"
+  end: "12:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+legs:
+  - action: buy
+    option: directional
+    strike: atm
+    expiry: nearest
+    lots: 1
+    hedge_first: true
+  - action: sell
+    option: directional
+    strike:
+      offset: 100
+    expiry: nearest
+    lots: 1
+
+combined_exit:
+  stop_rupees: 2500
+  target_rupees: 4000
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

@@ -40,4 +40,20 @@ func splitsCmd() *cobra.Command {
 	}}
 }
 
+func chainCmd() *cobra.Command {
+	return &cobra.Command{Use: "chain <underlying> [expiry]", Short: "Option chain with IV, delta, PCR and max pain", Args: cobra.RangeArgs(1, 2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			expiry := ""
+			if len(args) == 2 {
+				expiry = args[1]
+			}
+			ch, err := client.OptionChain(args[0], expiry)
+			if err != nil {
+				return err
+			}
+			emit(ch, func() { fmt.Print(ui.RenderChain(ch)) })
+			return nil
+		}}
+}
+
 var _ = api.Basket{}

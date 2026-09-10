@@ -74,10 +74,13 @@ class SignalController {
     @PostMapping("/{id}/execute")
     @PreAuthorize("hasAuthority('SCOPE_orders:execute')")
     @ResponseStatus(HttpStatus.CREATED)
-    HejjeOrder execute(@PathVariable UUID id, @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
+    Object execute(@PathVariable UUID id, @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal HejjePrincipal principal) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
             throw new IllegalArgumentException("Idempotency-Key header is required");
+        }
+        if (signals.isOptions(id)) {
+            return signals.executeOptions(id, idempotencyKey, principal); // options legs (M5.4): the options position
         }
         HejjeOrder order = signals.execute(id, idempotencyKey, principal);
         metrics.executed(order.id(), order.placedAt() == null ? Instant.now() : order.placedAt());

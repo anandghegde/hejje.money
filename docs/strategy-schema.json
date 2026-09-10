@@ -5,93 +5,432 @@
   "description": "Structural schema of a strategy YAML document (PRD section 10). Semantic rules are in docs/strategy-dsl.md.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "universe", "timeframe", "direction", "entry", "stop"],
+  "required": [
+    "name",
+    "universe",
+    "timeframe",
+    "direction",
+    "entry",
+    "stop"
+  ],
   "properties": {
-    "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{2,63}$" },
-    "version": { "type": "integer", "description": "Ignored; versions are assigned by the server." },
-    "family": { "type": "string", "enum": ["trend", "mean_reversion", "index", "options"], "default": "trend" },
-    "description": { "type": "string" },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,63}$"
+    },
+    "version": {
+      "type": "integer",
+      "description": "Ignored; versions are assigned by the server."
+    },
+    "family": {
+      "type": "string",
+      "enum": [
+        "trend",
+        "mean_reversion",
+        "index",
+        "options"
+      ],
+      "default": "trend"
+    },
+    "description": {
+      "type": "string"
+    },
     "universe": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
         "oneOf": [
-          { "type": "string", "description": "Canonical Hejje symbol (contains ':') or a configured alias" },
-          { "type": "object", "additionalProperties": false, "properties": { "symbol": { "type": "string" } }, "required": ["symbol"] },
-          { "type": "object", "additionalProperties": false, "properties": { "nearest_future": { "type": "string" } }, "required": ["nearest_future"] },
-          { "type": "object", "additionalProperties": false, "properties": { "index": { "type": "string" } }, "required": ["index"] }
+          {
+            "type": "string",
+            "description": "Canonical Hejje symbol (contains ':') or a configured alias"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "symbol": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "symbol"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "nearest_future": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "nearest_future"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "index": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "index"
+            ]
+          }
         ]
       }
     },
-    "timeframe": { "type": "string", "enum": ["1m", "3m", "5m", "15m", "1h"] },
-    "direction": { "type": "string", "enum": ["long", "short", "both"] },
-    "entry": { "$ref": "#/$defs/ruleSet" },
-    "exit": { "$ref": "#/$defs/ruleSet" },
+    "timeframe": {
+      "type": "string",
+      "enum": [
+        "1m",
+        "3m",
+        "5m",
+        "15m",
+        "1h"
+      ]
+    },
+    "direction": {
+      "type": "string",
+      "enum": [
+        "long",
+        "short",
+        "both"
+      ]
+    },
+    "entry": {
+      "$ref": "#/$defs/ruleSet"
+    },
+    "exit": {
+      "$ref": "#/$defs/ruleSet"
+    },
     "stop": {
-      "type": "object", "additionalProperties": false, "required": ["type"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["opening_range_low", "opening_range_high", "atr_multiple", "percent", "points", "swing_low", "swing_high", "prev_day_low", "prev_day_high"] },
-        "value": { "type": "number", "exclusiveMinimum": 0 }
+        "type": {
+          "type": "string",
+          "enum": [
+            "opening_range_low",
+            "opening_range_high",
+            "atr_multiple",
+            "percent",
+            "points",
+            "swing_low",
+            "swing_high",
+            "prev_day_low",
+            "prev_day_high"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
     "target": {
-      "type": "object", "additionalProperties": false, "required": ["type"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["risk_multiple", "points", "percent", "vwap", "none"] },
-        "value": { "type": "number", "exclusiveMinimum": 0 }
+        "type": {
+          "type": "string",
+          "enum": [
+            "risk_multiple",
+            "points",
+            "percent",
+            "vwap",
+            "none"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
     "trailing_stop": {
-      "type": "object", "additionalProperties": false, "required": ["type", "value"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["atr_multiple", "percent", "breakeven_at_r"] },
-        "value": { "type": "number", "exclusiveMinimum": 0 }
+        "type": {
+          "type": "string",
+          "enum": [
+            "atr_multiple",
+            "percent",
+            "breakeven_at_r"
+          ]
+        },
+        "value": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     },
     "trade_window": {
-      "type": "object", "additionalProperties": false, "required": ["start", "end"],
-      "properties": { "start": { "$ref": "#/$defs/time" }, "end": { "$ref": "#/$defs/time" } }
-    },
-    "force_exit_time": { "$ref": "#/$defs/time", "default": "15:10" },
-    "max_trades_per_day": { "type": "integer", "minimum": 1, "default": 1 },
-    "max_holding_minutes": { "type": "integer", "minimum": 1 },
-    "signal_validity_minutes": { "type": "integer", "minimum": 1 },
-    "position_sizing": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
       "properties": {
-        "type": { "type": "string", "enum": ["risk_based"], "default": "risk_based" },
-        "risk_rupees": { "type": "number", "exclusiveMinimum": 0 },
-        "risk_percent_of_capital": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
+        "start": {
+          "$ref": "#/$defs/time"
+        },
+        "end": {
+          "$ref": "#/$defs/time"
+        }
       }
     },
-    "product": { "type": "string", "enum": ["MIS", "CNC", "NRML"], "default": "MIS" },
+    "force_exit_time": {
+      "$ref": "#/$defs/time",
+      "default": "15:10"
+    },
+    "max_trades_per_day": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1
+    },
+    "max_holding_minutes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "signal_validity_minutes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "position_sizing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "risk_based"
+          ],
+          "default": "risk_based"
+        },
+        "risk_rupees": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "risk_percent_of_capital": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "product": {
+      "type": "string",
+      "enum": [
+        "MIS",
+        "CNC",
+        "NRML"
+      ],
+      "default": "MIS"
+    },
     "regime_preferences": {
       "type": "object",
-      "propertyNames": { "pattern": "^[a-z][a-z_]*$" },
-      "additionalProperties": { "type": "string", "enum": ["preferred", "neutral", "avoid"] }
+      "propertyNames": {
+        "pattern": "^[a-z][a-z_]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "enum": [
+          "preferred",
+          "neutral",
+          "avoid"
+        ]
+      }
     },
     "event_rules": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "high_risk_event_within_minutes": { "type": "integer", "minimum": 0 },
-        "action": { "type": "string", "enum": ["block", "caution", "allow"], "default": "allow" }
+        "high_risk_event_within_minutes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "block",
+            "caution",
+            "allow"
+          ],
+          "default": "allow"
+        }
       }
     },
     "risk_overrides": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "min_reward_risk": { "type": "number", "exclusiveMinimum": 0 },
-        "max_quantity": { "type": "integer", "minimum": 1 }
+        "min_reward_risk": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_quantity": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "legs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "description": "Options legs (family: options, docs/options.md)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "enum": [
+              "buy",
+              "sell"
+            ]
+          },
+          "option": {
+            "enum": [
+              "directional",
+              "opposite",
+              "ce",
+              "pe"
+            ]
+          },
+          "strike": {
+            "oneOf": [
+              {
+                "const": "atm"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "offset": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "offset"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "delta": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "exclusiveMaximum": 1
+                  }
+                },
+                "required": [
+                  "delta"
+                ]
+              }
+            ]
+          },
+          "expiry": {
+            "enum": [
+              "nearest",
+              "next",
+              "monthly"
+            ]
+          },
+          "lots": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "stop_pct": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "target_pct": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "hedge_first": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "combined_exit": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stop_rupees": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "target_rupees": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
       }
     }
   },
   "$defs": {
-    "time": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
-    "condition": { "type": "string", "description": "<expr> <op> <expr>; see docs/strategy-dsl.md" },
+    "time": {
+      "type": "string",
+      "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+    },
+    "condition": {
+      "type": "string",
+      "description": "<expr> <op> <expr>; see docs/strategy-dsl.md"
+    },
     "ruleSet": {
-      "type": "object", "additionalProperties": false,
+      "type": "object",
+      "additionalProperties": false,
       "oneOf": [
-        { "required": ["all"], "properties": { "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } } } },
-        { "required": ["any"], "properties": { "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/condition" } } } }
+        {
+          "required": [
+            "all"
+          ],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          }
+        },
+        {
+          "required": [
+            "any"
+          ],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/condition"
+              }
+            }
+          }
+        }
       ]
     }
   }

@@ -26,14 +26,18 @@ class BundledStrategiesTest {
         try (Stream<Path> list = Files.list(DIR)) {
             files = list.filter(p -> p.toString().endsWith(".yaml")).sorted().toList();
         }
-        assertThat(files).extracting(p -> p.getFileName().toString()).containsExactly("ema_pullback.yaml", "nifty_orb.yaml",
-                "nifty_orb_breakdown.yaml", "pdh_pdl_breakout.yaml", "vwap_reversion.yaml", "vwap_trend_continuation.yaml");
+        assertThat(files).extracting(p -> p.getFileName().toString()).containsExactly("ema_pullback.yaml", "nifty_bull_call_spread.yaml", "nifty_orb.yaml",
+                "nifty_orb_breakdown.yaml", "nifty_orb_call_buy.yaml", "pdh_pdl_breakout.yaml", "vwap_reversion.yaml", "vwap_trend_continuation.yaml");
         for (Path file : files) {
             StrategyDefinition def = parser.parse(Files.readString(file));
             List<ValidationError> errors = validator.validate(def);
             assertThat(errors).as(file.getFileName().toString()).isEmpty();
             assertThat(file.getFileName().toString()).isEqualTo(def.name() + ".yaml");
-            assertThat(def.positionSizing().riskRupees()).as(file + " sizes by rupees at risk").isNotNull();
+            if (def.legs().isEmpty()) {
+                assertThat(def.positionSizing().riskRupees()).as(file + " sizes by rupees at risk").isNotNull();
+            } else {
+                assertThat(def.family()).as(file + " trades option legs").isEqualTo(money.hejje.strategy.StrategyFamily.OPTIONS);
+            }
             assertThat(def.forceExitTime()).isEqualTo(java.time.LocalTime.of(15, 10));
         }
     }

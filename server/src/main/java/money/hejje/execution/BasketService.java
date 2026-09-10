@@ -58,7 +58,12 @@ public class BasketService {
     private final HejjeClock clock;
     private final HejjeProperties properties;
     private final PlanningProperties planning;
-    private final ExecutorService worker = Executors.newVirtualThreadPerTaskExecutor();
+    // platform threads: the worker blocks on JDBC, broker calls and sleeps, and must not depend on free virtual-thread carriers
+    private final ExecutorService worker = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "basket-worker");
+        t.setDaemon(true);
+        return t;
+    });
 
     BasketService(ExecutionEngine engine, BrokerAdapter broker, BasketStore store, OrderWaiter waiter, AuditService audit, HejjeClock clock,
             HejjeProperties properties, PlanningProperties planning) {

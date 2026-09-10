@@ -56,7 +56,7 @@ public class DefinitionParser {
     private static final List<String> TOP_LEVEL_KEYS = List.of("name", "version", "family", "description", "universe", "timeframe",
             "direction", "entry", "exit", "stop", "target", "trailing_stop", "trade_window", "force_exit_time",
             "max_trades_per_day", "max_holding_minutes", "signal_validity_minutes", "position_sizing", "product",
-            "regime_preferences", "event_rules", "risk_overrides");
+            "regime_preferences", "event_rules", "risk_overrides", "legs", "combined_exit");
 
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
 
@@ -126,11 +126,13 @@ public class DefinitionParser {
         Map<String, RegimePreference> regimes = regimes(root);
         EventRules events = root.has("event_rules") ? events(root.map("event_rules")) : EventRules.DEFAULT;
         RiskOverrides overrides = root.has("risk_overrides") ? overrides(root.map("risk_overrides")) : RiskOverrides.NONE;
+        List<StrategyDefinition.OptionLeg> legs = root.has("legs") ? legs(root) : List.of();
+        StrategyDefinition.CombinedExit combined = root.has("combined_exit") ? combined(root.map("combined_exit")) : null;
         if (!root.errors.list.isEmpty()) {
             return null;
         }
         return new StrategyDefinition(name, family, description, universe, timeframe, direction, entry, exit, stop, target,
-                trailing, window, forceExit, maxTrades, maxHolding, validity, sizing, product, regimes, events, overrides);
+                trailing, window, forceExit, maxTrades, maxHolding, validity, sizing, product, regimes, events, overrides, legs, combined);
     }
 
     private List<UniverseEntry> universe(Node root) {
@@ -389,6 +391,113 @@ public class DefinitionParser {
             node.error("max_quantity", "must be at least 1");
         }
         return new RiskOverrides(rr, maxQty);
+    }
+
+    /** Options legs (plan M5.4): at most four, each an action, option side, strike, expiry, lots and optional premium stop/target. */
+    private List<StrategyDefinition.OptionLeg> legs(Node root) {
+        List<Node> nodes = root.list("legs");
+        if (nodes == null) {
+            return List.of();
+        }
+        if (nodes.isEmpty()) {
+            root.error("legs", "must list at least one leg");
+        }
+        if (nodes.size() > 4) {
+            root.error("legs", "at most 4 legs");
+        }
+        List<StrategyDefinition.OptionLeg> out = new ArrayList<>();
+        for (Node n : nodes) {
+            if (!(n.value instanceof Map)) {
+                n.error("", "must be a mapping");
+                continue;
+            }
+            n.rejectUnknownKeys(List.of("action", "option", "strike", "expiry", "lots", "stop_pct", "target_pct", "hedge_first"));
+            StrategyDefinition.LegAction action = n.enumValue("action", StrategyDefinition.LegAction.class, null, true);
+            StrategyDefinition.OptionSide option = n.enumValue("option", StrategyDefinition.OptionSide.class, StrategyDefinition.OptionSide.DIRECTIONAL);
+            StrategyDefinition.StrikeSelector strike = strike(n);
+            StrategyDefinition.ExpirySelector expiry = n.enumValue("expiry", StrategyDefinition.ExpirySelector.class, StrategyDefinition.ExpirySelector.NEAREST);
+            Integer lots = n.integer("lots", 1);
+            BigDecimal stopPct = n.decimal("stop_pct");
+            BigDecimal targetPct = n.decimal("target_pct");
+            boolean hedgeFirst = bool(n, "hedge_first");
+            if (lots != null && lots < 1) {
+                n.error("lots", "must be at least 1");
+            }
+            if (stopPct != null && (stopPct.signum() <= 0 || stopPct.compareTo(BigDecimal.valueOf(100)) > 0)) {
+                n.error("stop_pct", "must be above 0 and at most 100");
+            }
+            if (targetPct != null && targetPct.signum() <= 0) {
+                n.error("target_pct", "must be positive");
+            }
+            if (hedgeFirst && action == StrategyDefinition.LegAction.SELL) {
+                n.error("hedge_first", "a hedge placed first must be a buy leg");
+            }
+            out.add(new StrategyDefinition.OptionLeg(action, option, strike, expiry, lots == null ? 1 : lots, stopPct, targetPct, hedgeFirst));
+        }
+        return out;
+    }
+
+    private StrategyDefinition.StrikeSelector strike(Node n) {
+        Object v = n.asMap().get("strike");
+        if (v == null) {
+            return StrategyDefinition.StrikeSelector.ATM;
+        }
+        if (v instanceof String text) {
+            if (!"atm".equalsIgnoreCase(text.trim())) {
+                n.error("strike", "must be atm, {offset: points} or {delta: 0.3}");
+            }
+            return StrategyDefinition.StrikeSelector.ATM;
+        }
+        Node m = n.map("strike");
+        if (m == null) {
+            return StrategyDefinition.StrikeSelector.ATM;
+        }
+        m.rejectUnknownKeys(List.of("offset", "delta"));
+        BigDecimal offset = m.decimal("offset");
+        BigDecimal delta = m.decimal("delta");
+        if ((offset == null) == (delta == null)) {
+            m.error("", "give exactly one of offset or delta");
+            return StrategyDefinition.StrikeSelector.ATM;
+        }
+        if (delta != null) {
+            if (delta.signum() <= 0 || delta.compareTo(BigDecimal.ONE) >= 0) {
+                m.error("delta", "must be between 0 and 1 (absolute delta)");
+            }
+            return new StrategyDefinition.StrikeSelector(StrategyDefinition.StrikeKind.DELTA, delta);
+        }
+        return new StrategyDefinition.StrikeSelector(StrategyDefinition.StrikeKind.OFFSET, offset);
+    }
+
+    private StrategyDefinition.CombinedExit combined(Node node) {
+        if (node == null) {
+            return null;
+        }
+        node.rejectUnknownKeys(List.of("stop_rupees", "target_rupees"));
+        BigDecimal stop = node.decimal("stop_rupees");
+        BigDecimal target = node.decimal("target_rupees");
+        if (stop == null && target == null) {
+            node.error("", "give stop_rupees and/or target_rupees");
+        }
+        if (stop != null && stop.signum() <= 0) {
+            node.error("stop_rupees", "must be positive");
+        }
+        if (target != null && target.signum() <= 0) {
+            node.error("target_rupees", "must be positive");
+        }
+        return new StrategyDefinition.CombinedExit(stop == null || stop.signum() <= 0 ? null : Money.of(stop.setScale(2, java.math.RoundingMode.HALF_UP)),
+                target == null || target.signum() <= 0 ? null : Money.of(target.setScale(2, java.math.RoundingMode.HALF_UP)));
+    }
+
+    private static boolean bool(Node n, String key) {
+        Object v = n.asMap().get(key);
+        if (v == null) {
+            return false;
+        }
+        if (v instanceof Boolean b) {
+            return b;
+        }
+        n.error(key, "must be true or false");
+        return false;
     }
 
     /** Error collector shared by all nodes of one document. */

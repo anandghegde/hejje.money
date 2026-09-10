@@ -521,3 +521,29 @@ type SplitOrder struct {
 	} `json:"policy"`
 }
 
+// OptionQuote is one side of an option chain row (M5.4).
+type OptionQuote struct {
+	Symbol string   `json:"symbol"`
+	Last   *float64 `json:"last"`
+	OI     int64    `json:"oi"`
+	IV     *float64 `json:"iv"`
+	Delta  *float64 `json:"delta"`
+	Stale  bool     `json:"stale"`
+}
+
+type OptionChain struct {
+	Underlying    string   `json:"underlying"`
+	Expiry        string   `json:"expiry"`
+	Forward       *float64 `json:"forward"`
+	ForwardSource string   `json:"forwardSource"`
+	ATMStrike     *float64 `json:"atmStrike"`
+	PCROI         *float64 `json:"pcrOi"`
+	MaxPain       *float64 `json:"maxPain"`
+	Notes         []string `json:"notes"`
+	Rows          []struct {
+		Strike float64      `json:"strike"`
+		Call   *OptionQuote `json:"call"`
+		Put    *OptionQuote `json:"put"`
+	} `json:"rows"`
+}
+

@@ -52,4 +52,18 @@ class StrategyLifecycleTest {
         assertThat(lifecycle.reject(UUID.randomUUID(), VersionStatus.RETIRED, VersionStatus.DRAFT)).contains("not allowed");
         assertThat(lifecycle.reject(UUID.randomUUID(), VersionStatus.PAPER, VersionStatus.PAPER)).contains("already");
     }
+
+    @Test
+    void optionsStrategiesGoStraightToPaperAndNeedPaperHistoryForLive() throws Exception {
+        money.hejje.strategy.StrategyDefinition def = new DefinitionParser().parse(java.nio.file.Files.readString(java.nio.file.Path.of("../strategies/nifty_orb_call_buy.yaml")));
+        java.util.function.Function<VersionStatus, money.hejje.strategy.StrategyVersion> at = status -> new money.hejje.strategy.StrategyVersion(UUID.randomUUID(),
+                UUID.randomUUID(), 1, "", def, "h", "note", null, "test", java.time.Instant.EPOCH, status);
+        StrategyLifecycle lifecycle = new StrategyLifecycle(evidence(true, true));
+        assertThat(lifecycle.reject(at.apply(VersionStatus.DRAFT), VersionStatus.PAPER)).isNull();
+        assertThat(lifecycle.reject(at.apply(VersionStatus.DRAFT), VersionStatus.BACKTESTED)).contains("cannot be backtested");
+        assertThat(lifecycle.reject(at.apply(VersionStatus.PAPER), VersionStatus.VALIDATED)).contains("cannot be backtested");
+        assertThat(lifecycle.reject(at.apply(VersionStatus.PAPER), VersionStatus.LIVE)).contains("needs 30 closed paper options positions").contains("has 0");
+        assertThat(lifecycle.reject(at.apply(VersionStatus.PAPER), VersionStatus.PAUSED)).isNull();
+        assertThat(lifecycle.reject(at.apply(VersionStatus.DRAFT), VersionStatus.LIVE)).contains("not allowed");
+    }
 }

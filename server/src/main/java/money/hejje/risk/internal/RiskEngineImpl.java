@@ -30,6 +30,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RiskEngineImpl implements RiskEngine {
 
+    static final java.util.Set<String> OPTION_EXEMPT = java.util.Set.of("mandatoryStop", "minRewardRisk", "maxStopDistance");
+
     private final RiskLimitsStore limitsStore;
     private final KillSwitchStore killSwitchStore;
     private final AccountSnapshotBuilder snapshots;
@@ -98,6 +100,11 @@ public class RiskEngineImpl implements RiskEngine {
                     checks.add(RiskCheck.pass(contributor.getClass().getSimpleName(), "contributor failed (" + e.getMessage() + "); not blocking"));
                 }
             }
+        }
+        if (instruments.findById(intent.instrumentId()).map(i -> i.type() == money.hejje.common.InstrumentType.OPT).orElse(false)) {
+            // option legs (M5.4): a stop-based control does not describe a leg's risk; lots, premium at risk and defined risk do (options module)
+            checks.replaceAll(c -> !c.passed() && OPTION_EXEMPT.contains(c.name())
+                    ? RiskCheck.pass(c.name(), "not applicable to option legs (options controls apply: " + c.message() + ")") : c);
         }
         boolean approved = checks.stream().allMatch(RiskCheck::passed);
         return approved ? RiskDecision.approved(checks) : RiskDecision.rejected(checks);

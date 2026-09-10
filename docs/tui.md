@@ -50,3 +50,8 @@ checks, then `y` executes (anything else cancels), `[D]` toggles the evidence an
   note (numbers not found in this turn's tool results are marked `[unverified]`) and the tool trace (tool, scope, status,
   latency).
 - `hejje ai` — interactive: each answer continues the conversation; `/new` starts another, `/quit` exits.
+
+## Options (M5.4)
+
+`hejje chain <underlying> [expiry]` prints the option chain: calls on the left, puts on the right, OI, IV, delta and LTP,
+the ATM strike marked `*`, with the forward, put/call ratio (OI) and max pain (`--json` for the raw chain).

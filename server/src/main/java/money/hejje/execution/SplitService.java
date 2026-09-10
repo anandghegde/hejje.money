@@ -66,7 +66,12 @@ public class SplitService {
     private final AuditService audit;
     private final HejjeClock clock;
     private final HejjeProperties properties;
-    private final ExecutorService worker = Executors.newVirtualThreadPerTaskExecutor();
+    // platform threads: the worker blocks on JDBC, broker calls and sleeps, and must not depend on free virtual-thread carriers
+    private final ExecutorService worker = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "split-worker");
+        t.setDaemon(true);
+        return t;
+    });
 
     SplitService(ExecutionEngine engine, OrderService orders, OrderValidator validator, RiskEngine risk, BrokerAdapter broker, InstrumentService instruments,
             SplitStore store, OrderWaiter waiter, AuditService audit, HejjeClock clock, HejjeProperties properties) {

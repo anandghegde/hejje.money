@@ -65,3 +65,11 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
   `lib/agent.ts`), quick prompts for the canned flows, a tool-call trace panel (tool, required scope, status, latency),
   numbers not traced to a tool result highlighted as "unverified", and a disabled state when `hejje.llm.enabled=false`.
   e2e: `tests-e2e/agent-chat.spec.ts` (fixture LLM on the stack, or the disabled state when it is off).
+
+## Options (M5.4)
+
+`/options` ("Options" in the nav): underlying and expiry pickers, the chain (call OI / IV / delta / LTP, strike with
+ITM/ATM/OTM, put LTP / delta / IV / OI; the ATM row highlighted; `*` marks a stale quote), the forward and its source,
+put/call ratios and max pain, and the options positions (legs, status, exit reason, realized P&L). The Lab's
+"Option legs…" builder composes a `legs:` block (action, option side, strike by ATM / offset / delta, expiry, lots,
+premium stop/target, hedge first) and writes it into the definition being edited.

@@ -101,6 +101,16 @@ func (c *Client) BrokerStatus() (BrokerStatus, error) {
 	return b, c.do(http.MethodGet, "/broker/status", nil, false, &b)
 }
 
+// OptionChain is the chain of an underlying for an expiry (empty = the nearest), with IV and greeks (M5.4).
+func (c *Client) OptionChain(underlying, expiry string) (OptionChain, error) {
+	var o OptionChain
+	path := "/instruments/options/chain?underlying=" + url.QueryEscape(underlying)
+	if expiry != "" {
+		path += "&expiry=" + url.QueryEscape(expiry)
+	}
+	return o, c.do(http.MethodGet, path, nil, false, &o)
+}
+
 // Baskets lists recent baskets (M5.3).
 func (c *Client) Baskets() ([]Basket, error) {
 	var b []Basket

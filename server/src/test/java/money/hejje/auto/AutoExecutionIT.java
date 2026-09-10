@@ -276,6 +276,7 @@ class AutoExecutionIT extends AbstractIntegrationTest {
         assertThat(intent.source()).isEqualTo(ActorType.STRATEGY);
         assertThat(intent.actorId()).isEqualTo("it_auto_orb");
         assertThat(intent.clientId()).isEqualTo(SignalService.AUTO_CLIENT);
+        awaitAudit(AuditEventType.AUTO_EXECUTED, signal.id());
         assertThat(auditFor(AuditEventType.AUTO_EXECUTED, signal.id())).singleElement().satisfies(a -> {
             assertThat(a.actorType()).isEqualTo(ActorType.STRATEGY);
             assertThat(a.orderId()).isEqualTo(entry.id());
@@ -354,8 +355,8 @@ class AutoExecutionIT extends AbstractIntegrationTest {
         openingRangeAndBreakout();
         Signal signal = awaitSignal();
         awaitStatus(signal.id(), SignalStatus.EXECUTED);
-        assertThat(auditFor(AuditEventType.AUTO_EXECUTED, signal.id())).singleElement()
-                .satisfies(a -> assertThat(a.payload()).containsEntry("entriesToday", 1).containsEntry("autonomyLevel", 5));
+        // the signal is marked EXECUTED just before the audit row is written: wait for the row
+        assertThat(awaitAudit(AuditEventType.AUTO_EXECUTED, signal.id()).payload()).containsEntry("entriesToday", 1).containsEntry("autonomyLevel", 5);
     }
 
     @Test

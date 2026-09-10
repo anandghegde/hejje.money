@@ -35,14 +35,42 @@ public record StrategyDefinition(
         Product product,
         Map<String, RegimePreference> regimePreferences,
         EventRules eventRules,
-        RiskOverrides riskOverrides) {
+        RiskOverrides riskOverrides,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY) List<OptionLeg> legs,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) CombinedExit combinedExit) {
 
     public StrategyDefinition {
         universe = List.copyOf(universe);
+        legs = legs == null ? List.of() : List.copyOf(legs); // empty legs and a null combined exit are left out of the JSON, so existing hashes stay
         regimePreferences = Map.copyOf(regimePreferences);
     }
 
     public enum Direction { LONG, SHORT, BOTH }
+
+    /**
+     * One option leg of an options strategy (plan M5.4, docs/strategy-dsl.md "Options legs"): what is traded when the
+     * strategy signals on its underlying. Stops and targets are percent of the leg's entry premium.
+     */
+    public record OptionLeg(LegAction action, OptionSide option, StrikeSelector strike, ExpirySelector expiry, int lots, BigDecimal stopPct,
+            BigDecimal targetPct, boolean hedgeFirst) {}
+
+    public enum LegAction { BUY, SELL }
+
+    /** DIRECTIONAL: CE on a long signal, PE on a short one; OPPOSITE: the reverse; CE / PE: fixed. */
+    public enum OptionSide { DIRECTIONAL, OPPOSITE, CE, PE }
+
+    /** NEAREST: the first expiry still tradable today; NEXT: the one after; MONTHLY: the last expiry of that month. */
+    public enum ExpirySelector { NEAREST, NEXT, MONTHLY }
+
+    /** ATM; OFFSET points from ATM (positive = out of the money for the leg's option type); or the strike whose |delta| is nearest DELTA. */
+    public record StrikeSelector(StrikeKind kind, BigDecimal value) {
+        public static final StrikeSelector ATM = new StrikeSelector(StrikeKind.ATM, null);
+    }
+
+    public enum StrikeKind { ATM, OFFSET, DELTA }
+
+    /** Exits on the combined P&L of all legs (rupees); either may be null. */
+    public record CombinedExit(Money stopRupees, Money targetRupees) {}
 
     public enum RuleMode { ALL, ANY }
 

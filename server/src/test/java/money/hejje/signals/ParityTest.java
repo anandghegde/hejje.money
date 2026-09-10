@@ -161,13 +161,16 @@ class ParityTest {
         try (Stream<Path> list = Files.list(Path.of("../strategies"))) {
             files = list.filter(p -> p.toString().endsWith(".yaml")).sorted().toList();
         }
-        assertThat(files).hasSize(6);
+        assertThat(files).hasSize(8);
         int totalTrades = 0;
         StringBuilder report = new StringBuilder();
         for (long seed : new long[]{7, 2026}) {
             List<Candle> candles = recordedSessions(seed);
             for (Path file : files) {
                 StrategyDefinition def = load(file);
+                if (!def.legs().isEmpty()) {
+                    continue; // options strategies trade option legs as baskets, which the backtester does not replay (M5.4)
+                }
                 UUID strategyId = UUID.randomUUID();
                 StrategyVersion version = new StrategyVersion(UUID.randomUUID(), strategyId, 1, "", def, "h", "parity", null, "test", Instant.EPOCH, VersionStatus.PAPER);
                 StrategyDeployment deployment = new StrategyDeployment(UUID.randomUUID(), version.id(), strategyId, ExecutionMode.PAPER, List.of(INSTRUMENT), 0, true,

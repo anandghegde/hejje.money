@@ -151,6 +151,10 @@ public class AutoExecutor {
         switch (policy.decision()) {
             case ALLOW -> {
                 try {
+                    if (signals.isOptions(s.id())) {
+                        signals.executeOptionsAuto(s.id(), actor, context); // options legs as a basket (M5.4)
+                        return new AutoDecision(signalId, AutoDecision.Outcome.EXECUTED, policy.reason(), policy, null);
+                    }
                     HejjeOrder order = signals.executeAuto(s.id(), actor, context);
                     return new AutoDecision(signalId, AutoDecision.Outcome.EXECUTED, policy.reason(), policy, order.id());
                 } catch (RuntimeException e) {

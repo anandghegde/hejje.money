@@ -11,7 +11,7 @@ const PLACEHOLDERS = ['Pulse'];
 
 const ROUTES: Record<string, string> = {
   Today: '/today', Approvals: '/approvals', Pulse: '/pulse', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
-  Reviews: '/reviews', Analytics: '/analytics', 'Hejje AI': '/agent', Risk: '/risk', Broker: '/broker', Server: '/system', Settings: '/settings',
+  Reviews: '/reviews', Analytics: '/analytics', Options: '/options', 'Hejje AI': '/agent', Risk: '/risk', Broker: '/broker', Server: '/system', Settings: '/settings',
 };
 
 function Dot({ ok, label }: { ok: boolean; label: string }) {

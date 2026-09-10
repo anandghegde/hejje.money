@@ -42,6 +42,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SignalService {
 
+    private final money.hejje.options.OptionsExecutor options;
+
     /** Client id of AUTO submissions (plan M5.2). */
     public static final UUID AUTO_CLIENT = UUID.nameUUIDFromBytes("hejje:auto".getBytes(java.nio.charset.StandardCharsets.UTF_8));
 
@@ -57,7 +59,8 @@ public class SignalService {
     private final money.hejje.market.MarketService market;
 
     SignalService(SignalStore store, SignalEngine engine, StrategyService strategies, InstrumentService instruments, RiskEngine risk, ExecutionEngine execution,
-            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market) {
+            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options) {
+        this.options = options;
         this.market = market;
         this.store = store;
         this.engine = engine;
@@ -172,6 +175,9 @@ public class SignalService {
 
     /** The user's confirmation: submits the prepared order (through validation, risk and the gate) and marks the signal EXECUTED. */
     public HejjeOrder execute(UUID signalId, String idempotencyKey, HejjePrincipal principal) {
+        if (isOptions(signalId)) {
+            throw new SignalException.NotActionable("an options signal executes as a basket of option legs (executeOptions)");
+        }
         Signal signal = actionable(signalId);
         PreparedOrder prepared = prepare(signalId, principal);
         if (prepared.sizing().get("quantity") instanceof Integer q && q <= 0) {
@@ -226,6 +232,49 @@ public class SignalService {
         store.update(executed);
         engine.entrySubmitted(pending, order.id());
         return order;
+    }
+
+    /** True when the signal's strategy trades option legs (plan M5.4): it executes through {@link #executeOptions}. */
+    public boolean isOptions(UUID signalId) {
+        return store.find(signalId).flatMap(sig -> strategies.versionById(sig.versionId())).map(v -> !v.definition().legs().isEmpty()).orElse(false);
+    }
+
+    /** The user's confirmation of an options signal: its legs are placed as a hedge-first basket and managed as one options position. */
+    public money.hejje.options.OptionsPosition executeOptions(UUID signalId, String idempotencyKey, HejjePrincipal principal) {
+        Signal signal = actionable(signalId);
+        money.hejje.options.OptionsPosition p = openOptions(signal, principal.id(), idempotencyKey, ActorType.USER, principal.name());
+        audit.record(AuditEvent.of(AuditEventType.USER_APPROVED, ActorType.USER).withActorId(principal.name()).withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withPayload(Map.of("optionsPositionId", p.id().toString(), "basketId", p.basketId().toString(),
+                        "legs", p.legs().stream().map(l -> l.side() + " " + l.quantity() + " " + l.symbol()).toList())));
+        return p;
+    }
+
+    /** AUTO (M5.2) for an options signal: the same basket path as a confirmation, as actor STRATEGY with the signal's key. */
+    public money.hejje.options.OptionsPosition executeOptionsAuto(UUID signalId, String actorId, Map<String, Object> decision) {
+        Signal signal = actionable(signalId);
+        money.hejje.options.OptionsPosition p = openOptions(signal, AUTO_CLIENT, "auto:" + signal.id(), ActorType.STRATEGY, actorId);
+        Map<String, Object> payload = new LinkedHashMap<>(decision);
+        payload.put("optionsPositionId", p.id().toString());
+        payload.put("basketId", p.basketId().toString());
+        audit.record(AuditEvent.of(AuditEventType.AUTO_EXECUTED, ActorType.STRATEGY).withActorId(actorId).withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withPayload(payload));
+        return p;
+    }
+
+    private money.hejje.options.OptionsPosition openOptions(Signal signal, UUID clientId, String key, ActorType source, String actorId) {
+        StrategyVersion version = strategies.versionById(signal.versionId()).orElseThrow(() -> new SignalException.NotFound("Version missing"));
+        money.hejje.options.OptionsPosition p;
+        try {
+            p = options.open(new money.hejje.options.OptionsExecutor.OpenRequest(clientId, key, source, actorId, signal.strategyId(), signal.versionId(),
+                    signal.deploymentId(), signal.id(), signal.instrumentId(), signal.side(), signal.stop(), version.definition()));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new SignalException.NotActionable("Options legs cannot be placed: " + e.getMessage());
+        }
+        Signal executed = store.find(signal.id()).orElse(signal).with(SignalStatus.EXECUTED, "options position " + p.id() + " (basket " + p.basketId() + ")",
+                null, null, clock.now());
+        store.update(executed);
+        engine.signalGone(executed); // the runner does not manage option legs; the options monitor does
+        return p;
     }
 
     /** The policy denied an AUTO signal (plan M5.2): the signal is BLOCKED with the reason and leaves the runner. */

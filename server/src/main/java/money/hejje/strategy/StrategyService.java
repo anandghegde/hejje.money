@@ -230,7 +230,7 @@ public class StrategyService {
         StrategyVersion version = store.findVersion(strategyId, number)
                 .orElseThrow(() -> new StrategyException.NotFound("Version " + number + " of strategy " + strategyId + " not found"));
         boolean forced = force && properties.allowForcedStatus();
-        String rejection = forced ? (version.status() == to ? "version is already " + to : null) : lifecycle.reject(version.id(), version.status(), to);
+        String rejection = forced ? (version.status() == to ? "version is already " + to : null) : lifecycle.reject(version, to);
         if (rejection != null) {
             throw new StrategyException.Conflict(rejection);
         }

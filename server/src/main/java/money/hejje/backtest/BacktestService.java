@@ -148,6 +148,9 @@ public class BacktestService {
     /** Loads everything the engine needs for a spec (definition, instruments, candles with warm-up). */
     public BacktestInput prepare(BacktestSpec spec, StrategyVersion version) {
         StrategyDefinition def = version.definition();
+        if (!def.legs().isEmpty()) {
+            throw new BacktestException("Options strategies are PAPER-only: the historical store has no option candles to replay their legs (docs/options.md)");
+        }
         Timeframe timeframe = spec.timeframe() == null ? def.timeframe() : spec.timeframe();
         List<InstrumentMeta> resolved = spec.instrumentIds().isEmpty() ? resolveUniverse(def) : spec.instrumentIds().stream().map(this::metaFor).toList();
         if (resolved.isEmpty()) {

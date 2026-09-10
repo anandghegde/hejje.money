@@ -42,3 +42,8 @@ to `historical-per-second`, stored in Parquet; progress via `GET /market/history
 `hejje.market.record=true` writes ticks to `${data-dir}/ticks/{date}/ticks.parquet`. ReplayMarketDataSource (dev
 profile) replays a recorded day into the same pipeline at a configurable speed, so replayed candles are byte-identical
 to the live run (see TickReplayParityTest).
+
+Subscription modes (M5.4): the watchlist and option chains stream in FULL mode (volume, open interest, depth; the chain's
+put/call ratios and max pain need OI); every other subscription is LTP. An instrument already in FULL mode is never
+downgraded by a later LTP subscription.
+

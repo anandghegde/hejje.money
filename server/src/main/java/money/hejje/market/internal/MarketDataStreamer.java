@@ -41,6 +41,7 @@ public class MarketDataStreamer implements MarketDataListener {
 
     private final Set<UUID> watched = ConcurrentHashMap.newKeySet();
     private final Set<UUID> subscribed = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> full = ConcurrentHashMap.newKeySet(); // FULL mode besides the watchlist (option chains need OI, M5.4)
     private volatile MarketDataStream stream;
     private volatile long backoffMs = 1000;
     private volatile boolean enabled;
@@ -95,21 +96,40 @@ public class MarketDataStreamer implements MarketDataListener {
         if (stream == null) {
             return;
         }
-        if (!watched.isEmpty()) {
-            stream.subscribe(Set.copyOf(watched), MarketTick.Mode.FULL);
-            subscribed.addAll(watched);
+        Set<UUID> fullMode = new LinkedHashSet<>(watched);
+        fullMode.addAll(full);
+        if (!fullMode.isEmpty()) {
+            stream.subscribe(Set.copyOf(fullMode), MarketTick.Mode.FULL);
+            subscribed.addAll(fullMode);
         }
         Set<UUID> ltp = new LinkedHashSet<>(subscribed);
-        ltp.removeAll(watched);
+        ltp.removeAll(fullMode);
         if (!ltp.isEmpty()) {
             stream.subscribe(ltp, MarketTick.Mode.LTP);
         }
     }
 
+    /** LTP-mode subscription; an instrument already streamed in FULL mode (watchlist, option chains) keeps FULL. */
     public synchronized void subscribe(Set<UUID> instrumentIds) {
         subscribed.addAll(instrumentIds);
+        Set<UUID> ltp = new LinkedHashSet<>(instrumentIds);
+        ltp.removeAll(watched);
+        ltp.removeAll(full);
         if (stream != null && stream.isConnected()) {
-            stream.subscribe(Set.copyOf(instrumentIds), MarketTick.Mode.LTP);
+            if (!ltp.isEmpty()) {
+                stream.subscribe(Set.copyOf(ltp), MarketTick.Mode.LTP);
+            }
+        } else {
+            start();
+        }
+    }
+
+    /** FULL-mode subscription (depth, volume and open interest), e.g. for an option chain (M5.4). */
+    public synchronized void subscribeFull(Set<UUID> instrumentIds) {
+        full.addAll(instrumentIds);
+        subscribed.addAll(instrumentIds);
+        if (stream != null && stream.isConnected()) {
+            stream.subscribe(Set.copyOf(instrumentIds), MarketTick.Mode.FULL);
         } else {
             start();
         }
@@ -119,6 +139,7 @@ public class MarketDataStreamer implements MarketDataListener {
         Set<UUID> removable = new LinkedHashSet<>(instrumentIds);
         removable.removeAll(watched); // never drop the default watchlist
         subscribed.removeAll(removable);
+        full.removeAll(removable);
         if (stream != null && !removable.isEmpty()) {
             stream.unsubscribe(removable);
         }

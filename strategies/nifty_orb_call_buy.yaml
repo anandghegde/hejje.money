@@ -1,0 +1,39 @@
+# NIFTY opening range breakout traded with one ATM weekly call (docs/strategies/nifty_orb_call_buy.md)
+name: nifty_orb_call_buy
+family: options
+description: On the NIFTY opening-range breakout (the nifty_orb signal), buy one lot of the ATM weekly call; exits on a 30% premium stop, a 60% premium target, the underlying's stop or 15:10.
+
+universe:
+  - NIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close > opening_range_high(15m)
+    - close > vwap
+    - relative_volume(20) > 1.2
+
+stop:
+  type: opening_range_low
+
+trade_window:
+  start: "09:30"
+  end: "12:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+legs:
+  - action: buy
+    option: directional
+    strike: atm
+    expiry: nearest
+    lots: 1
+    stop_pct: 30
+    target_pct: 60
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

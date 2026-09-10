@@ -5,6 +5,7 @@ import { ApiError, request } from '../api/client';
 import { Backtest, Strategy, StrategyVersion, ValidationReport } from '../api/types';
 import { DescribeStrategy } from '../components/DescribeStrategy';
 import { Experiments } from '../components/Experiments';
+import { LegBuilder } from '../components/LegBuilder';
 
 const TEMPLATE = `name: my_orb
 family: index
@@ -100,6 +101,7 @@ export function Lab() {
       <div style={{ display: 'flex', gap: 16 }}>
         <div style={{ flex: 1 }}>
           <textarea data-testid="yaml-editor" value={yaml} onChange={(e) => setYaml(e.target.value)} style={{ width: '100%', height: 420, fontFamily: 'monospace' }} />
+          <LegBuilder yaml={yaml} onChange={setYaml} />
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
             <input placeholder="change note" value={changeNote} onChange={(e) => setChangeNote(e.target.value)} />
             <button onClick={save} disabled={!report?.valid || (!!strategyId && !changeNote)}>{strategyId ? 'New version' : 'Create strategy'}</button>

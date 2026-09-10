@@ -330,6 +330,11 @@ public class ApprovalService {
         ObjectNode result = json.createObjectNode();
         switch (a.kind()) {
             case ORDER_NEW -> {
+                if (a.signalId() != null && signals.isOptions(a.signalId())) {
+                    money.hejje.options.OptionsPosition p = signals.executeOptions(a.signalId(), key, approver);
+                    result.put("optionsPositionId", p.id().toString()).put("basketId", p.basketId().toString()).put("state", p.status().name());
+                    break;
+                }
                 HejjeOrder order = a.signalId() != null ? signals.execute(a.signalId(), key, approver)
                         : execution.submit(proposals.command(a, approver.id(), key, ActorType.USER, approver.name()));
                 result.put("orderId", order.id().toString()).put("executedIntentId", order.intentId().toString()).put("state", order.state().name());

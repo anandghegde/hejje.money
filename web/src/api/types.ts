@@ -290,3 +290,20 @@ export interface SplitOrder {
   deadline: string; detail?: string; createdAt: string;
 }
 
+export interface OptionQuote {
+  instrumentId: string; symbol: string; lotSize: number; last?: number; bid?: number; ask?: number; oi: number; volume: number;
+  iv?: number; delta?: number; gamma?: number; vega?: number; theta?: number; stale: boolean;
+}
+
+export interface OptionChain {
+  underlying: string; expiry: string; asOf: string; forward?: number; forwardSource?: string; yearsToExpiry?: number; atmStrike?: number;
+  pcrOi?: number; pcrVolume?: number; maxPain?: number; rows: { strike: number; call?: OptionQuote; put?: OptionQuote }[]; notes: string[];
+}
+
+export interface OptionsPosition {
+  id: string; underlying: string; direction: 'BUY' | 'SELL'; underlyingStop?: number; basketId: string;
+  status: 'PENDING' | 'OPEN' | 'CLOSING' | 'CLOSED' | 'FAILED'; closeReason?: string; realized?: Money; detail?: string; openedAt: string;
+  legs: { sequence: number; symbol: string; side: 'BUY' | 'SELL'; quantity: number; stopPrice?: number; targetPrice?: number; hedgeFirst: boolean;
+    entryPrice?: number; exitPrice?: number }[];
+}
+

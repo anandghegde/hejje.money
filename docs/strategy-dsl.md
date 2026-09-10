@@ -60,8 +60,34 @@ risk_overrides:                 # optional
 version: 3                      # ignored: versions are assigned by the server
 ```
 
+Options strategies (`family: options`) add `legs` and an optional `combined_exit`; see "Options legs" below.
+
 Unknown keys are errors. Times must be quoted. Every structural problem is reported together as
 `{path, message}` pairs (for example `entry.all[2]`, `stop.value`).
+
+## Options legs
+
+An options strategy signals on its underlying (`universe`, entry rules and `stop` as usual; the stop becomes the
+underlying stop that closes the position) and trades up to four option legs on each signal:
+
+```yaml
+legs:
+  - action: buy            # buy | sell (required)
+    option: directional    # directional (CE on a long signal, PE on a short one) | opposite | ce | pe
+    strike: atm            # atm | {offset: 100} (points from ATM, positive = out of the money for the leg's type) | {delta: 0.3}
+    expiry: nearest        # nearest | next | monthly
+    lots: 1                # default 1
+    stop_pct: 30           # optional premium stop, percent of the entry premium (0-100]
+    target_pct: 60         # optional premium target
+    hedge_first: true      # optional; placed and filled before the other legs (buy legs only)
+combined_exit:             # optional: exits on the combined P&L of all legs
+  stop_rupees: 2500
+  target_rupees: 4000
+```
+
+Validation: `legs` only with `family: options`, and `family: options` needs `legs`; at most four legs; `hedge_first`
+only on buy legs; `combined_exit` needs legs. Options strategies cannot be backtested (no option candles) and go
+DRAFT → PAPER directly; LIVE needs closed paper options positions (docs/options.md).
 
 ## Condition grammar
 

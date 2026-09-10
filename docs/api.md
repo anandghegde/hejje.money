@@ -1104,3 +1104,26 @@ A split: `{ "id", "side", "quantity", "policy", "status": "WORKING|COMPLETED|CAN
 → 201 with the basket (`status`, `marginRequired`, `marginAvailable`, `detail`, `legs[]` with `sequence`, `executionOrder`,
 `orderId`, `status`, `detail`, `rollbackOrderId`). The same key returns the same basket.
 
+## Options (Phase 5, M5.4)
+
+See `docs/options.md`.
+
+### `GET /api/v1/instruments/options/expiries?underlying=NIFTY` · `GET /api/v1/instruments/options/chain?underlying=NIFTY&expiry=2026-09-15` (`market:read`)
+
+```json
+{ "underlying": "NIFTY", "expiry": "2026-09-15", "forward": 25010.00, "forwardSource": "NFO:NIFTY:FUT:2026-09-29", "yearsToExpiry": 0.0142,
+  "atmStrike": 25000.00, "pcrOi": 1.12, "pcrVolume": 0.94, "maxPain": 25000.00, "notes": [],
+  "rows": [ { "strike": 25000.00,
+    "call": { "instrumentId": "0192…", "symbol": "NFO:NIFTY:OPT:2026-09-15:25000:CE", "lotSize": 75, "last": 120.30, "oi": 81000, "volume": 12000,
+              "iv": 0.121, "delta": 0.52, "gamma": 0.0011, "vega": 11.4, "theta": -16.9, "stale": false },
+    "put": { … } } ] }
+```
+
+### `GET /api/v1/options/positions?limit=20` · `GET /api/v1/options/positions/{id}` (`market:read`)
+
+An options position: `{ "id", "underlying", "direction", "underlyingStop", "basketId", "status": "PENDING|OPEN|CLOSING|CLOSED|FAILED",
+"legs": [ { "sequence", "symbol", "side", "quantity", "stopPrice", "targetPrice", "hedgeFirst", "entryPrice", "exitPrice" } ],
+"combinedStop", "combinedTarget", "closeReason", "realized" }`.
+
+`POST /api/v1/signals/{id}/execute` on a signal of an options strategy returns the options position (201) instead of an order.
+

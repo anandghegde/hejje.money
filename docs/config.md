@@ -125,6 +125,12 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.execution.planning.max-basket-legs` | — | `20` | Legs per basket. |
 | `hejje.execution.planning.basket-deadline` / `split-deadline` | — | `15m` / `15m` | Default deadlines. |
 | `hejje.execution.planning.auto-split-above` / `auto-split-child-quantity` / `auto-split-delay` | — | `0` (off) / `0` (= the threshold) / `1s` | Automatic splitting of large intents. |
+| `hejje.options.risk-free-rate` / `default-volatility` | — | `0.065` / `0.15` | Black-76 rate; volatility for delta-based strike selection when a strike has no IV. |
+| `hejje.options.max-lots` / `max-premium-rupees` | — | `10` / `50000` | Options risk: lots per order; premium at risk per buy. |
+| `hejje.options.expiry-day-cutoff` | — | `13:00` | No new option positions on their expiry day from this IST time (and strike selection skips today's expiry). |
+| `hejje.options.min-paper-trades` | — | `30` | Closed paper options positions a version needs before LIVE. |
+| `hejje.options.monitor-interval` | — | `5s` | Options position checks (exits). |
+| `hejje.options.underlyings` | — | `NIFTY 50: NIFTY`, `NIFTY BANK: BANKNIFTY`, `NIFTY FIN SERVICE: FINNIFTY` | Index → option underlying for signals on an index. |
 | `hejje.auto.acknowledged` | `HEJJE_AUTO_ACKNOWLEDGED` | `false` | Required (with the `prod` profile) for `hejje.mode=AUTO`; startup fails otherwise. |
 | `hejje.auto.min-paper-trades` | — | `30` | Closed paper trades a version needs before an AUTO deployment at autonomy 4-5 ("a new strategy version is never automatic"). |
 | `hejje.auto.default-max-trades-per-day` / `default-max-loss-rupees` | — | `3` / `5000` | Per-deployment daily budget at autonomy 4-5 (entries; gross realized loss); deployment params `daily_max_trades` / `daily_max_loss_rupees` override. |
