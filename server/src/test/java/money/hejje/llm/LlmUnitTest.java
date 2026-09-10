@@ -25,14 +25,14 @@ class LlmUnitTest {
 
     static LlmProperties props(boolean enabled, int retries) {
         return new LlmProperties(enabled, Map.of("fx", new LlmProperties.Provider("fixture", null, null, "m", Duration.ofSeconds(1))),
-                Map.of("news", new LlmProperties.Profile("fx", "fixture-news", 0.0, 100)), retries, Duration.ofMillis(1),
-                Map.of("fixture-news", new LlmProperties.Pricing(100.0, 300.0)));
+                Map.of("news", new LlmProperties.Profile("fx", "fixture-news", 0.0, 100, null)), retries, Duration.ofMillis(1),
+                Map.of("fixture-news", new LlmProperties.Pricing(100.0, 300.0)), null, null);
     }
 
     @Test
     void disabledLlmIsUnavailableAndLogsNothing() {
         LlmCallStore store = mock(LlmCallStore.class);
-        LlmService llm = new LlmService(props(false, 0), List.of(new FixtureLlmProvider("fx")), store, CLOCK);
+        LlmService llm = new LlmService(props(false, 0), List.of(new FixtureLlmProvider("fx")), store, CLOCK, mock(money.hejje.audit.AuditService.class));
         assertThat(llm.enabled()).isFalse();
         assertThatThrownBy(() -> llm.complete(new LlmRequest("news", "t", "v1", null, "hello", null, null, false))).isInstanceOf(LlmException.Unavailable.class);
         verify(store, never()).insert(any());
@@ -43,7 +43,7 @@ class LlmUnitTest {
         LlmCallStore store = mock(LlmCallStore.class);
         FixtureLlmProvider fx = new FixtureLlmProvider("fx");
         fx.respondTo("sys", "hello", "world");
-        LlmService llm = new LlmService(props(true, 0), List.of(fx), store, CLOCK);
+        LlmService llm = new LlmService(props(true, 0), List.of(fx), store, CLOCK, mock(money.hejje.audit.AuditService.class));
         LlmResponse r = llm.complete(new LlmRequest("news", "test", "v1", "sys", "hello", null, null, false));
         assertThat(r.text()).isEqualTo("world");
         assertThat(r.model()).isEqualTo("fixture-news");
@@ -71,10 +71,10 @@ class LlmUnitTest {
                 return new LlmResponse("ok", "fx", model, 1, 1, 1);
             }
         };
-        LlmService llm = new LlmService(props(true, 2), List.of(flaky), store, CLOCK);
+        LlmService llm = new LlmService(props(true, 2), List.of(flaky), store, CLOCK, mock(money.hejje.audit.AuditService.class));
         assertThat(llm.complete(new LlmRequest("news", "t", "v1", null, "x", null, null, false)).text()).isEqualTo("ok");
         verify(store, org.mockito.Mockito.times(3)).insert(any());
-        LlmService once = new LlmService(props(true, 0), List.of(new FixtureLlmProvider("fx")), store, CLOCK);
+        LlmService once = new LlmService(props(true, 0), List.of(new FixtureLlmProvider("fx")), store, CLOCK, mock(money.hejje.audit.AuditService.class));
         assertThatThrownBy(() -> once.complete(new LlmRequest("news", "t", "v1", null, "unknown", null, null, false)))
                 .isInstanceOf(LlmException.class).hasMessageContaining("No fixture response");
     }
@@ -85,7 +85,7 @@ class LlmUnitTest {
         FixtureLlmProvider fx = new FixtureLlmProvider("fx");
         fx.respondWhenContains("previous answer was invalid", "{\"score\": 0.5, \"label\": \"BULLISH\"}");
         fx.respondWhenContains("rate this", "Sure! {\"score\": 2, \"label\": \"BULLISH\"}");
-        LlmService llm = new LlmService(props(true, 0), List.of(fx), store, CLOCK);
+        LlmService llm = new LlmService(props(true, 0), List.of(fx), store, CLOCK, mock(money.hejje.audit.AuditService.class));
         StructuredOutput structured = new StructuredOutput(llm, JSON);
         JsonNode schema = JSON.readTree("{\"type\":\"object\",\"required\":[\"score\",\"label\"],\"properties\":{\"score\":{\"type\":\"number\",\"minimum\":-1,\"maximum\":1},"
                 + "\"label\":{\"type\":\"string\",\"enum\":[\"BULLISH\",\"BEARISH\"]}}}");

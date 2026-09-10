@@ -121,6 +121,12 @@ hejje:
       reasoning: { provider: primary }
       news: { provider: primary, temperature: 0.0, max-tokens: 600 }
       research: { provider: primary }
+    # Native Gemini example (HEJJE_GEMINI_API_KEY in the environment):
+    #   gemini: { type: gemini, api-key-env: HEJJE_GEMINI_API_KEY, model: gemini-2.5-flash }
+    daily-cost-cap: ${HEJJE_LLM_DAILY_COST_CAP:}   # rupees per IST day (needs pricing); empty = no cap
+    circuit-breaker:
+      failure-threshold: 5
+      open-for: 60s
   news:
     enabled: ${HEJJE_NEWS_ENABLED:false}
     poll-minutes: 5

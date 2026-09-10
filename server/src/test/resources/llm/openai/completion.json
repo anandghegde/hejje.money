@@ -1,0 +1,3 @@
+{"id":"chatcmpl-9x1","object":"chat.completion","created":1757491200,"model":"gpt-test-2026-01-01",
+ "choices":[{"index":0,"message":{"role":"assistant","content":"Hi."},"logprobs":null,"finish_reason":"stop"}],
+ "usage":{"prompt_tokens":17,"completion_tokens":2,"total_tokens":19}}

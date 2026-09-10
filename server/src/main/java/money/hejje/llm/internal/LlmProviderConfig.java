@@ -24,6 +24,7 @@ class LlmProviderConfig {
         for (Map.Entry<String, LlmProperties.Provider> e : props.providers().entrySet()) {
             switch (e.getValue().type()) {
                 case "openai-compatible" -> out.add(new OpenAiCompatibleProvider(e.getKey(), e.getValue(), json));
+                case "gemini" -> out.add(new GeminiProvider(e.getKey(), e.getValue(), json));
                 case "fixture" -> out.add(new FixtureLlmProvider(e.getKey()));
                 default -> log.warn("Unknown LLM provider type '{}' for '{}'; skipped", e.getValue().type(), e.getKey());
             }

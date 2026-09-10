@@ -19,10 +19,17 @@ public class LlmException extends RuntimeException {
         return retryable;
     }
 
-    /** The LLM is disabled or no profile/provider is configured. */
+    /** The LLM is disabled, no profile/provider is configured, the provider's circuit is open or the budget is spent. */
     public static class Unavailable extends LlmException {
         public Unavailable(String message) {
             super(message, false);
+        }
+    }
+
+    /** Today's estimated spend reached {@code hejje.llm.daily-cost-cap}; calls resume the next IST day. */
+    public static class BudgetExceeded extends Unavailable {
+        public BudgetExceeded(String message) {
+            super(message);
         }
     }
 }

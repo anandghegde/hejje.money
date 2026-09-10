@@ -1,0 +1,2 @@
+{"candidates":[{"content":{"parts":[{"text":"The market is trending up [get_market_regime]."}],"role":"model"},"finishReason":"STOP","index":0}],
+ "usageMetadata":{"promptTokenCount":110,"candidatesTokenCount":11,"totalTokenCount":121},"modelVersion":"gemini-test-001"}

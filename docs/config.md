@@ -103,10 +103,13 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.events.curated.enabled` / `files` | — | `true` / `classpath:events/macro-2026.yaml` | Curated macro calendars (`file:` paths override the bundled copy). |
 | `hejje.events.nse.enabled` / `base-url` / `timeout-seconds` | — | `false` / `https://www.nseindia.com` / `5` | Optional best-effort NSE corporate-action fetcher. |
 | `hejje.llm.enabled` | `HEJJE_LLM_ENABLED` | `false` | LLM provider abstraction (`docs/llm.md`). Off: every call is `Unavailable`; callers degrade. |
-| `hejje.llm.providers.<name>.*` | — | `primary`: `openai-compatible`, `base-url` `HEJJE_LLM_BASE_URL`, `api-key-env` `HEJJE_LLM_API_KEY`, `model` `HEJJE_LLM_MODEL` | Providers (`type`, `base-url`, `api-key-env`, `model`, `timeout`). The key is read from the named env var only. |
+| `hejje.llm.providers.<name>.*` | — | `primary`: `openai-compatible`, `base-url` `HEJJE_LLM_BASE_URL`, `api-key-env` `HEJJE_LLM_API_KEY`, `model` `HEJJE_LLM_MODEL` | Providers (`type` `openai-compatible`/`gemini`/`fixture`, `base-url` (Gemini defaults to Google's), `api-key-env`, `model`, `timeout`). The key is read from the named env var only. |
 | `hejje.llm.profiles.<fast|reasoning|news|research>` | — | all → `primary` | Profile → provider, optional model/temperature/max-tokens. |
 | `hejje.llm.retries` / `backoff` | — | `2` / `500ms` | Retries on timeouts, 429 and 5xx; backoff doubles. |
 | `hejje.llm.pricing.<model>` | — | (none) | Rupees per million input/output tokens for the call-log cost estimate. |
+| `hejje.llm.daily-cost-cap` | `HEJJE_LLM_DAILY_COST_CAP` | (none) | Rupees per IST day, summed from the call log's cost estimates (calls without `pricing` count as zero). Reaching it disables every LLM call until the next IST day and records one `LLM_BUDGET_EXCEEDED` audit alert. |
+| `hejje.llm.circuit-breaker.failure-threshold` / `open-for` | — | `5` / `60s` | Consecutive retryable failures (timeouts, 429, 5xx) that open a provider's circuit, and how long it stays open before one trial call. |
+| `hejje.llm.profiles.<name>.fallback` | — | (none) | Profile tried once when this profile's provider fails or its circuit is open (not after streaming has started). |
 | `hejje.news.enabled` | `HEJJE_NEWS_ENABLED` | `false` | News polling and classification (`docs/news.md`). |
 | `hejje.news.poll-minutes` | — | `5` | Poll interval. |
 | `hejje.news.sources` / `aliases` | — | `classpath:news-sources.yaml` / `classpath:aliases.yaml` | Feed list and instrument alias map (`file:` paths override the bundled copies). |

@@ -1,0 +1,3 @@
+{"id":"chatcmpl-9x2","object":"chat.completion","created":1757491201,"model":"gpt-test-2026-01-01",
+ "choices":[{"index":0,"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call_abc123","type":"function","function":{"name":"get_market_regime","arguments":"{\"detail\":true}"}}]},"logprobs":null,"finish_reason":"tool_calls"}],
+ "usage":{"prompt_tokens":88,"completion_tokens":14,"total_tokens":102}}

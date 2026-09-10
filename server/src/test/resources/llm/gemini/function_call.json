@@ -1,0 +1,2 @@
+{"candidates":[{"content":{"parts":[{"functionCall":{"name":"get_market_regime","args":{"detail":true}}}],"role":"model"},"finishReason":"STOP","index":0}],
+ "usageMetadata":{"promptTokenCount":80,"candidatesTokenCount":9,"totalTokenCount":89},"modelVersion":"gemini-test-001"}

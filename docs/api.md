@@ -819,3 +819,30 @@ Rows are `UNKNOWN` (value "Unknown", delta null, reason in evidence) when their 
 Recommendations (`GET /api/v1/today`) now carry `cautions` (`[{ "code": "VIX_RISING", "message": "India VIX up 6.0% on the day" }]`, codes in
 `docs/decisions.md`), `context` (the card above) and may be `TRADE_WITH_CAUTION`; the trading-window control is reported as `WAIT`
 (under risks) rather than `AVOID`.
+
+## LLM providers (Phase 4, M4.1)
+
+See `docs/llm.md`.
+
+### `GET /api/v1/agents/llm/status`
+
+Scope: `market:read`. Providers with their circuit (`CLOSED | OPEN | HALF_OPEN`), profiles, and today's (IST) usage from the call log
+against the daily cost cap. `keyPresent` only says whether the named env var holds a value; the key is never returned.
+
+```json
+{ "enabled": true,
+  "providers": [ { "name": "primary", "type": "openai-compatible", "model": "gpt-4.1-mini", "configured": true, "keyPresent": true,
+                   "circuit": "CLOSED", "consecutiveFailures": 0, "lastSuccessAt": "2026-09-10T04:01:00Z", "lastFailureAt": null, "lastError": null } ],
+  "profiles": { "fast": { "provider": "primary", "model": null, "temperature": null, "maxTokens": null, "fallback": null } },
+  "today": { "calls": 42, "failed": 1, "inputTokens": 51200, "outputTokens": 6100, "costPaise": 1830 },
+  "dailyCostCapPaise": 20000, "budgetExceeded": false }
+```
+
+### `POST /api/v1/agents/llm/test`
+
+Scope: `admin`. Body `{ "profile": "fast" }` (default `fast`). Sends "Reply with the single word OK." through the profile (logged in
+`llm_call` with purpose `llm-test`). Failures are reported in the body, not as an HTTP error.
+
+```json
+{ "ok": true, "profile": "fast", "provider": "primary", "model": "gpt-4.1-mini", "text": "OK", "inputTokens": 14, "outputTokens": 1, "latencyMs": 420, "error": null }
+```

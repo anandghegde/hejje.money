@@ -1,0 +1,2 @@
+{"candidates":[{"content":{"parts":[{"text":"{\"ok\": true}"}],"role":"model"},"finishReason":"STOP","index":0}],
+ "usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":5,"totalTokenCount":17},"modelVersion":"gemini-test-001"}
