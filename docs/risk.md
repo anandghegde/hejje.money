@@ -44,3 +44,31 @@ order form uses to prefill the stop when an instrument is resolved or the side c
 
 `PositionSizer.size(entry, stop, riskMoney, lotSize, maxQty)` returns a whole number of lots such that
 |entry−stop|×qty ≤ riskMoney, capped at `maxQty`. Exposed at `POST /risk/position-size`.
+
+## Approval policy (Phase 4, M4.4)
+
+`risk.policy.PolicyEngine` answers `ALLOW | REQUIRE_APPROVAL | DENY` for an action (`ORDER_NEW`, `ORDER_MODIFY`,
+`ORDER_CANCEL`, `POSITION_CLOSE`) by an actor (`USER`, `AGENT`, `STRATEGY`) with its context (deployment autonomy level,
+event risk, score, whether the version is LIVE). Rules live in `policy_rule` (seeded from PRD 49), are evaluated by
+priority, and the first enabled rule whose actions and condition match decides; no match means `REQUIRE_APPROVAL`.
+
+| Priority | Rule | Condition | Actions | Decision |
+|---|---|---|---|---|
+| 10 | `daily_loss_block` | net P&L today ≤ −`lossLimitPct`% (100) of the daily loss limit | new orders | DENY |
+| 20 | `autonomy_above_phase` | autonomy level > 3 | all | DENY |
+| 30 | `agent_needs_prepare_level` | an agent on a strategy with autonomy < 2 (research, recommend) | new orders | DENY |
+| 40 | `event_risk_high` | the instrument's event risk is HIGH | new orders | REQUIRE_APPROVAL |
+| 50 | `new_strategy_version` | the version is not LIVE | new orders | REQUIRE_APPROVAL |
+| 60 | `agent_actions` | actor AGENT | all | REQUIRE_APPROVAL |
+| 70 | `manual_orders` | actor USER | all | REQUIRE_APPROVAL |
+| 80 | `score_below_80` | score < 80 | new orders | REQUIRE_APPROVAL |
+| 90 | `strategy_signals` | actor STRATEGY | new orders | REQUIRE_APPROVAL |
+
+In this phase anything but the local user is capped at REQUIRE_APPROVAL (Automation Level 3 maximum), and editing a rule
+to ALLOW is refused; AUTO arrives in Phase 5. Autonomy levels are stored per deployment (0–3); agent proposals without a
+deployed strategy use `hejje.agent.approvals.account-autonomy-level` (3), and a named strategy without an enabled
+deployment counts as level 0. The engine is consulted for agent proposals and again when they are approved; manual orders
+and signal executions keep their own confirmation steps.
+
+`GET /api/v1/risk/policies` (`risk:read`) lists the rules; `PUT /api/v1/risk/policies/{id}` (`risk:write`,
+`{ "enabled", "decision", "priority", "params" }`) edits one (`POLICY_UPDATED` audit).

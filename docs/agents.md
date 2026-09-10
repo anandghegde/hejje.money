@@ -89,3 +89,36 @@ nothing else changes.
 Clients: web `/agent` (streamed answer, tool-call trace with scope/status/latency, unverified numbers highlighted,
 quick prompts for the flows) and TUI `hejje ai "question"` (one-shot, `--flow`, `--json`) or `hejje ai` (interactive;
 `/new`, `/quit`).
+
+## Agent-prepared orders and approvals (plan M4.4, PRD 27 Level 3)
+
+Agents propose; Hejje's deterministic engines size and check; a human decides.
+
+- `prepare_order` (`orders:prepare`, no side effects): from an active signal (`signalId`, sized by the signal's own dry
+  run) or from `instrument`, `side`, `riskRupees`, `stop` (+ `entry`, default the last price, `target`, `product`,
+  `strategy`). Returns the quantity from the position sizer, the dry-run risk decision with every check, and the policy
+  decision. A DENY is returned as tool status `DENIED` (HTTP 403) with the reason.
+- `submit_order_intent` (same input + `rationale`): re-prepares server-side (the agent's numbers are never trusted),
+  refuses when policy denies, risk would reject or the order cannot be sized, else creates an `order_intent` with status
+  `PROPOSED` and a `PENDING` approval, audited as `AGENT_RECOMMENDED`. With an `Idempotency-Key` the same request
+  returns the same approval.
+- `modify_order_intent`, `cancel_order_intent`, `close_position_intent` create approvals the same way.
+- An approval expires after `hejje.agent.approvals.ttl` (5 minutes), or with the signal's validity for signal proposals.
+
+Approving (`POST /api/v1/approvals/{id}/approve`, `orders:execute` + `Idempotency-Key`):
+
+1. only a `PENDING`, unexpired approval of the server's mode can be approved; an agent credential cannot approve its
+   own proposal (the local user can approve what Hejje AI proposed on their behalf);
+2. policy is re-evaluated with fresh context and, for new orders, risk is re-run on the proposed order; a failure marks
+   the approval `FAILED` (422, `APPROVAL_FAILED` audit) and nothing is sent;
+3. the approval is claimed atomically (`USER_APPROVED` audit), then executed through the normal pipeline: signal
+   proposals through the signal (so the strategy's stop order is placed), manual ones as an intent with reason
+   `AGENT_PROPOSAL`, modify/cancel/close through the execution engine. The result (order id, executed intent) is stored;
+   replaying the same key returns it.
+
+Rejecting (`POST /api/v1/approvals/{id}/reject`, `{ "reason": "…" }`) is final (`USER_REJECTED`). Expired, rejected and
+failed proposals leave their intent `DECLINED`. Every change is pushed on `/ws/events` as `{ "type": "approval", "id",
+"status", "kind", "summary" }`.
+
+The audit trail of an approved agent order reads `AGENT_RECOMMENDED → USER_APPROVED → RISK_CHECK_PASSED →
+ORDER_SUBMITTED`. The approval policy itself is documented in `docs/risk.md`.

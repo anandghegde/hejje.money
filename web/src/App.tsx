@@ -18,6 +18,7 @@ import { Lab } from './pages/Lab';
 import { ReviewDetail, Reviews } from './pages/Reviews';
 import { Analytics } from './pages/Analytics';
 import { Agent } from './pages/Agent';
+import { Approvals } from './pages/Approvals';
 import { ReactNode } from 'react';
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -44,6 +45,7 @@ export function App() {
             <Route path="/reviews/:id" element={<Protected><ReviewDetail /></Protected>} />
             <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
             <Route path="/agent" element={<Protected><Agent /></Protected>} />
+            <Route path="/approvals" element={<Protected><Approvals /></Protected>} />
             <Route path="/orders" element={<Protected><Orders /></Protected>} />
             <Route path="/positions" element={<Protected><Positions /></Protected>} />
             <Route path="/trades" element={<Protected><Trades /></Protected>} />

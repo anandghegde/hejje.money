@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { request } from '../api/client';
 import { AiStatus, AiTraceStep, Grounding } from '../api/types';
 import { askStream, highlightUnverified } from '../lib/agent';
+import { createdProposal } from '../lib/approvals';
 
 interface ChatTurn {
   question: string;
@@ -34,6 +36,11 @@ function Answer({ turn }: { turn: ChatTurn }) {
         : <span key={i}>{s.text}</span>)}
       {!turn.done && <span style={{ color: '#9e9e9e' }}> …</span>}
       {turn.error && <div style={{ color: '#c62828' }}>{turn.error}</div>}
+      {turn.done && createdProposal(turn.trace) && (
+        <div data-testid="proposal-created" style={{ marginTop: 8, padding: 8, background: '#fff3e0', borderRadius: 4 }}>
+          Proposal created — <Link to="/approvals">approve in the inbox</Link>. Nothing has been placed yet.
+        </div>
+      )}
       {turn.done && turn.grounding && (
         <div style={{ marginTop: 8, fontSize: 12, color: turn.grounding.unverifiedNumbers.length || turn.grounding.unknownIds.length ? '#e65100' : '#616161' }}>
           {turn.grounding.unverifiedNumbers.length || turn.grounding.unknownIds.length

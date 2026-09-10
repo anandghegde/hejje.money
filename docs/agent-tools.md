@@ -9,6 +9,8 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | Tool | Scope | Kind | Description |
 |---|---|---|---|
 | `calculate_position_size` | `risk:read` | read | Deterministic risk-based quantity: floor(risk / \|entry - stop\|) rounded down to whole lots, optionally capped. Give the instrument (for its lot size) or lotSize. |
+| `cancel_order_intent` | `orders:prepare` | transactional | Asks a human to approve cancelling an open order. |
+| `close_position_intent` | `orders:prepare` | transactional | Asks a human to approve closing the open position in an instrument. |
 | `compare_strategies` | `strategies:read` | read | Side-by-side comparison of 2 to 6 strategy versions: trades, win rate, profit factor, expectancy (R), max drawdown (R), similar-regime performance and Hejje Score. |
 | `compare_strategy_versions` | `strategies:read` | read | Compare two versions of one strategy: both rows, metric deltas and a templated verdict. |
 | `get_account_risk` | `risk:read` | read | Account risk dashboard (PRD 54): P&L vs the daily loss limit, exposure, open positions, trades today, consecutive losses, margin use and the kill switch. |
@@ -27,6 +29,9 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_strategy_signal` | `strategies:read` | read | A signal by id, today's signals with a given status, or (default) every active signal: side, reference price, stop, target, validity and the evidence that fired it. |
 | `get_trades` | `market:read` | read | Fills between two dates (default today, at most 31 days) in the current execution mode. |
 | `list_strategies` | `strategies:read` | read | Every strategy in the library with its latest version, lifecycle status and headline Hejje Score. |
+| `modify_order_intent` | `orders:prepare` | transactional | Asks a human to approve modifying an open order (quantity, order type, limit or trigger price). |
+| `prepare_order` | `orders:prepare` | read | Dry run of an order: Hejje sizes it from the rupee risk and stop (or the signal), runs the risk checks and the approval policy, and returns the proposal. Nothing is created; use submit_order_intent to ask a human to approve it. |
+| `submit_order_intent` | `orders:prepare` | transactional | Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale. |
 
 ## `calculate_position_size`
 
@@ -97,6 +102,143 @@ Output schema:
     }
   },
   "required" : [ "quantity", "lotSize" ]
+}
+```
+
+## `cancel_order_intent`
+
+Asks a human to approve cancelling an open order.
+
+Scope `orders:prepare`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "orderId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "rationale" : {
+      "type" : "string",
+      "maxLength" : 500,
+      "description" : "Why, in one or two sentences, shown to the approver"
+    }
+  },
+  "required" : [ "orderId" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "approvalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "intentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "expiresAt" : {
+      "type" : "string"
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : "string"
+    }
+  }
+}
+```
+
+## `close_position_intent`
+
+Asks a human to approve closing the open position in an instrument.
+
+Scope `orders:prepare`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "product" : {
+      "type" : "string",
+      "enum" : [ "MIS", "CNC", "NRML" ]
+    },
+    "rationale" : {
+      "type" : "string",
+      "maxLength" : 500,
+      "description" : "Why, in one or two sentences, shown to the approver"
+    }
+  },
+  "required" : [ "instrument" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "approvalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "intentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "expiresAt" : {
+      "type" : "string"
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : "string"
+    }
+  }
 }
 ```
 
@@ -424,7 +566,7 @@ Input schema:
     },
     "type" : {
       "type" : "string",
-      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED" ]
+      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED" ]
     },
     "from" : {
       "type" : "string",
@@ -2075,6 +2217,366 @@ Output schema:
         },
         "required" : [ "latestVersion" ]
       }
+    }
+  }
+}
+```
+
+## `modify_order_intent`
+
+Asks a human to approve modifying an open order (quantity, order type, limit or trigger price).
+
+Scope `orders:prepare`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "orderId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "quantity" : {
+      "type" : "integer",
+      "minimum" : 1
+    },
+    "orderType" : {
+      "type" : "string",
+      "enum" : [ "MARKET", "LIMIT", "SL", "SL_M" ]
+    },
+    "limitPrice" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "triggerPrice" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "rationale" : {
+      "type" : "string",
+      "maxLength" : 500,
+      "description" : "Why, in one or two sentences, shown to the approver"
+    }
+  },
+  "required" : [ "orderId" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "approvalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "intentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "expiresAt" : {
+      "type" : "string"
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : "string"
+    }
+  }
+}
+```
+
+## `prepare_order`
+
+Dry run of an order: Hejje sizes it from the rupee risk and stop (or the signal), runs the risk checks and the approval policy, and returns the proposal. Nothing is created; use submit_order_intent to ask a human to approve it.
+
+Scope `orders:prepare`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "signalId" : {
+      "type" : "string",
+      "format" : "uuid",
+      "description" : "Prepare the order for this active signal (other fields are then ignored)"
+    },
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "side" : {
+      "type" : "string",
+      "enum" : [ "BUY", "SELL" ]
+    },
+    "riskRupees" : {
+      "type" : "number",
+      "minimum" : 1,
+      "description" : "Maximum loss in rupees if the stop is hit; Hejje sizes the quantity from it"
+    },
+    "entry" : {
+      "type" : "number",
+      "minimum" : 0,
+      "description" : "Reference entry price (default the last price)"
+    },
+    "stop" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "target" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "product" : {
+      "type" : "string",
+      "enum" : [ "MIS", "CNC", "NRML" ]
+    },
+    "strategy" : {
+      "type" : "string",
+      "description" : "Strategy id or slug the order belongs to (its deployment's autonomy level applies)"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "kind" : {
+      "type" : "string"
+    },
+    "signalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "strategyId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "strategy" : {
+      "type" : "string"
+    },
+    "versionId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "instrumentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "instrument" : {
+      "type" : "string"
+    },
+    "side" : {
+      "type" : "string"
+    },
+    "quantity" : {
+      "type" : "integer"
+    },
+    "orderType" : {
+      "type" : "string"
+    },
+    "product" : {
+      "type" : "string"
+    },
+    "entry" : {
+      "type" : "number"
+    },
+    "stop" : {
+      "type" : "number"
+    },
+    "target" : {
+      "type" : "number"
+    },
+    "riskRupees" : {
+      "type" : "number"
+    },
+    "maxRisk" : {
+      "type" : "number"
+    },
+    "autonomyLevel" : {
+      "type" : "integer"
+    },
+    "eventRisk" : {
+      "type" : "string"
+    },
+    "score" : {
+      "type" : "integer"
+    },
+    "newStrategyVersion" : {
+      "type" : "boolean"
+    },
+    "riskOutcome" : {
+      "type" : "string"
+    },
+    "riskChecks" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "passed" : {
+            "type" : "boolean"
+          },
+          "observed" : {
+            "type" : "string"
+          },
+          "limit" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "passed" ]
+      }
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyRule" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "notes" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "summary" : {
+      "type" : "string"
+    }
+  },
+  "required" : [ "quantity", "newStrategyVersion" ]
+}
+```
+
+## `submit_order_intent`
+
+Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale.
+
+Scope `orders:prepare`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "signalId" : {
+      "type" : "string",
+      "format" : "uuid",
+      "description" : "Prepare the order for this active signal (other fields are then ignored)"
+    },
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "side" : {
+      "type" : "string",
+      "enum" : [ "BUY", "SELL" ]
+    },
+    "riskRupees" : {
+      "type" : "number",
+      "minimum" : 1,
+      "description" : "Maximum loss in rupees if the stop is hit; Hejje sizes the quantity from it"
+    },
+    "entry" : {
+      "type" : "number",
+      "minimum" : 0,
+      "description" : "Reference entry price (default the last price)"
+    },
+    "stop" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "target" : {
+      "type" : "number",
+      "minimum" : 0
+    },
+    "product" : {
+      "type" : "string",
+      "enum" : [ "MIS", "CNC", "NRML" ]
+    },
+    "strategy" : {
+      "type" : "string",
+      "description" : "Strategy id or slug the order belongs to (its deployment's autonomy level applies)"
+    },
+    "rationale" : {
+      "type" : "string",
+      "maxLength" : 500,
+      "description" : "Why, in one or two sentences, shown to the approver"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "approvalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "intentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "expiresAt" : {
+      "type" : "string"
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : "string"
     }
   }
 }

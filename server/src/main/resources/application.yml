@@ -135,6 +135,10 @@ hejje:
       max-steps: 8
       max-tool-result-chars: 12000
       history-turns: 10
+    approvals:
+      ttl: 5m                          # approvals of signal proposals expire with the signal instead
+      account-autonomy-level: 3        # proposals not tied to a deployed strategy (0-3)
+      expiry-sweep: 30s
   news:
     enabled: ${HEJJE_NEWS_ENABLED:false}
     poll-minutes: 5

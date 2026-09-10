@@ -347,3 +347,40 @@ type AiStatus struct {
 	MaxSteps        int    `json:"maxSteps"`
 	Reason          string `json:"reason"`
 }
+
+// Approvals (M4.4)
+
+type ApprovalCheck struct {
+	Name    string `json:"name"`
+	Passed  bool   `json:"passed"`
+	Message string `json:"message"`
+}
+
+type ApprovalRisk struct {
+	Outcome string          `json:"outcome"`
+	Checks  []ApprovalCheck `json:"checks"`
+}
+
+type ApprovalPolicy struct {
+	Decision string `json:"decision"`
+	Rule     string `json:"rule"`
+	Reason   string `json:"reason"`
+}
+
+type Approval struct {
+	ID              string          `json:"id"`
+	Kind            string          `json:"kind"`
+	Status          string          `json:"status"`
+	Instrument      string          `json:"instrument"`
+	RequestedBy     string          `json:"requestedBy"`
+	RequestedByType string          `json:"requestedByType"`
+	Summary         string          `json:"summary"`
+	Rationale       string          `json:"rationale"`
+	Risk            *ApprovalRisk   `json:"risk"`
+	Policy          *ApprovalPolicy `json:"policy"`
+	CreatedAt       string          `json:"createdAt"`
+	ExpiresAt       string          `json:"expiresAt"`
+	DecidedBy       string          `json:"decidedBy"`
+	DecisionNote    string          `json:"decisionNote"`
+	Result          map[string]any  `json:"result"`
+}

@@ -33,8 +33,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class HejjeAiService {
 
-    public static final String PROMPT = "hejje_ai_v1.txt";
-    public static final String PROMPT_VERSION = "hejje_ai_v1";
+    public static final String PROMPT = "hejje_ai_v2.txt";
+    public static final String PROMPT_VERSION = "hejje_ai_v2";
 
     public record Status(boolean enabled, boolean llmEnabled, String profile, String followUpProfile, int maxSteps, String reason) {}
 

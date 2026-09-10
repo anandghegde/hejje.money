@@ -5,6 +5,8 @@ public enum ToolStatus {
     OK(200),
     INVALID_INPUT(400),
     FORBIDDEN(403),
+    /** The approval policy refused the action (distinct from a missing scope). */
+    DENIED(403),
     NOT_FOUND(404),
     UNKNOWN_TOOL(404),
     CONFLICT(409),

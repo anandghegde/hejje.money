@@ -288,3 +288,30 @@ func (c *Client) Ask(question, conversationID, flow string) (AiTurn, error) {
 	var t AiTurn
 	return t, c.do(http.MethodPost, "/agents/ai/ask", body, false, &t)
 }
+
+// Approvals (M4.4): need orders:execute.
+
+func (c *Client) Approvals(status string) ([]Approval, error) {
+	var a []Approval
+	path := "/approvals"
+	if status != "" {
+		path += "?status=" + url.QueryEscape(status)
+	}
+	return a, c.do(http.MethodGet, path, nil, false, &a)
+}
+
+func (c *Client) Approval(id string) (Approval, error) {
+	var a Approval
+	return a, c.do(http.MethodGet, "/approvals/"+url.PathEscape(id), nil, false, &a)
+}
+
+// Approve approves a pending approval (a fresh Idempotency-Key per call; the server re-runs policy and risk).
+func (c *Client) Approve(id string) (Approval, error) {
+	var a Approval
+	return a, c.do(http.MethodPost, "/approvals/"+url.PathEscape(id)+"/approve", nil, true, &a)
+}
+
+func (c *Client) Reject(id, reason string) (Approval, error) {
+	var a Approval
+	return a, c.do(http.MethodPost, "/approvals/"+url.PathEscape(id)+"/reject", map[string]any{"reason": reason}, true, &a)
+}

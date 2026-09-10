@@ -185,3 +185,13 @@ export interface AiTurn {
   conversationId: string; messageId: string; answer: string; grounding: Grounding; trace: AiTraceStep[]; steps: number; profile: string;
   flow: string | null; stepLimitReached: boolean;
 }
+
+// Approvals (M4.4)
+export interface ApprovalCheck { name: string; passed: boolean; observed: string | null; limit: string | null; message: string | null }
+export interface Approval {
+  id: string; kind: 'ORDER_NEW' | 'ORDER_MODIFY' | 'ORDER_CANCEL' | 'POSITION_CLOSE'; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'FAILED';
+  mode: string; intentId: string | null; signalId: string | null; strategyId: string | null; instrumentId: string | null; instrument: string | null;
+  orderId: string | null; requestedBy: string; requestedByType: string; summary: string; rationale: string | null; proposal: any;
+  risk: { outcome: string; checks: ApprovalCheck[] } | null; policy: { decision: string; rule: string | null; reason: string } | null;
+  createdAt: string; expiresAt: string; decidedBy: string | null; decidedAt: string | null; decisionNote: string | null; result: any;
+}

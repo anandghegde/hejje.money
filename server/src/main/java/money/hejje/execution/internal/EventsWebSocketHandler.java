@@ -42,6 +42,13 @@ public class EventsWebSocketHandler extends TextWebSocketHandler {
     }
 
     @EventListener
+    void onNotification(money.hejje.common.ClientNotification n) {
+        Map<String, Object> message = new java.util.LinkedHashMap<>(n.data());
+        message.put("type", n.type());
+        broadcast(message);
+    }
+
+    @EventListener
     void onOrderState(OrderStateChangedEvent e) {
         broadcast(Map.of("type", "order", "orderId", e.orderId().toString(), "from", String.valueOf(e.from()), "to", e.to().name()));
     }

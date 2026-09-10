@@ -20,6 +20,7 @@ type model struct {
 	orders    []api.Order
 	risk      api.RiskDashboard
 	today     api.TodayView
+	approvals []api.Approval
 	prepared  *api.PreparedOrder
 	details   bool
 	err       string
@@ -52,6 +53,7 @@ func (m model) refresh() tea.Cmd {
 			orders:    fetchOrders(m.client),
 			risk:      fetchRisk(m.client),
 			today:     fetchToday(m.client),
+			approvals: fetchApprovals(m.client),
 		}
 	}
 }
@@ -62,6 +64,7 @@ type loaded struct {
 	orders    []api.Order
 	risk      api.RiskDashboard
 	today     api.TodayView
+	approvals []api.Approval
 }
 
 func fetchHealth(c *api.Client) api.Health { h, _ := c.Health(); return h }
@@ -69,6 +72,9 @@ func fetchPositions(c *api.Client) []api.Position { p, _ := c.Positions(); retur
 func fetchOrders(c *api.Client) []api.Order { o, _ := c.Orders(); return o }
 func fetchRisk(c *api.Client) api.RiskDashboard { r, _ := c.Risk(); return r }
 func fetchToday(c *api.Client) api.TodayView     { t, _ := c.Today(); return t }
+
+// fetchApprovals lists pending approvals; keys without orders:execute simply see none.
+func fetchApprovals(c *api.Client) []api.Approval { a, _ := c.Approvals("PENDING"); return a }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -80,6 +86,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.orders = msg.orders
 		m.risk = msg.risk
 		m.today = msg.today
+		m.approvals = msg.approvals
 		return m, nil
 	case tea.KeyMsg:
 		// a prepared order waits for an explicit y/N
@@ -231,6 +238,10 @@ func (m model) View() string {
 			b.WriteString(liveStyle.Render("  Execute this order? [y/N]") + "\n")
 		}
 		b.WriteString("\n")
+	}
+
+	if n := len(m.approvals); n > 0 {
+		b.WriteString(liveStyle.Render(fmt.Sprintf("⚑ %d approval(s) waiting — %s — run: hejje approvals", n, m.approvals[0].Summary)) + "\n\n")
 	}
 
 	b.WriteString("POSITIONS\n")

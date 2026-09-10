@@ -116,6 +116,9 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.agent.ai.max-steps` | — | `8` | LLM steps per question before the tool loop stops. |
 | `hejje.agent.ai.max-tool-result-chars` | — | `12000` | Characters of each tool result the model sees. |
 | `hejje.agent.ai.history-turns` | — | `10` | Earlier question/answer pairs replayed to the model. |
+| `hejje.agent.approvals.ttl` | — | `5m` | How long an approval stays open (signal proposals expire with the signal instead). |
+| `hejje.agent.approvals.account-autonomy-level` | — | `3` | Autonomy level (0–3) for agent proposals not tied to a deployed strategy. |
+| `hejje.agent.approvals.expiry-sweep` | — | `30s` | How often expired approvals are marked EXPIRED (also done whenever approvals are read or decided). |
 | `hejje.news.enabled` | `HEJJE_NEWS_ENABLED` | `false` | News polling and classification (`docs/news.md`). |
 | `hejje.news.poll-minutes` | — | `5` | Poll interval. |
 | `hejje.news.sources` / `aliases` | — | `classpath:news-sources.yaml` / `classpath:aliases.yaml` | Feed list and instrument alias map (`file:` paths override the bundled copies). |

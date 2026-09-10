@@ -27,7 +27,7 @@ class HejjeAiDisabledTest {
         when(llm.enabled()).thenReturn(false);
         AgentToolService tools = mock(AgentToolService.class);
         ConversationStore store = mock(ConversationStore.class);
-        HejjeAiService ai = new HejjeAiService(llm, tools, mock(AnalystFlows.class), store, new AgentProperties(null), mock(SignalService.class),
+        HejjeAiService ai = new HejjeAiService(llm, tools, mock(AnalystFlows.class), store, new AgentProperties(null, null), mock(SignalService.class),
                 new HejjeClock(MutableClock.atIst("2026-09-10T10:00:00"), MutableClock.IST, (d, e) -> false));
         assertThat(ai.status().enabled()).isFalse();
         assertThat(ai.status().reason()).contains("HEJJE_LLM_ENABLED=false");

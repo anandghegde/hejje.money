@@ -915,3 +915,31 @@ The caller's conversations; the detail is `{ "conversation": {…}, "messages": 
 
 Admin. `{ "contains": "What is working today?", "response": "…" }` registers a canned answer on the `fixture` provider
 (`hejje.llm.dev-fixture-endpoint=true`), for the web e2e.
+
+## Agent proposals, approvals and policy (Phase 4, M4.4)
+
+See `docs/agents.md` (proposals, approvals) and `docs/risk.md` (policy).
+
+### `GET /api/v1/approvals?status=PENDING|APPROVED|REJECTED|EXPIRED|FAILED|ALL&limit=50` · `GET /api/v1/approvals/{id}`
+
+Scope `orders:execute`. Newest first.
+
+```json
+{ "id": "0192…", "kind": "ORDER_NEW", "status": "PENDING", "mode": "PAPER", "intentId": "0192…", "instrument": "NSE:INFY",
+  "requestedBy": "research-bot", "requestedByType": "CLIENT", "summary": "BUY 100 NSE:INFY MARKET MIS · entry ≈ 1500 · stop 1490.00 · target 1520.00 · risk ≈ 1000.00 rupees",
+  "rationale": "Opening-range breakout", "proposal": { "quantity": 100, "riskOutcome": "APPROVED", "policyDecision": "REQUIRE_APPROVAL", "riskChecks": [ … ] },
+  "risk": { "outcome": "APPROVED", "checks": [ … ] }, "policy": { "decision": "REQUIRE_APPROVAL", "rule": "agent_actions", "reason": "…" },
+  "createdAt": "…", "expiresAt": "…", "decidedBy": null, "decidedAt": null, "decisionNote": null, "result": null }
+```
+
+### `POST /api/v1/approvals/{id}/approve` · `POST /api/v1/approvals/{id}/reject`
+
+Scope `orders:execute`, header `Idempotency-Key` required (replays return the stored decision). Reject body
+`{ "reason": "…" }`. Errors: 404 unknown, 409 not pending / expired / decided with another key, 403 an agent approving its
+own proposal, 422 re-validation failed (`errors` lists the policy or risk failures) or execution refused.
+
+### `GET /api/v1/risk/policies` · `PUT /api/v1/risk/policies/{id}`
+
+`risk:read` / `risk:write`. `{ "rules": [ { "id", "name", "priority", "condition", "actions", "decision", "params", "enabled",
+"description", "updatedAt", "updatedBy" } ], "defaultDecision": "REQUIRE_APPROVAL", "notes": [ … ] }`. `decision: "ALLOW"` is a 400
+in this phase.
