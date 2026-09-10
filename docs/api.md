@@ -315,6 +315,17 @@ Scope: `risk:read` (read) / `admin` (re-arm). DELETE clears `stopNewOrders`.
 Scope: `risk:read`. Body `{ "entry": "24980.00", "stop": "24935.00", "riskPaise": 200000, "lotSize": 75, "maxQuantity": 0 }`
 returns `{ "quantity": n }` floored to whole lots and capped at `maxQuantity` (0 = no cap).
 
+### `GET /api/v1/risk/stop-suggestion?instrumentId=&side=&entry=`
+
+Scope: `risk:read`. Suggests an initial stop for a new position: 1.5 × ATR(14) over the last ten days of M5 bars from
+`entry` (default: the last traded price; 400 when neither is known), 1% of the entry when no bars are stored, never
+further than the mode's `maxStopDistancePct`, rounded to the tick towards the entry. The manual order form prefills it.
+
+```json
+{ "entry": "1500.00", "stop": "1494.00", "basis": "ATR", "atr": 4.0, "distancePct": 0.40, "maxDistancePct": 5.00 }
+```
+`basis` is `ATR`, `PERCENT` (no bars, `atr` null) or `MAX_DISTANCE` (clamped to the limit).
+
 ## Execution operations (reconciliation, latency)
 
 ### `POST /api/v1/execution/reconcile`

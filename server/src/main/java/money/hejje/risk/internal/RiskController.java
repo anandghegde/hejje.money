@@ -3,9 +3,11 @@ package money.hejje.risk.internal;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.UUID;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Money;
 import money.hejje.common.Price;
+import money.hejje.common.Side;
 import money.hejje.common.config.HejjeProperties;
 import money.hejje.common.security.HejjePrincipal;
 import money.hejje.risk.KillSwitchAction;
@@ -13,6 +15,7 @@ import money.hejje.risk.KillSwitchState;
 import money.hejje.risk.RiskDashboard;
 import money.hejje.risk.RiskLimits;
 import money.hejje.risk.RiskService;
+import money.hejje.risk.StopSuggestion;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -98,5 +102,11 @@ class RiskController {
     java.util.Map<String, Object> positionSize(@RequestBody SizeRequest r) {
         int qty = risk.positionSize(r.entry(), r.stop(), Money.ofPaise(r.riskPaise()), r.lotSize() <= 0 ? 1 : r.lotSize(), r.maxQuantity());
         return java.util.Map.of("quantity", qty);
+    }
+
+    @GetMapping("/stop-suggestion")
+    @PreAuthorize("hasAuthority('SCOPE_risk:read')")
+    StopSuggestion stopSuggestion(@RequestParam UUID instrumentId, @RequestParam Side side, @RequestParam(required = false) Price entry) {
+        return risk.suggestStop(mode(), instrumentId, side, entry);
     }
 }

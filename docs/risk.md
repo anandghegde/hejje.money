@@ -32,6 +32,14 @@ RUNBOOK for M1.6.
 
 Closing orders are always allowed while the switch is at `STOP_NEW_ORDERS`; only new or increasing exposure is blocked.
 
+## Stop suggestion
+
+`StopSuggester.suggest(side, entry, atr, maxStopDistancePct, tick)` proposes an initial stop 1.5 × ATR(14) from the
+entry (1% of the entry when no bars are available), clamped to `maxStopDistancePct` and rounded to the tick towards
+the entry, so a suggested stop always passes `mandatoryStop` and `maxStopDistance`. `RiskService.suggestStop` feeds it
+the last ten days of M5 bars and the last traded price; exposed at `GET /risk/stop-suggestion`, which the web manual
+order form uses to prefill the stop when an instrument is resolved or the side changes (a stop the user typed is kept).
+
 ## Position sizing
 
 `PositionSizer.size(entry, stop, riskMoney, lotSize, maxQty)` returns a whole number of lots such that

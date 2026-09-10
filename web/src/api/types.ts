@@ -29,6 +29,10 @@ export interface Instrument {
   lotSize: number; tickSize: number; hejjeSymbol: string;
 }
 
+export interface StopSuggestion {
+  entry: string; stop: string; basis: 'ATR' | 'PERCENT' | 'MAX_DISTANCE'; atr: number | null; distancePct: number; maxDistancePct: number;
+}
+
 export interface Order {
   id: string; instrumentId: string; side: 'BUY' | 'SELL'; quantity: number; filledQuantity: number;
   averagePrice: number; orderType: string; product: string; state: string; brokerOrderId?: string;

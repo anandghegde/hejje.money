@@ -31,7 +31,7 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
   note / clone, run a backtest with split options and follow its progress.
 - **Trades** with the attribution column and review links; **Reviews** (`/reviews`, `/reviews/:id`) with the PRD 55
   postmortem; **Analytics** (`/analytics`) P&L breakdown by strategy / version / instrument / weekday / hour / regime.
-- Orders (manual order form + cancel), Positions (close, close-all), Risk (dashboard, kill switch with typed `CLOSE
+- Orders (manual order form with the stop prefilled from `GET /risk/stop-suggestion` + cancel), Positions (close, close-all), Risk (dashboard, kill switch with typed `CLOSE
   ALL` confirmation, re-arm), Broker, Server, Settings. Pulse and Hejje AI remain placeholders. A mode banner (red LIVE
   / blue PAPER) and server/broker/market-data status dots sit across the top of every screen.
 

@@ -2,15 +2,27 @@ package money.hejje.risk;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.Map;
+import java.util.OptionalDouble;
+import java.util.UUID;
 import money.hejje.audit.AuditEvent;
 import money.hejje.audit.AuditEventType;
 import money.hejje.audit.AuditService;
 import money.hejje.common.ActorType;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Money;
+import money.hejje.common.Price;
+import money.hejje.common.Side;
+import money.hejje.common.Timeframe;
 import money.hejje.common.event.EventMeta;
 import money.hejje.common.time.HejjeClock;
+import money.hejje.instruments.Instrument;
+import money.hejje.instruments.InstrumentService;
+import money.hejje.market.Candle;
+import money.hejje.market.MarketService;
+import money.hejje.market.indicators.Atr;
+import money.hejje.market.indicators.Bar;
 import money.hejje.risk.internal.AccountSnapshotBuilder;
 import money.hejje.risk.internal.KillSwitchStore;
 import money.hejje.risk.internal.RiskLimitsStore;
@@ -19,7 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
-/** Public API of the risk module: limits, kill switch, dashboard and position sizing. */
+/** Public API of the risk module: limits, kill switch, dashboard, position sizing and stop suggestion. */
 @Service
 public class RiskService {
 
@@ -32,15 +44,19 @@ public class RiskService {
     private final AuditService audit;
     private final HejjeClock clock;
     private final ApplicationEventPublisher events;
+    private final MarketService market;
+    private final InstrumentService instruments;
 
     RiskService(RiskLimitsStore limitsStore, KillSwitchStore killSwitchStore, AccountSnapshotBuilder snapshots, AuditService audit,
-            HejjeClock clock, ApplicationEventPublisher events) {
+            HejjeClock clock, ApplicationEventPublisher events, MarketService market, InstrumentService instruments) {
         this.limitsStore = limitsStore;
         this.killSwitchStore = killSwitchStore;
         this.snapshots = snapshots;
         this.audit = audit;
         this.clock = clock;
         this.events = events;
+        this.market = market;
+        this.instruments = instruments;
     }
 
     public RiskLimits limits(ExecutionMode mode) {
@@ -104,5 +120,23 @@ public class RiskService {
 
     public int positionSize(money.hejje.common.Price entry, money.hejje.common.Price stop, Money riskMoney, int lotSize, int maxQty) {
         return PositionSizer.size(entry, stop, riskMoney, lotSize, maxQty);
+    }
+
+    /**
+     * Suggests an initial stop for a new position from the ATR of the last sessions' M5 bars (see {@link StopSuggester}),
+     * measured from {@code entry} or, when null, the last traded price.
+     */
+    public StopSuggestion suggestStop(ExecutionMode mode, UUID instrumentId, Side side, Price entry) {
+        Instrument instrument = instruments.findById(instrumentId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown instrument " + instrumentId));
+        Price reference = entry != null ? entry : market.lastPrice(instrumentId).map(Price::of)
+                .orElseThrow(() -> new IllegalArgumentException("No quote for " + instrument.hejjeSymbol() + "; pass an entry price"));
+        Instant now = clock.now();
+        Atr atr = new Atr(StopSuggester.ATR_PERIOD);
+        for (Candle candle : market.candles(instrumentId, Timeframe.M5, now.minus(java.time.Duration.ofDays(10)), now)) {
+            atr.update(Bar.of(candle, clock.zone()));
+        }
+        OptionalDouble atrValue = atr.value(0);
+        return StopSuggester.suggest(side, reference, atrValue, limitsStore.find(mode).maxStopDistancePct(), instrument.tickSize());
     }
 }

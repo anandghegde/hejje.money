@@ -1,6 +1,6 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { request, ApiError } from '../api/client';
-import { Instrument, Order } from '../api/types';
+import { Instrument, Order, StopSuggestion } from '../api/types';
 import { sizeByRisk } from '../lib/sizing';
 
 export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
@@ -13,14 +13,38 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
   const [stopPrice, setStopPrice] = useState('');
   const [targetPrice, setTargetPrice] = useState('');
   const [riskRupees, setRiskRupees] = useState('');
+  const [suggestion, setSuggestion] = useState<StopSuggestion | null>(null);
+  const [suggestionError, setSuggestionError] = useState('');
+  const stopEdited = useRef(false); // a stop the user typed is not overwritten when the side changes
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
+  async function suggestStop(inst: Instrument, forSide: string, entry: string, prefill: boolean) {
+    try {
+      const q = `instrumentId=${inst.id}&side=${forSide}${entry ? `&entry=${encodeURIComponent(entry)}` : ''}`;
+      const s = await request<StopSuggestion>(`/risk/stop-suggestion?${q}`);
+      setSuggestion(s);
+      setSuggestionError('');
+      if (prefill) { setStopPrice(s.stop); stopEdited.current = false; }
+    } catch (err) {
+      setSuggestion(null);
+      setSuggestionError(err instanceof ApiError ? (err.problem?.detail ?? err.message) : 'unavailable');
+    }
+  }
+
   async function resolve() {
     setMessage('');
-    try { setInstrument(await request<Instrument>(`/instruments/resolve?symbol=${encodeURIComponent(symbol)}`)); }
-    catch { setInstrument(null); setMessage('Instrument not found'); }
+    try {
+      const inst = await request<Instrument>(`/instruments/resolve?symbol=${encodeURIComponent(symbol)}`);
+      setInstrument(inst);
+      await suggestStop(inst, side, limitPrice, true);
+    } catch { setInstrument(null); setSuggestion(null); setMessage('Instrument not found'); }
   }
+
+  useEffect(() => {
+    if (instrument) void suggestStop(instrument, side, limitPrice, !stopEdited.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [side]);
 
   const sizedQty = (() => {
     if (!instrument || !riskRupees || !limitPrice || !stopPrice) return null;
@@ -71,13 +95,26 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
       </div>
       <div style={{ marginTop: 8 }}>
         <input aria-label="limitPrice" placeholder="limit" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} style={{ width: 90 }} />
-        <input aria-label="stopPrice" placeholder="stop" value={stopPrice} onChange={(e) => setStopPrice(e.target.value)} style={{ width: 90 }} />
+        <input aria-label="stopPrice" placeholder="stop" value={stopPrice} onChange={(e) => { setStopPrice(e.target.value); stopEdited.current = true; }} style={{ width: 90 }} />
         <input aria-label="targetPrice" placeholder="target" value={targetPrice} onChange={(e) => setTargetPrice(e.target.value)} style={{ width: 90 }} />
         <input aria-label="risk" placeholder="risk ₹" value={riskRupees} onChange={(e) => setRiskRupees(e.target.value)} style={{ width: 80 }} />
       </div>
+      {instrument && (
+        <p data-testid="stop-suggestion">
+          <button type="button" onClick={() => suggestStop(instrument, side, limitPrice, true)}>Suggest stop</button>
+          {suggestion && <> Suggested stop {suggestion.stop} ({suggestionBasis(suggestion)}, {suggestion.distancePct}% from {suggestion.entry}; limit {suggestion.maxDistancePct}%)</>}
+          {suggestionError && <> No suggestion: {suggestionError}</>}
+        </p>
+      )}
       {sizedQty != null && <p>Risk-based qty: {sizedQty}</p>}
       <button type="submit" disabled={busy} data-testid="place-order">{busy ? 'Placing…' : 'Place order'}</button>
       {message && <p data-testid="order-message">{message}</p>}
     </form>
   );
+}
+
+function suggestionBasis(s: StopSuggestion): string {
+  if (s.basis === 'ATR') return `1.5 × ATR14 ${s.atr}`;
+  if (s.basis === 'MAX_DISTANCE') return 'capped at the max stop distance';
+  return '1% of entry, no recent bars';
 }

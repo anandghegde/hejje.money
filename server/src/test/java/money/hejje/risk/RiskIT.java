@@ -2,10 +2,12 @@ package money.hejje.risk;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import money.hejje.AbstractIntegrationTest;
+import money.hejje.backtest.SyntheticSessions;
 import money.hejje.audit.AuditEventType;
 import money.hejje.audit.AuditQuery;
 import money.hejje.audit.AuditService;
@@ -16,12 +18,14 @@ import money.hejje.common.OrderType;
 import money.hejje.common.Product;
 import money.hejje.common.Quantity;
 import money.hejje.common.Side;
+import money.hejje.common.Timeframe;
 import money.hejje.common.time.MutableClock;
 import money.hejje.execution.ExecutionEngine;
 import money.hejje.execution.ExecutionException;
 import money.hejje.execution.OrderIntentCommand;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
+import money.hejje.market.HistoricalCandleStore;
 import money.hejje.orders.OrderReason;
 import money.hejje.orders.OrderService;
 import money.hejje.orders.OrderState;
@@ -45,6 +49,7 @@ class RiskIT extends AbstractIntegrationTest {
     @Autowired AuditService audit;
     @Autowired MutableClock clock;
     @Autowired JdbcTemplate jdbc;
+    @Autowired HistoricalCandleStore historical;
 
     UUID infy;
 
@@ -133,5 +138,31 @@ class RiskIT extends AbstractIntegrationTest {
 
         ResponseEntity<Map> rearm = rest.exchange("/api/v1/risk/kill-switch", HttpMethod.DELETE, new HttpEntity<>(bearer(token)), Map.class);
         assertThat(rearm.getBody()).containsEntry("stopNewOrders", false);
+    }
+
+    @Test
+    void stopSuggestionFromAtrOrPercentFallback() {
+        String token = adminAccessToken();
+        // no stored bars for TATAMOTORS: 1% of the last traded price
+        UUID tatamotors = instruments.resolve("NSE:TATAMOTORS").map(Instrument::id).orElseThrow();
+        fake.injectQuote(tatamotors, "700.00");
+        ResponseEntity<Map> pct = rest.exchange("/api/v1/risk/stop-suggestion?instrumentId=" + tatamotors + "&side=BUY", HttpMethod.GET,
+                new HttpEntity<>(bearer(token)), Map.class);
+        assertThat(pct.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(pct.getBody()).containsEntry("entry", "700.00").containsEntry("stop", "693.00").containsEntry("basis", "PERCENT");
+        // an explicit entry and the other side
+        ResponseEntity<Map> sell = rest.exchange("/api/v1/risk/stop-suggestion?instrumentId=" + tatamotors + "&side=SELL&entry=1000.00", HttpMethod.GET,
+                new HttpEntity<>(bearer(token)), Map.class);
+        assertThat(sell.getBody()).containsEntry("stop", "1010.00");
+
+        // a stored session for ITC (2026-09-04, a date no other suite seeds): flat bars with a 1.00 range -> ATR 1.0 -> 1.5 away
+        UUID itc = instruments.resolve("NSE:ITC").map(Instrument::id).orElseThrow();
+        historical.write(itc, Timeframe.M5, SyntheticSessions.flat(itc, LocalDate.of(2026, 9, 4), "400.00"));
+        ResponseEntity<Map> atr = rest.exchange("/api/v1/risk/stop-suggestion?instrumentId=" + itc + "&side=BUY&entry=400.00", HttpMethod.GET,
+                new HttpEntity<>(bearer(token)), Map.class);
+        assertThat(atr.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(atr.getBody()).containsEntry("stop", "398.50").containsEntry("basis", "ATR");
+        assertThat(((Number) atr.getBody().get("atr")).doubleValue()).isEqualTo(1.0);
+        assertThat(((Number) atr.getBody().get("maxDistancePct")).doubleValue()).isEqualTo(5.0);
     }
 }
