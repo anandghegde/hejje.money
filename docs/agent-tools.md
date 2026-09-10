@@ -17,6 +17,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_account_risk` | `risk:read` | read | Account risk dashboard (PRD 54): P&L vs the daily loss limit, exposure, open positions, trades today, consecutive losses, margin use and the kill switch. |
 | `get_audit_trail` | `admin` | read | Audit events, newest first, filtered by order id, event type or start date (at most 50). |
 | `get_event_calendar` | `market:read` | read | Market and instrument events (holidays, expiries, results, RBI/FOMC/CPI) between two dates (default the next 7 days, at most 62), plus the instrument's current event risk when an instrument is given. |
+| `get_experiment` | `strategies:read` | read | An experiment with its variants: status, rank, score, verdict (RECOMMENDED, BETTER_OUT_OF_SAMPLE, BETTER_BUT_FRAGILE, NOT_BETTER, BASELINE), metrics per split and overfitting warnings. |
 | `get_loss_attribution` | `market:read` | read | Where the period's losses came from (default month to date): totals, and per strategy family, strategy, trend, regime, event risk at entry, news bias at entry, exit reason, hour and instrument each bucket's share of all losses; plus family × trend combinations and a templated headline. |
 | `get_market_regime` | `market:read` | read | Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) with one evidence sentence per dimension, from the deterministic regime classifier. |
 | `get_market_snapshot` | `market:read` | read | Latest quote (last price, bid/ask, volume, open interest, staleness) for one or up to 20 instruments. |
@@ -35,7 +36,9 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `list_strategies` | `strategies:read` | read | Every strategy in the library with its latest version, lifecycle status and headline Hejje Score. |
 | `modify_order_intent` | `orders:prepare` | transactional | Asks a human to approve modifying an open order (quantity, order type, limit or trigger price). |
 | `prepare_order` | `orders:prepare` | read | Dry run of an order: Hejje sizes it from the rupee risk and stop (or the signal), runs the risk checks and the approval policy, and returns the proposal. Nothing is created; use submit_order_intent to ask a human to approve it. |
+| `propose_variants` | `strategies:read` | read | Proposes 3 to 6 variants of a strategy version as deltas (filters or parameter changes) aimed at a goal, preferring out-of-sample robustness and simplicity; Hejje validates every delta. Nothing is run or saved. |
 | `run_counterfactual` | `market:read` | read | SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical. |
+| `run_experiment` | `strategies:write` | transactional | Backtests the base version and each variant (delta) on the same data and split, then ranks them deterministically with overfitting warnings. Runs in the background; poll get_experiment. Promoting a variant is a human action. |
 | `submit_order_intent` | `orders:prepare` | transactional | Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale. |
 
 ## `calculate_position_size`
@@ -674,7 +677,7 @@ Input schema:
     },
     "type" : {
       "type" : "string",
-      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED" ]
+      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED", "EXPERIMENT_STARTED", "EXPERIMENT_FINISHED" ]
     },
     "from" : {
       "type" : "string",
@@ -867,6 +870,315 @@ Output schema:
     }
   },
   "required" : [ "enabled" ]
+}
+```
+
+## `get_experiment`
+
+An experiment with its variants: status, rank, score, verdict (RECOMMENDED, BETTER_OUT_OF_SAMPLE, BETTER_BUT_FRAGILE, NOT_BETTER, BASELINE), metrics per split and overfitting warnings.
+
+Scope `strategies:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "experimentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    }
+  },
+  "required" : [ "experimentId" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "id" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "baseVersionId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "strategyId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "goal" : {
+      "type" : "string"
+    },
+    "dataset" : {
+      "type" : "object",
+      "properties" : {
+        "instrumentIds" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "from" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "to" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "timeframe" : {
+          "type" : "string",
+          "enum" : [ "M1", "M3", "M5", "M15", "H1", "D1" ]
+        },
+        "slippageBps" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "slippageBps" ]
+    },
+    "splits" : {
+      "type" : "object",
+      "properties" : {
+        "type" : {
+          "type" : "string",
+          "enum" : [ "NONE", "FIXED", "WALK_FORWARD" ]
+        },
+        "inSamplePct" : {
+          "type" : "integer"
+        },
+        "validationPct" : {
+          "type" : "integer"
+        },
+        "outOfSamplePct" : {
+          "type" : "integer"
+        },
+        "trainMonths" : {
+          "type" : "integer"
+        },
+        "testMonths" : {
+          "type" : "integer"
+        },
+        "anchored" : {
+          "type" : "boolean"
+        }
+      }
+    },
+    "status" : {
+      "type" : "string",
+      "enum" : [ "QUEUED", "RUNNING", "DONE", "FAILED" ]
+    },
+    "createdBy" : {
+      "type" : "string"
+    },
+    "createdBySession" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "createdAt" : {
+      "type" : "string"
+    },
+    "finishedAt" : {
+      "type" : "string"
+    },
+    "error" : {
+      "type" : "string"
+    },
+    "notes" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "variants" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "experimentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ordinal" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "delta" : {
+            "type" : "object"
+          },
+          "definitionYaml" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "QUEUED", "DONE", "FAILED", "INVALID" ]
+          },
+          "metrics" : {
+            "type" : "object",
+            "properties" : {
+              "overall" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "inSample" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "validation" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "outOfSample" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "walkForwardStdR" : {
+                "type" : "number"
+              },
+              "windows" : {
+                "type" : "integer"
+              },
+              "qualityWarnings" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string"
+                }
+              },
+              "resultHash" : {
+                "type" : "string"
+              }
+            },
+            "required" : [ "windows" ]
+          },
+          "rank" : {
+            "type" : "integer"
+          },
+          "score" : {
+            "type" : "number"
+          },
+          "verdict" : {
+            "type" : "string"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "parameterCount" : {
+            "type" : "integer"
+          },
+          "conditionCount" : {
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "promotedVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "ordinal", "parameterCount", "conditionCount" ]
+      }
+    }
+  }
 }
 ```
 
@@ -2953,6 +3265,92 @@ Output schema:
 }
 ```
 
+## `propose_variants`
+
+Proposes 3 to 6 variants of a strategy version as deltas (filters or parameter changes) aimed at a goal, preferring out-of-sample robustness and simplicity; Hejje validates every delta. Nothing is run or saved.
+
+Scope `strategies:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "version" : {
+      "type" : "string",
+      "format" : "uuid",
+      "description" : "Base version id"
+    },
+    "strategy" : {
+      "type" : "string",
+      "description" : "Strategy id or slug (its latest version is the base)"
+    },
+    "goal" : {
+      "type" : "string",
+      "maxLength" : 500
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "baseVersionId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "goal" : {
+      "type" : "string"
+    },
+    "variants" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "rationale" : {
+            "type" : "string"
+          },
+          "delta" : {
+            "type" : "object"
+          },
+          "valid" : {
+            "type" : "boolean"
+          },
+          "errors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "entryConditions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "parameterCount" : {
+            "type" : "integer"
+          },
+          "yaml" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "valid", "parameterCount" ]
+      }
+    }
+  }
+}
+```
+
 ## `run_counterfactual`
 
 SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical.
@@ -3186,6 +3584,360 @@ Output schema:
         }
       },
       "required" : [ "excludedTrades" ]
+    }
+  }
+}
+```
+
+## `run_experiment`
+
+Backtests the base version and each variant (delta) on the same data and split, then ranks them deterministically with overfitting warnings. Runs in the background; poll get_experiment. Promoting a variant is a human action.
+
+Scope `strategies:write`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "version" : {
+      "type" : "string",
+      "format" : "uuid",
+      "description" : "Base version id"
+    },
+    "strategy" : {
+      "type" : "string",
+      "description" : "Strategy id or slug (its latest version is the base)"
+    },
+    "goal" : {
+      "type" : "string",
+      "maxLength" : 500
+    },
+    "variants" : {
+      "type" : "array",
+      "minItems" : 1,
+      "maxItems" : 12,
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string",
+            "minLength" : 1,
+            "maxLength" : 64
+          },
+          "rationale" : {
+            "type" : "string",
+            "maxLength" : 500
+          },
+          "delta" : {
+            "type" : "object"
+          }
+        },
+        "required" : [ "name", "delta" ],
+        "additionalProperties" : false
+      }
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "splits" : {
+      "type" : "string",
+      "enum" : [ "FIXED", "WALK_FORWARD", "NONE" ]
+    }
+  },
+  "required" : [ "variants" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "id" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "baseVersionId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "strategyId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "goal" : {
+      "type" : "string"
+    },
+    "dataset" : {
+      "type" : "object",
+      "properties" : {
+        "instrumentIds" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "from" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "to" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "timeframe" : {
+          "type" : "string",
+          "enum" : [ "M1", "M3", "M5", "M15", "H1", "D1" ]
+        },
+        "slippageBps" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "slippageBps" ]
+    },
+    "splits" : {
+      "type" : "object",
+      "properties" : {
+        "type" : {
+          "type" : "string",
+          "enum" : [ "NONE", "FIXED", "WALK_FORWARD" ]
+        },
+        "inSamplePct" : {
+          "type" : "integer"
+        },
+        "validationPct" : {
+          "type" : "integer"
+        },
+        "outOfSamplePct" : {
+          "type" : "integer"
+        },
+        "trainMonths" : {
+          "type" : "integer"
+        },
+        "testMonths" : {
+          "type" : "integer"
+        },
+        "anchored" : {
+          "type" : "boolean"
+        }
+      }
+    },
+    "status" : {
+      "type" : "string",
+      "enum" : [ "QUEUED", "RUNNING", "DONE", "FAILED" ]
+    },
+    "createdBy" : {
+      "type" : "string"
+    },
+    "createdBySession" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "createdAt" : {
+      "type" : "string"
+    },
+    "finishedAt" : {
+      "type" : "string"
+    },
+    "error" : {
+      "type" : "string"
+    },
+    "notes" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "variants" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "experimentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "ordinal" : {
+            "type" : "integer"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "delta" : {
+            "type" : "object"
+          },
+          "definitionYaml" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "QUEUED", "DONE", "FAILED", "INVALID" ]
+          },
+          "metrics" : {
+            "type" : "object",
+            "properties" : {
+              "overall" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "inSample" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "validation" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "outOfSample" : {
+                "type" : "object",
+                "properties" : {
+                  "trades" : {
+                    "type" : "integer"
+                  },
+                  "expectancyR" : {
+                    "type" : "number"
+                  },
+                  "profitFactor" : {
+                    "type" : "number"
+                  },
+                  "maxDrawdownR" : {
+                    "type" : "number"
+                  },
+                  "winRate" : {
+                    "type" : "number"
+                  },
+                  "netPnl" : {
+                    "type" : "number"
+                  }
+                },
+                "required" : [ "trades", "expectancyR", "maxDrawdownR", "winRate" ]
+              },
+              "walkForwardStdR" : {
+                "type" : "number"
+              },
+              "windows" : {
+                "type" : "integer"
+              },
+              "qualityWarnings" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "string"
+                }
+              },
+              "resultHash" : {
+                "type" : "string"
+              }
+            },
+            "required" : [ "windows" ]
+          },
+          "rank" : {
+            "type" : "integer"
+          },
+          "score" : {
+            "type" : "number"
+          },
+          "verdict" : {
+            "type" : "string"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "parameterCount" : {
+            "type" : "integer"
+          },
+          "conditionCount" : {
+            "type" : "integer"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "promotedVersionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "ordinal", "parameterCount", "conditionCount" ]
+      }
     }
   }
 }

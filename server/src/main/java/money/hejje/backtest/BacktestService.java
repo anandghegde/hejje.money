@@ -124,6 +124,17 @@ public class BacktestService {
     }
 
     /**
+     * Runs {@code definition} instead of the version's own (an experiment variant, M4.7) on the calling thread without
+     * persisting anything. The spec's version supplies everything else (strategy, risk resolution).
+     */
+    public BacktestResult evaluate(BacktestSpec spec, StrategyDefinition definition) {
+        StrategyVersion base = requireVersion(spec.versionId());
+        StrategyVersion variant = new StrategyVersion(base.id(), base.strategyId(), base.version(), base.definitionYaml(), definition, base.definitionHash(),
+                "experiment variant", base.parentVersionId(), base.createdBy(), base.createdAt(), base.status());
+        return engine.run(prepare(spec, variant));
+    }
+
+    /**
      * The backtest a version is judged by: the newest DONE run that validates (out-of-sample slice with enough trades
      * and no FAIL), else the newest DONE run with an out-of-sample slice, else the newest DONE run.
      */

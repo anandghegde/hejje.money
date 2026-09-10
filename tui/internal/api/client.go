@@ -315,3 +315,19 @@ func (c *Client) Reject(id, reason string) (Approval, error) {
 	var a Approval
 	return a, c.do(http.MethodPost, "/approvals/"+url.PathEscape(id)+"/reject", map[string]any{"reason": reason}, true, &a)
 }
+
+// Strategy experiments (M4.7), read-only here.
+
+func (c *Client) Experiments(versionID string) ([]Experiment, error) {
+	var e []Experiment
+	path := "/experiments"
+	if versionID != "" {
+		path += "?versionId=" + url.QueryEscape(versionID)
+	}
+	return e, c.do(http.MethodGet, path, nil, false, &e)
+}
+
+func (c *Client) Experiment(id string) (Experiment, error) {
+	var e Experiment
+	return e, c.do(http.MethodGet, "/experiments/"+url.PathEscape(id), nil, false, &e)
+}

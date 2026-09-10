@@ -89,3 +89,35 @@ trades and no FAIL warning.
 Backtests run on a bounded pool (`hejje.backtest.workers`, default 2) with progress (`progressPct`) and cancellation
 (`DELETE /backtests/{id}` cancels a queued/running run and deletes a finished one). Runs left `QUEUED`/`RUNNING` by a
 restart are marked `FAILED` at startup.
+
+## Experiments (Phase 4, M4.7)
+
+`backtest.experiments` tests variants of a base version on one dataset and split:
+
+- **Variants** are deltas applied to the base YAML as a JSON merge patch (nested objects merge, lists and scalars replace,
+  `null` removes a key) plus `entry_add` / `exit_add` to append conditions. A delta cannot rename the strategy. Each delta
+  is validated like any definition; invalid ones are kept as `INVALID` with their errors and not run. The baseline (the
+  base version itself) is always variant 0.
+- **Data**: the base version's judged backtest (dataset, instruments, split, slippage) unless the request says otherwise;
+  otherwise the last year on the strategy's universe with the default fixed split.
+- **Runs**: `BacktestService.evaluate(spec, definition)` backtests an unsaved definition with the same engine, data and
+  costs; variants run on a bounded pool (`hejje.backtest.experiments.parallelism`, default 2). Experiments interrupted by a
+  restart are marked FAILED.
+- **Ranking** (`ExperimentRanking`, deterministic): each criterion ranks the variants from 1 (best) to 0 (worst, ties
+  share); the score is the weighted mean × 100 over the criteria every variant has — out-of-sample expectancy (0.35; falls
+  back to validation, then overall), out-of-sample profit factor (0.15), max drawdown in R (0.15, lower is better), trade
+  count capped at 100 (0.10), simplicity = parameters + conditions (0.15, fewer is better), walk-forward stability =
+  std-dev of window expectancy (0.10, lower is better).
+- **Warnings**: `IS_OOS_GAP` (in-sample expectancy exceeds out-of-sample by more than max(0.2R, half the in-sample
+  figure)), `LOW_TRADES` (< 100 trades), `PARAMETER_AT_EDGE` (a parameter swept over three or more values sits at the
+  low or high end of the tested range), FAIL-level backtest quality warnings; experiment notes `MULTIPLE_COMPARISONS`
+  (three or more variants) and `NO_OUT_OF_SAMPLE`.
+- **Verdicts**: `BASELINE`; `NOT_BETTER` (no better out-of-sample expectancy than the baseline); `BETTER_BUT_FRAGILE`
+  (better but warned); the best-ranked clean improvement is `RECOMMENDED`, others `BETTER_OUT_OF_SAMPLE`.
+- **Promotion** (`POST /experiments/{id}/variants/{variantId}/promote`) creates the strategy's next version as a DRAFT with
+  change note "promoted from experiment … variant …". Nothing in an experiment changes a status.
+
+Agent tools: `propose_variants` (the LLM, profile `research`, prompt `experiment_agent_v1`, proposes deltas preferring
+out-of-sample robustness and simplicity; each is validated), `run_experiment`, `get_experiment`. Web Lab lists the
+experiments of the latest version with ranks, verdicts and warnings and offers "Promote to version"; TUI
+`hejje experiments [id]` is read-only.

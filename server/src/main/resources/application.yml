@@ -103,6 +103,9 @@ hejje:
       BANKNIFTY: "nearest_future: BANKNIFTY"
       FINNIFTY: "nearest_future: FINNIFTY"
   backtest:
+    experiments:
+      parallelism: 2                   # variants backtested at once (M4.7)
+      max-variants: 12
     workers: 2
     warmup-days: 20
     default-risk-rupees: 2000
@@ -213,6 +216,7 @@ hejje:
       news: { provider: fixture, model: fixture-news }
       fast: { provider: fixture, model: fixture-fast }
       reasoning: { provider: fixture, model: fixture-reasoning }
+      research: { provider: fixture, model: fixture-research }
     dev-fixture-endpoint: true
   news:
     enabled: true                      # ingest is driven by tests; the scheduler is a no-op in tests

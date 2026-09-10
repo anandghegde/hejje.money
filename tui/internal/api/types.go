@@ -384,3 +384,43 @@ type Approval struct {
 	DecisionNote    string          `json:"decisionNote"`
 	Result          map[string]any  `json:"result"`
 }
+
+// Strategy experiments (M4.7)
+
+type SplitSummary struct {
+	Trades       int      `json:"trades"`
+	ExpectancyR  float64  `json:"expectancyR"`
+	ProfitFactor *float64 `json:"profitFactor"`
+	MaxDrawdownR float64  `json:"maxDrawdownR"`
+}
+
+type VariantMetrics struct {
+	Overall     SplitSummary  `json:"overall"`
+	Validation  *SplitSummary `json:"validation"`
+	OutOfSample *SplitSummary `json:"outOfSample"`
+}
+
+type ExperimentVariant struct {
+	ID                string          `json:"id"`
+	Ordinal           int             `json:"ordinal"`
+	Name              string          `json:"name"`
+	Status            string          `json:"status"`
+	Metrics           *VariantMetrics `json:"metrics"`
+	Rank              *int            `json:"rank"`
+	Score             *float64        `json:"score"`
+	Verdict           string          `json:"verdict"`
+	Warnings          []string        `json:"warnings"`
+	ParameterCount    int             `json:"parameterCount"`
+	Error             string          `json:"error"`
+	PromotedVersionID string          `json:"promotedVersionId"`
+}
+
+type Experiment struct {
+	ID            string              `json:"id"`
+	BaseVersionID string              `json:"baseVersionId"`
+	Goal          string              `json:"goal"`
+	Status        string              `json:"status"`
+	CreatedAt     string              `json:"createdAt"`
+	Notes         []string            `json:"notes"`
+	Variants      []ExperimentVariant `json:"variants"`
+}

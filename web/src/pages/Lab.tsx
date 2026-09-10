@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, request } from '../api/client';
 import { Backtest, Strategy, StrategyVersion, ValidationReport } from '../api/types';
 import { DescribeStrategy } from '../components/DescribeStrategy';
+import { Experiments } from '../components/Experiments';
 
 const TEMPLATE = `name: my_orb
 family: index
@@ -121,6 +122,8 @@ export function Lab() {
                 <label>Splits <select value={splits} onChange={(e) => setSplits(e.target.value)}><option>FIXED</option><option>WALK_FORWARD</option><option>NONE</option></select></label>
                 <button onClick={runBacktest}>Run backtest</button>
               </div>
+              <h3>Experiments</h3>
+              <Experiments versionId={latest.id} />
               <ul>
                 {(backtests ?? []).map((b) => (
                   <li key={b.id}>{b.status} {b.progressPct}% {b.metrics ? `— ${b.metrics.totalTrades} trades, ${b.metrics.expectancyR.toFixed(2)}R` : ''} {b.error ?? ''}</li>

@@ -46,7 +46,7 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().BoolVar(&jsonOut, "json", false, "output JSON for scripting")
 	root.AddCommand(statusCmd(), positionsCmd(), ordersCmd(), orderCmd(), cancelCmd(), closeCmd(), closeAllCmd(),
 		riskCmd(), brokerCmd(), serverCmd(), logsCmd(), killCmd(), orderPlaceCmd(),
-		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd())
+		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd(), experimentsCmd())
 	return root
 }
 

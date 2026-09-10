@@ -223,3 +223,17 @@ export interface StrategyDraft {
   created: boolean; strategyId: string | null; slug: string | null; versionId: string | null; version: number | null; status: string | null;
   changeNote: string | null; yaml: string; rules: string[]; parentYaml: string | null; parentVersion: number | null; attempts: StrategyDraftAttempt[]; errors: string[];
 }
+
+// Strategy experiments (M4.7)
+export interface SplitSummary { trades: number; expectancyR: number; profitFactor: number | null; maxDrawdownR: number; winRate: number; netPnl: number }
+export interface VariantMetrics { overall: SplitSummary; inSample: SplitSummary | null; validation: SplitSummary | null; outOfSample: SplitSummary | null;
+  walkForwardStdR: number | null; windows: number; qualityWarnings: string[] }
+export interface ExperimentVariant {
+  id: string; ordinal: number; name: string; description: string | null; delta: Record<string, unknown>; status: 'QUEUED' | 'DONE' | 'FAILED' | 'INVALID';
+  metrics: VariantMetrics | null; rank: number | null; score: number | null; verdict: string | null; warnings: string[]; parameterCount: number;
+  conditionCount: number; error: string | null; promotedVersionId: string | null;
+}
+export interface Experiment {
+  id: string; baseVersionId: string; strategyId: string; goal: string | null; status: 'QUEUED' | 'RUNNING' | 'DONE' | 'FAILED'; createdBy: string; createdAt: string;
+  finishedAt: string | null; error: string | null; notes: string[]; variants: ExperimentVariant[]; dataset: { from: string; to: string };
+}

@@ -83,6 +83,15 @@ public class StrategyService {
         return definition;
     }
 
+    /** The definition document as a plain, insertion-ordered tree (experiment deltas, M4.7). */
+    public Map<String, Object> readTree(String yaml) {
+        return parser.readTree(yaml);
+    }
+
+    public String writeTree(Map<String, Object> tree) {
+        return parser.writeTree(tree);
+    }
+
     public ValidationReport validate(String yaml) {
         try {
             return new ValidationReport(true, List.of(), parse(yaml));

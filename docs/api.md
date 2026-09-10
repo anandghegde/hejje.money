@@ -989,3 +989,32 @@ LLM is off.
   "Stop: below the opening-range low.", "Target: 2R (2 × the risk).", "…" ],
   "parentYaml": null, "parentVersion": null, "attempts": [ { "iteration": 1, "yaml": "…", "errors": [] } ], "errors": [] }
 ```
+
+## Strategy experiments (Phase 4, M4.7)
+
+See `docs/backtesting.md`.
+
+### `POST /api/v1/experiments` (`strategies:write`)
+
+```json
+{ "versionId": "0192…", "goal": "fewer false breakouts", "from": "2024-01-01", "to": "2026-08-31", "splits": { "type": "FIXED" },
+  "variants": [ { "name": "vwap_filter", "description": "only above VWAP", "delta": { "entry_add": ["close > vwap"] } },
+                { "name": "target_3r", "delta": { "target": { "value": 3 } } } ] }
+```
+
+201 with the experiment (QUEUED); it runs in the background.
+
+### `GET /api/v1/experiments?versionId=` · `GET /api/v1/experiments/{id}` (`strategies:read`)
+
+```json
+{ "id": "0192…", "status": "DONE", "notes": [ "MULTIPLE_COMPARISONS: 3 variants were tested on the same data; …" ],
+  "variants": [ { "name": "vwap_filter", "status": "DONE", "rank": 1, "score": 71.5, "verdict": "RECOMMENDED",
+    "metrics": { "overall": { "trades": 140, "expectancyR": 0.3, "profitFactor": 1.5, "maxDrawdownR": 4.0, "winRate": 0.45, "netPnl": 12000.00 },
+                 "outOfSample": { … }, "walkForwardStdR": null, "windows": 0, "qualityWarnings": [] },
+    "warnings": [], "parameterCount": 6, "conditionCount": 4, "promotedVersionId": null } ] }
+```
+
+### `POST /api/v1/experiments/preview` (`strategies:read`) · `POST /api/v1/experiments/{id}/variants/{variantId}/promote` (`strategies:write`)
+
+Preview body `{ "versionId", "delta" }` → `{ "valid", "errors", "yaml", "entryConditions", "parameterCount", "conditionCount" }`. Promote → 201 with the new
+DRAFT version; 409 for the baseline, an unfinished or an already promoted variant.

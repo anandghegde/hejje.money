@@ -143,3 +143,11 @@ panel) turn a description into a strategy definition:
 Nothing in the builder or the tool registry changes a strategy's status: a draft still needs a backtest, a validation
 backtest and human status changes before it can be deployed (M2.1 lifecycle). The Lab panel offers Run backtest, Edit
 (opens the version in the editor) and Discard (retires the version).
+
+## Strategy experiments (plan M4.7, PRD 24)
+
+`propose_variants` (`strategies:read`) asks the LLM (profile `research`, prompt `experiment_agent_v1`) for 3–6 variants of a
+version as deltas, preferring out-of-sample improvement, robustness and simplicity over in-sample return; Hejje validates
+every delta and reports invalid ones with their errors. `run_experiment` (`strategies:write`) backtests the baseline and the
+variants with the deterministic engine and ranks them (`docs/backtesting.md`); `get_experiment` reads the result. The model
+proposes, the backtester decides, and promoting a variant to a version is a human action in the Lab.
