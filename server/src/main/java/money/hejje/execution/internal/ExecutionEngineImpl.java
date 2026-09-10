@@ -63,10 +63,12 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     private final HejjeProperties properties;
     private final ApplicationEventPublisher events;
     private final MeterRegistry meters;
+    private final ExecutorLease lease;
 
     ExecutionEngineImpl(BrokerAdapter broker, OrderService orders, OrderValidator validator, RiskEngine risk,
             RiskDecisionStore riskDecisions, IdempotencyStore idempotency, UnknownOrderResolver unknownResolver, AuditService audit,
-            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events, MeterRegistry meters) {
+            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events, MeterRegistry meters, ExecutorLease lease) {
+        this.lease = lease;
         this.broker = broker;
         this.orders = orders;
         this.validator = validator;
@@ -199,6 +201,15 @@ public class ExecutionEngineImpl implements ExecutionEngine {
                 order.limitPrice() == null ? null : money.hejje.common.Price.of(order.limitPrice()),
                 order.triggerPrice() == null ? null : money.hejje.common.Price.of(order.triggerPrice()), Validity.DAY, order.tag());
         try {
+            lease.checkFence(); // at most one instance submits (M5.6): re-checked right before the broker call
+        } catch (ExecutionException.NotActiveExecutor e) {
+            HejjeOrder refused = orders.transition(order.id(), OrderState.REJECTED, OrderEventSource.SYSTEM,
+                    Map.of("error", "NOT_ACTIVE_EXECUTOR", "message", e.getMessage()));
+            orders.updateIntentStatus(loadIntent(intent.id()).withStatus(IntentStatus.FAILED, List.of(e.getMessage())));
+            log.warn("Order {} not sent: {}", order.id(), e.getMessage());
+            return refused;
+        }
+        try {
             BrokerOrderRef ref = broker.placeOrder(request);
             orders.attachBrokerOrderId(order.id(), ref.brokerOrderId(), order.tag());
             // async broker updates may already have advanced the order; only move to BROKER_ACCEPTED if still SUBMITTING
@@ -226,6 +237,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     @Override
     public HejjeOrder modify(UUID orderId, ModifyCommand command) {
         HejjeOrder order = orders.findById(orderId).orElseThrow(() -> new IllegalArgumentException("No order " + orderId));
+        lease.checkFence();
         orders.transition(orderId, OrderState.MODIFY_PENDING, OrderEventSource.USER, Map.of());
         try {
             broker.modifyOrder(new BrokerOrderRef(order.brokerOrderId()), new money.hejje.broker.BrokerModifyRequest(
@@ -241,6 +253,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     @Override
     public HejjeOrder cancel(UUID orderId) {
         HejjeOrder order = orders.findById(orderId).orElseThrow(() -> new IllegalArgumentException("No order " + orderId));
+        lease.checkFence();
         orders.transition(orderId, OrderState.CANCEL_PENDING, OrderEventSource.USER, Map.of());
         broker.cancelOrder(new BrokerOrderRef(order.brokerOrderId()));
         return orders.findById(orderId).orElseThrow();

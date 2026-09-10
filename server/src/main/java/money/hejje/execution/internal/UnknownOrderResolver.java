@@ -26,6 +26,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class UnknownOrderResolver {
 
+    private final ExecutorLease lease;
+
     private static final Logger log = LoggerFactory.getLogger(UnknownOrderResolver.class);
     private static final Duration WINDOW = Duration.ofSeconds(30);
     private static final Duration INTERVAL = Duration.ofSeconds(3);
@@ -39,7 +41,8 @@ public class UnknownOrderResolver {
         return t;
     });
 
-    UnknownOrderResolver(BrokerAdapter broker, OrderService orders, HejjeProperties properties) {
+    UnknownOrderResolver(BrokerAdapter broker, OrderService orders, HejjeProperties properties, @org.springframework.context.annotation.Lazy ExecutorLease lease) {
+        this.lease = lease;
         this.broker = broker;
         this.properties = properties;
         this.orders = orders;
@@ -59,6 +62,9 @@ public class UnknownOrderResolver {
     }
 
     private void attempt(UUID orderId, long elapsedMs) {
+        if (!lease.isActive()) {
+            return; // a standby leaves it to the active's reconciliation (M5.6)
+        }
         try {
             if (tryResolve(orderId) || elapsedMs + INTERVAL.toMillis() >= WINDOW.toMillis()) {
                 if (!tryResolve(orderId) && elapsedMs > 0) {

@@ -47,7 +47,7 @@ public class RateLimitedBrokerAdapter implements BrokerAdapter {
         try {
             return call.get();
         } finally {
-            sample.stop(Timer.builder("broker.call").tag("op", op).publishPercentileHistogram().register(meters));
+            sample.stop(Timer.builder("broker.call").tag("op", op).tag("broker", delegate.brokerCode()).publishPercentileHistogram().register(meters));
         }
     }
 
@@ -88,7 +88,7 @@ public class RateLimitedBrokerAdapter implements BrokerAdapter {
         try {
             return timed("placeOrder", () -> delegate.placeOrder(request));
         } finally {
-            ack.stop(Timer.builder("broker.ack").publishPercentileHistogram().register(meters));
+            ack.stop(Timer.builder("broker.ack").tag("broker", delegate.brokerCode()).publishPercentileHistogram().register(meters));
         }
     }
 

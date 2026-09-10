@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 /**
- * Makes the rate-limited, timed wrapper the primary {@link BrokerAdapter}. The raw adapter (fake or zerodha) is selected
+ * Makes the rate-limited, timed wrapper the primary {@link BrokerAdapter}. The raw adapter (fake, zerodha or dhan) is selected
  * by {@code hejje.broker.adapter} and injected here; components that inject the interface get the wrapper, while those
  * that need the concrete adapter (postback controller, tests) still inject it by its class.
  */
@@ -27,12 +27,14 @@ class BrokerAdapterConfig {
     @Bean
     @Primary
     BrokerAdapter brokerAdapter(ObjectProvider<FakeBrokerAdapter> fake, ObjectProvider<ZerodhaKiteAdapter> zerodha,
+            ObjectProvider<money.hejje.broker.dhan.DhanAdapter> dhan,
             BrokerRateLimiter limiter, MeterRegistry meters, BrokerInstrumentResolver instruments, BrokerOrderUpdates updates,
             HejjeClock clock, HejjeProperties properties, PaperBrokerProperties paperProperties) {
         FakeBrokerAdapter fakeAdapter = fake.getIfAvailable();
-        BrokerAdapter raw = fakeAdapter != null ? fakeAdapter : zerodha.getObject();
+        ZerodhaKiteAdapter kite = fakeAdapter == null ? zerodha.getIfAvailable() : null;
+        BrokerAdapter raw = fakeAdapter != null ? fakeAdapter : kite != null ? kite : dhan.getObject();
         BrokerAdapter rateLimited = new RateLimitedBrokerAdapter(raw, limiter, meters);
-        // PAPER mode with the real (zerodha) adapter uses live data but simulates fills; the fake is already a paper sim.
+        // PAPER mode with a real (zerodha, dhan) adapter uses live data but simulates fills; the fake is already a paper sim.
         if (properties.mode() == ExecutionMode.PAPER && fakeAdapter == null) {
             return new PaperBrokerAdapter(rateLimited, instruments, updates, clock, paperProperties);
         }

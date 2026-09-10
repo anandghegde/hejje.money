@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class OrderPoller {
 
+    private final ExecutorLease lease;
+
     private static final Logger log = LoggerFactory.getLogger(OrderPoller.class);
     private static final Duration MIN_AGE = Duration.ofSeconds(10);
 
@@ -28,7 +30,8 @@ public class OrderPoller {
     private final HejjeProperties properties;
     private final HejjeClock clock;
 
-    OrderPoller(BrokerAdapter broker, OrderService orders, HejjeProperties properties, HejjeClock clock) {
+    OrderPoller(BrokerAdapter broker, OrderService orders, HejjeProperties properties, HejjeClock clock, ExecutorLease lease) {
+        this.lease = lease;
         this.broker = broker;
         this.orders = orders;
         this.properties = properties;
@@ -37,7 +40,7 @@ public class OrderPoller {
 
     @Scheduled(fixedDelay = 5000)
     void poll() {
-        if (broker.sessionState() != BrokerSessionState.CONNECTED) {
+        if (!lease.isActive() || broker.sessionState() != BrokerSessionState.CONNECTED) { // a standby leaves broker state to the active (M5.6)
             return;
         }
         for (HejjeOrder order : orders.live(properties.mode())) {

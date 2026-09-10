@@ -30,7 +30,7 @@ Secrets are environment variables only.
 | `hejje.system.clock.host` | — | `https://www.google.com` | HTTPS URL whose `Date` header is the reference. |
 | `hejje.system.clock.max-drift` | — | `2s` | Drift above which the clock is `DEGRADED` (blocks execution). |
 | `management.server.port` | — | (same as server) / `8081` in `prod` | Actuator and Prometheus port. |
-| `hejje.broker.adapter` | `HEJJE_BROKER_ADAPTER` | `fake` | Which `BrokerAdapter` bean is active: `fake` (deterministic in-memory broker, dev/test) or `zerodha` (M1.2). |
+| `hejje.broker.adapter` | `HEJJE_BROKER_ADAPTER` | `fake` | Which `BrokerAdapter` bean is active: `fake` (deterministic in-memory broker, dev/test), `zerodha` (M1.2) or `dhan` (M5.6, `docs/broker-dhan.md`). |
 | `hejje.instruments.sync-on-startup` | — | `false` (`true` in `dev`) | Run the instrument master sync once after startup. |
 | `hejje.instruments.sync-cron` | — | `0 0 8 * * MON-FRI` | Cron (IST) of the daily instrument sync; skipped on exchange holidays. |
 | `hejje.broker.web-url` | `HEJJE_WEB_URL` | `http://localhost:5173` | Web client base URL; the broker login callback redirects there. |
@@ -160,3 +160,10 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.webhooks.replay-window` | — | `5m` | Allowed distance between a webhook's timestamp and the server clock (`docs/webhooks.md`). |
 | `hejje.webhooks.signal-validity` | — | `5m` | How long an external signal stays actionable. |
 | `hejje.webhooks.default-risk-rupees` | — | `2000` | Sizing of MANUAL_EXTERNAL intents without `riskRupees`. |
+| `hejje.broker.dhan.client-id` / `app-id` / `app-secret` | `HEJJE_DHAN_CLIENT_ID` / `HEJJE_DHAN_APP_ID` / `HEJJE_DHAN_APP_SECRET` | — | Dhan adapter: client id (required with `adapter=dhan`); API key and secret for the consent login (optional, env only). |
+| `hejje.broker.dhan.base-url` / `auth-url` / `instruments-url` | — | `https://api.dhan.co/v2` / `https://auth.dhan.co` / the compact security master | Dhan endpoints. |
+| `hejje.broker.dhan.quote-poll-interval` / `connect-timeout` / `read-timeout` | — | `2s` / `5s` / `10s` | Market data by REST quote polling; HTTP timeouts. |
+| `hejje.broker.rate-limits.<broker>.*` | — | zerodha 10/s, 200/min, 3000/day orders; dhan 10/s, 250/min, 7000/day orders, quotes 1/s, data 5/s, other 20/s | Per-broker limits (same fields as `hejje.broker.limits`, which applies to a broker without an entry). |
+| `hejje.execution.lease.ttl` / `heartbeat` | — | `30s` / `10s` | Executor lease: a standby takes over once the lease has not been renewed for `ttl`. |
+| `hejje.execution.lease.instance` | `HEJJE_EXECUTION_LEASE_INSTANCE` | host name | This instance's name in status and audit. |
+| `hejje.execution.lease.failover-hold` | — | `2m` | After a controlled failover the old active does not contend for the lease this long. |

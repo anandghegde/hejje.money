@@ -41,8 +41,11 @@ public class BrokerSessionService {
     private final ApplicationEventPublisher events;
     private final AuditService audit;
 
+    private final BrokerAccountService accounts;
+
     BrokerSessionService(BrokerAdapter adapter, BrokerSessionStore store, TokenCipher cipher, HejjeClock clock,
-            ApplicationEventPublisher events, AuditService audit) {
+            ApplicationEventPublisher events, AuditService audit, BrokerAccountService accounts) {
+        this.accounts = accounts;
         this.adapter = adapter;
         this.store = store;
         this.cipher = cipher;
@@ -79,6 +82,13 @@ public class BrokerSessionService {
         store.connected(broker(), session.brokerUserId(), cipher.encrypt(session.accessToken()), session.publicToken(),
                 session.establishedAt() != null ? session.establishedAt() : now, expiresAt, now);
         changed(previous, BrokerSessionState.CONNECTED, "login as " + session.brokerUserId(), AuditEventType.BROKER_CONNECTED);
+        if (session.brokerUserId() != null) {
+            try {
+                accounts.register(adapter.instrumentBrokerCode(), session.brokerUserId()); // M5.6: the first account becomes the active one
+            } catch (RuntimeException e) {
+                log.warn("Could not register broker account {}: {}", session.brokerUserId(), e.getMessage());
+            }
+        }
         return status();
     }
 

@@ -25,13 +25,13 @@ public class ReconciliationIssueStore {
 
     public void insert(ReconciliationIssue issue) {
         jdbc.sql("""
-                INSERT INTO reconciliation_issue (id, kind, severity, instrument_id, order_id, expected, observed, detail, detected_at)
-                VALUES (:id, :kind, :severity, :instrument, :order, :expected, :observed, :detail, :detectedAt)
+                INSERT INTO reconciliation_issue (id, kind, severity, instrument_id, order_id, expected, observed, detail, detected_at, broker)
+                VALUES (:id, :kind, :severity, :instrument, :order, :expected, :observed, :detail, :detectedAt, :broker)
                 """)
                 .param("id", issue.id()).param("kind", issue.kind()).param("severity", issue.severity().name())
                 .param("instrument", issue.instrumentId(), Types.OTHER).param("order", issue.orderId(), Types.OTHER)
                 .param("expected", issue.expected()).param("observed", issue.observed()).param("detail", issue.detail())
-                .param("detectedAt", ts(issue.detectedAt())).update();
+                .param("detectedAt", ts(issue.detectedAt())).param("broker", issue.broker()).update();
     }
 
     public List<ReconciliationIssue> open() {
@@ -71,7 +71,7 @@ public class ReconciliationIssueStore {
         return new ReconciliationIssue(rs.getObject("id", UUID.class), rs.getString("kind"),
                 ReconciliationSeverity.valueOf(rs.getString("severity")), rs.getObject("instrument_id", UUID.class),
                 rs.getObject("order_id", UUID.class), rs.getString("expected"), rs.getString("observed"), rs.getString("detail"),
-                rs.getObject("detected_at", OffsetDateTime.class).toInstant(), resolved == null ? null : resolved.toInstant());
+                rs.getObject("detected_at", OffsetDateTime.class).toInstant(), resolved == null ? null : resolved.toInstant(), rs.getString("broker"));
     }
 
     private static OffsetDateTime ts(Instant instant) {

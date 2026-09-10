@@ -23,13 +23,14 @@ class RateLimitedBrokerAdapterTest {
     @Test
     void ordersFailFastAtTheLimitWithoutReachingTheBroker() {
         FakeBrokerAdapter delegate = Mockito.mock(FakeBrokerAdapter.class);
+        Mockito.when(delegate.brokerCode()).thenReturn("fake"); // the broker timers are tagged with it (M5.6)
         AtomicInteger calls = new AtomicInteger();
         Mockito.when(delegate.placeOrder(Mockito.any())).thenAnswer(inv -> {
             calls.incrementAndGet();
             return new BrokerOrderRef("1");
         });
         BrokerRateLimiter limiter = new BrokerRateLimiter(new BrokerProperties("fake", "http://x",
-                new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50)), new SimpleMeterRegistry());
+                new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50), java.util.Map.of()), new SimpleMeterRegistry());
         RateLimitedBrokerAdapter adapter = new RateLimitedBrokerAdapter(delegate, limiter, new SimpleMeterRegistry());
 
         BrokerOrderRequest request = new BrokerOrderRequest(java.util.UUID.randomUUID(), Side.BUY, Quantity.of(1), OrderType.MARKET,

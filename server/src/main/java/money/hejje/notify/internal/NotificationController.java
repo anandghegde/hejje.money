@@ -73,4 +73,9 @@ class NotificationController {
     Map<String, Object> test(@AuthenticationPrincipal HejjePrincipal principal) {
         return notifications.test(principal.name());
     }
+
+    @org.springframework.web.bind.annotation.ExceptionHandler(java.util.NoSuchElementException.class)
+    org.springframework.http.ProblemDetail notFound(java.util.NoSuchElementException e) {
+        return org.springframework.http.ProblemDetail.forStatusAndDetail(org.springframework.http.HttpStatus.NOT_FOUND, e.getMessage());
+    }
 }

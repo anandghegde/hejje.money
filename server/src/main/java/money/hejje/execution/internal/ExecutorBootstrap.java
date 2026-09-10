@@ -61,7 +61,7 @@ class ExecutorBootstrap implements ReadinessCheck {
     public void run() {
         boolean acquired = lease.acquire();
         if (lease.required() && !acquired) {
-            detail = "executor lease held by another process; running read-only";
+            detail = "standby: the executor lease is held by another instance; read-only until it is released or expires";
             log.warn(detail);
             return;
         }
@@ -109,6 +109,13 @@ class ExecutorBootstrap implements ReadinessCheck {
      */
     @Scheduled(fixedDelay = 10000)
     void retryIfWaitingForLease() {
+        if (complete && lease.required() && !lease.isHeld()) {
+            // lost the lease (failover or takeover): a later re-acquisition reconciles again before executing
+            complete = false;
+            detail = "standby: the executor lease moved to another instance";
+            log.warn(detail);
+            return;
+        }
         if (!complete && lease.isHeld()) {
             log.info("Executor lease acquired after startup; running bootstrap");
             run();

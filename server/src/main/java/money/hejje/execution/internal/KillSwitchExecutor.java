@@ -16,12 +16,19 @@ class KillSwitchExecutor {
 
     private final ExecutionEngine engine;
 
-    KillSwitchExecutor(ExecutionEngine engine) {
+    private final ExecutorLease lease;
+
+    KillSwitchExecutor(ExecutionEngine engine, ExecutorLease lease) {
         this.engine = engine;
+        this.lease = lease;
     }
 
     @EventListener
     void onActivated(KillSwitchActivated event) {
+        if (!lease.isActive()) {
+            log.warn("Kill switch {} not carried out here: this instance is a standby (the active executor carries it out)", event.action());
+            return;
+        }
         try {
             if (event.action() == KillSwitchAction.CANCEL_ALL_OPEN) {
                 int cancelled = engine.cancelAllOpen();

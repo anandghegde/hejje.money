@@ -23,7 +23,7 @@ class LatencyController {
         this.meters = meters;
     }
 
-    record TimerLatency(String name, String op, long count, double p50Ms, double p95Ms, double p99Ms, double maxMs, double meanMs) {}
+    record TimerLatency(String name, String op, String broker, long count, double p50Ms, double p95Ms, double p99Ms, double maxMs, double meanMs) {}
 
     @GetMapping
     @PreAuthorize("hasAuthority('SCOPE_market:read')")
@@ -46,7 +46,7 @@ class LatencyController {
                 else if (v.percentile() == 0.95) p95 = ms;
                 else if (v.percentile() == 0.99) p99 = ms;
             }
-            out.add(new TimerLatency(meter.getId().getName(), meter.getId().getTag("op"), timer.count(), round(p50), round(p95),
+            out.add(new TimerLatency(meter.getId().getName(), meter.getId().getTag("op"), meter.getId().getTag("broker"), timer.count(), round(p50), round(p95),
                     round(p99), round(timer.max(TimeUnit.MILLISECONDS)), round(timer.mean(TimeUnit.MILLISECONDS))));
         }
         out.sort((a, b) -> a.name().compareTo(b.name()));

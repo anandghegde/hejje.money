@@ -46,8 +46,9 @@ class BrokerController {
      * Web client. Never returns the token to the browser.
      */
     @GetMapping("/callback")
-    ResponseEntity<Void> callback(@RequestParam(name = "request_token", required = false) String requestToken,
-            @RequestParam(required = false) String status) {
+    ResponseEntity<Void> callback(@RequestParam(name = "request_token", required = false) String kiteToken,
+            @RequestParam(name = "tokenId", required = false) String dhanTokenId, @RequestParam(required = false) String status) {
+        String requestToken = kiteToken != null ? kiteToken : dhanTokenId; // Kite sends request_token, Dhan's consent login tokenId (M5.6)
         String target;
         if (requestToken == null || requestToken.isBlank() || (status != null && !"success".equalsIgnoreCase(status))) {
             target = properties.webUrl() + "/broker?error=" + UriUtils.encodeQueryParam("login_cancelled", StandardCharsets.UTF_8);

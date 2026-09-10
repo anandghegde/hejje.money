@@ -260,6 +260,9 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     public BrokerOrderRef placeOrder(BrokerOrderRequest request) {
         requireSession("placeOrder");
         script();
+        if (instruments.forInstrument(request.instrumentId(), BROKER_CODE).isEmpty()) { // like a real broker (adapter contract, M5.6)
+            throw new BrokerException(BrokerException.Kind.INPUT, "instrument " + request.instrumentId() + " has no fake mapping");
+        }
         boolean dropThisAck = dropAck.getAndSet(false);
         FakeOrder order;
         synchronized (this) {

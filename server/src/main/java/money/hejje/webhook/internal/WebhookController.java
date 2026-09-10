@@ -93,4 +93,9 @@ class WebhookController {
         out.put("note", "The secret is shown only now; store it in the sender. Rotate it to get a new one.");
         return out;
     }
+
+    @org.springframework.web.bind.annotation.ExceptionHandler(java.util.NoSuchElementException.class)
+    org.springframework.http.ProblemDetail notFound(java.util.NoSuchElementException e) {
+        return org.springframework.http.ProblemDetail.forStatusAndDetail(org.springframework.http.HttpStatus.NOT_FOUND, e.getMessage());
+    }
 }

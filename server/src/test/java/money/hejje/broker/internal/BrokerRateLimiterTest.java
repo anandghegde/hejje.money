@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class BrokerRateLimiterTest {
 
     static BrokerRateLimiter limiter() {
-        return new BrokerRateLimiter(new BrokerProperties("fake", "http://x", new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50)),
+        return new BrokerRateLimiter(new BrokerProperties("fake", "http://x", new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50), java.util.Map.of()),
                 new SimpleMeterRegistry());
     }
 
@@ -29,7 +29,7 @@ class BrokerRateLimiterTest {
     @Test
     void quoteBucketIsOnePerSecond() {
         BrokerRateLimiter limiter = new BrokerRateLimiter(new BrokerProperties("fake", "http://x",
-                new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50)), new SimpleMeterRegistry());
+                new BrokerProperties.Limits(10, 200, 3000, 1, 3, 10, 50), java.util.Map.of()), new SimpleMeterRegistry());
         limiter.acquireRead(BrokerRateLimiter.Op.QUOTE);
         assertThatThrownBy(() -> limiter.acquireRead(BrokerRateLimiter.Op.QUOTE))
                 .isInstanceOfSatisfying(BrokerException.class, e -> assertThat(e.kind()).isEqualTo(BrokerException.Kind.RATE_LIMIT));

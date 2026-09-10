@@ -106,3 +106,33 @@ Build `server/build/libs/hejje-server-*.jar`, copy to `/opt/hejje/hejje.jar`, pu
 
 Prometheus metrics are served on the management port 8081 at `/actuator/prometheus`, reachable only inside
 the compose network. See `docs/observability.md`.
+
+## 9. Active/standby (Phase 5)
+
+Two VMs run the same image against **one shared Postgres** (managed, or on a third host): the active executes, the
+standby serves the API read paths and takes over when the active stops renewing the executor lease (30 s) or on a
+controlled failover (docs/execution.md). Both need:
+
+- the same `HEJJE_ENCRYPTION_KEY` (the broker token is restored from the shared `broker_session`), the same admin
+  credentials and broker settings;
+- their own static egress IP in `HEJJE_EXECUTION_EXPECTED_IPS` (each VM lists its own), and a readable name in
+  `HEJJE_EXECUTION_LEASE_INSTANCE` (e.g. `vm-a`, `vm-b`);
+- the **secondary static IP registered with the broker**: Dhan accepts a PRIMARY and a SECONDARY IP per account
+  (web.dhan.co or `POST /v2/ip/setIP`, locked for 7 days); for Zerodha register the second IP in the Kite developer
+  console where the app allows it. Per PRD 43 the secondary IP is only used after a controlled failover.
+
+Point the reverse proxy (or DNS) at the active; order endpoints on a standby answer 503 (not the active executor), so
+routing reads to both is safe.
+
+**Controlled failover** (maintenance, moving VMs):
+1. `hejje executor` against both: one ACTIVE, one STANDBY.
+2. On the active: `hejje failover` (or `POST /api/v1/server/failover` with `{"confirmation": "FAILOVER"}`, admin).
+3. Within one heartbeat (10 s) the standby reports ACTIVE with a higher epoch; it reconciles before executing.
+   Check the audit log for `EXECUTOR_FAILOVER` and the Server page.
+4. Move the proxy/DNS to the new active. The old one stays a standby for at least 2 minutes and does not take the lease
+   back while the new active renews it.
+
+**Uncontrolled** (the active dies or loses the database): the standby takes over within the TTL plus one heartbeat
+(≤ 40 s). A partitioned former active cannot send orders even if it still believes it is active: every broker order
+call re-checks the lease epoch in the database first.
+

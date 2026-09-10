@@ -145,6 +145,10 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         order.id = "PAPER" + sequence.getAndIncrement();
         order.instrumentId = request.instrumentId();
         Optional<BrokerInstrumentRef> ref = instruments.forInstrument(request.instrumentId(), delegate.brokerCode());
+        if (ref.isEmpty()) { // like a real broker (adapter contract, M5.6)
+            throw new money.hejje.broker.BrokerException(money.hejje.broker.BrokerException.Kind.INPUT,
+                    "instrument " + request.instrumentId() + " has no " + delegate.brokerCode() + " mapping");
+        }
         order.tradingSymbol = ref.map(BrokerInstrumentRef::tradingSymbol).orElse(request.instrumentId().toString());
         order.exchangeSegment = ref.map(BrokerInstrumentRef::exchangeSegment).orElse("NSE");
         order.side = request.side();

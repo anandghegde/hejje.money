@@ -26,7 +26,7 @@ public class BrokerRateLimiter {
     private final Counter rejections;
 
     BrokerRateLimiter(BrokerProperties properties, MeterRegistry meters) {
-        this.limits = properties.limits();
+        this.limits = properties.limitsFor(properties.adapter());
         this.orders = Bucket.builder()
                 .addLimit(Bandwidth.builder().capacity(limits.ordersPerSecond()).refillGreedy(limits.ordersPerSecond(), Duration.ofSeconds(1)).build())
                 .addLimit(Bandwidth.builder().capacity(limits.ordersPerMinute()).refillGreedy(limits.ordersPerMinute(), Duration.ofMinutes(1)).build())

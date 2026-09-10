@@ -35,6 +35,13 @@ class ExecutionExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(ExecutionException.NotActiveExecutor.class)
+    ProblemDetail standby(ExecutionException.NotActiveExecutor ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+        problem.setTitle("Not the active executor");
+        return problem;
+    }
+
     @ExceptionHandler(ExecutionException.IdempotencyInFlight.class)
     ProblemDetail inFlight(ExecutionException.IdempotencyInFlight ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());

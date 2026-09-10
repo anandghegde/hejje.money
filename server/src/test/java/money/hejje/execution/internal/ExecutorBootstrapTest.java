@@ -33,7 +33,7 @@ class ExecutorBootstrapTest {
 
         bootstrap.run();
         assertThat(bootstrap.result().allowsExecution()).isFalse();
-        assertThat(bootstrap.result().detail()).contains("held by another process");
+        assertThat(bootstrap.result().detail()).contains("held by another instance");
 
         bootstrap.retryIfWaitingForLease(); // heartbeat has not acquired yet
         assertThat(bootstrap.result().allowsExecution()).isFalse();

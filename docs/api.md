@@ -1179,3 +1179,33 @@ Option-leg strategies are refused. Audited `WEBHOOK_CREATED` / `WEBHOOK_UPDATED`
 Body: a signal intent (`docs/webhooks.md`). Answers `202 {result: "ACCEPTED", detail, signalId?, approvalId?}`;
 `401` bad signature/passphrase or timestamp outside the window, `409` replay, `403` disabled, `404` unknown webhook,
 `400` not JSON, `422` validation or mapping refused (`detail` says why). Audited `WEBHOOK_RECEIVED`.
+
+## Second broker, accounts and active/standby (Phase 5, M5.6)
+
+### `GET /api/v1/server/executor` (`market:read`)
+
+`{instance, role: ACTIVE|STANDBY|NOT_REQUIRED, required, held, epoch, activeInstance, activeEpoch, expiresAt, holdUntil}`.
+
+### `POST /api/v1/server/failover` (`admin`)
+
+Body `{"confirmation": "FAILOVER"}` (400 otherwise). On the active instance: releases the executor lease →
+`200 {released: true, instance, epoch, holdUntil, message}` (audit `EXECUTOR_FAILOVER`); on a standby `409`.
+
+Order endpoints (`POST /orders/intents`, modify, cancel, and what builds on them) answer **503** "Not the active
+executor" on a standby, and an intent accepted just before a takeover is REJECTED with `NOT_ACTIVE_EXECUTOR` without
+reaching the broker.
+
+### `GET /api/v1/broker/accounts` (`market:read`) · `POST /api/v1/broker/accounts/{id}/activate` (`admin`)
+
+`{adapter, active, accounts: [{id, broker, accountId, label, active, createdAt, updatedAt, activatedAt, activatedBy}]}`.
+Activation makes the account the only active one (audit `BROKER_ACCOUNT_ACTIVATED`); for an account of another broker
+the answer carries a `note` that a restart with that adapter is needed. Logins register accounts
+(`BROKER_ACCOUNT_REGISTERED`).
+
+### Changes
+
+- `GET /api/v1/broker/callback` also accepts Dhan's `tokenId` (in place of Kite's `request_token`);
+  `POST /api/v1/broker/login?request_token=` also accepts a Dhan access token (`docs/broker-dhan.md`).
+- `GET /api/v1/server/latency` rows carry `broker` (the broker timers are tagged with it).
+- Reconciliation issues carry `broker`.
+

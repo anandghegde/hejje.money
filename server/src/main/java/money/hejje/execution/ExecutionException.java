@@ -41,6 +41,11 @@ public sealed class ExecutionException extends RuntimeException {
         return e instanceof RiskRejected r && !r.failures().isEmpty() ? "Risk rejected: " + r.failures() : e.getMessage();
     }
 
+    /** This instance does not hold the executor lease (a standby, or it lost the lease): nothing was sent to the broker; 503. */
+    public static final class NotActiveExecutor extends ExecutionException {
+        public NotActiveExecutor(String message) { super(message); }
+    }
+
     /** Same idempotency key is still in flight; 409. */
     public static final class IdempotencyInFlight extends ExecutionException {
         public IdempotencyInFlight() { super("A request with this Idempotency-Key is still in flight"); }

@@ -41,6 +41,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReconciliationService {
 
+    private final money.hejje.execution.internal.ExecutorLease lease;
+
     private static final Logger log = LoggerFactory.getLogger(ReconciliationService.class);
     static final String POSITION_MISMATCH = "POSITION_MISMATCH";
     static final String EXTERNAL_ORDER = "EXTERNAL_ORDER";
@@ -57,7 +59,8 @@ public class ReconciliationService {
 
     ReconciliationService(BrokerAdapter broker, OrderService orders, ReconciliationIssueStore issues, RiskService risk,
             AuditService audit, HejjeClock clock, HejjeProperties properties, ReconciliationProperties reconciliationProperties,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events, @org.springframework.context.annotation.Lazy money.hejje.execution.internal.ExecutorLease lease) {
+        this.lease = lease;
         this.broker = broker;
         this.orders = orders;
         this.issues = issues;
@@ -71,7 +74,7 @@ public class ReconciliationService {
 
     @Scheduled(fixedDelay = 30000)
     void scheduled() {
-        if (broker.sessionState() == money.hejje.broker.BrokerSessionState.CONNECTED && clock.isSessionOpen()) {
+        if (lease.isActive() && broker.sessionState() == money.hejje.broker.BrokerSessionState.CONNECTED && clock.isSessionOpen()) {
             try {
                 reconcile();
             } catch (RuntimeException e) {
@@ -158,7 +161,8 @@ public class ReconciliationService {
     }
 
     private void raise(String kind, ReconciliationSeverity severity, UUID instrumentId, UUID orderId, String expected, String observed, String detail) {
-        ReconciliationIssue issue = new ReconciliationIssue(Ids.newId(), kind, severity, instrumentId, orderId, expected, observed, detail, clock.now(), null);
+        ReconciliationIssue issue = new ReconciliationIssue(Ids.newId(), kind, severity, instrumentId, orderId, expected, observed, detail, clock.now(), null,
+                broker.brokerCode());
         issues.insert(issue);
         log.warn("Reconciliation {} [{}]: {}", kind, severity, detail);
         audit.record(AuditEvent.of(AuditEventType.RECONCILIATION_ISSUE_DETECTED, ActorType.SYSTEM)

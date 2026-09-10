@@ -13,7 +13,7 @@ readiness check stays red until the issue is resolved (POST /execution/reconcili
 ExecutorBootstrap runs on startup: acquire the single-writer executor lease, then (once the broker session is up)
 reconcile broker state and restore in-flight orders (UNKNOWN / *_PENDING / SUBMITTING polled from the broker), then
 enable execution. Each step feeds the readiness checks. A second process cannot acquire the lease and stays read-only
-(standby failover is Phase 5). Under the test profile the lease does not gate execution (many test contexts share one DB).
+(active/standby with controlled failover since M5.6, below). Under the test profile the lease does not gate execution (many test contexts share one DB).
 
 ## Rate limiting (PRD 39)
 
@@ -87,4 +87,30 @@ re-offers only signals that are still actionable.
   deadline cancels a working child and ends the split (EXPIRED). Audit `SPLIT_STARTED` / `SPLIT_FINISHED`.
 - Baskets and splits interrupted by a restart are marked FAILED on startup; the orders they had placed are ordinary
   orders that reconciliation tracks. Web: Orders page "Baskets" and "Split orders"; TUI `hejje baskets [id]`, `hejje splits`.
+
+## Active/standby and failover (Phase 5, M5.6)
+
+The executor lease (`executor_lease`, PRD 43) is the ownership primitive: the active instance renews it every
+`hejje.execution.lease.heartbeat` (10 s); a standby takes it over once it has not been renewed for `ttl` (30 s), or at
+once after a controlled failover. Every change of owner increments `epoch`, the fencing token. Right before any order
+reaches the broker (place, modify, cancel) the engine re-reads the lease and refuses unless this instance still owns it
+at the epoch it acquired and the lease is live (`NotActiveExecutor`: the order is REJECTED with `NOT_ACTIVE_EXECUTOR`,
+REST answers 503); an unreadable lease refuses too. So a paused or partitioned former active never submits once a
+standby has taken over (`ExecutorFailoverIT`: races, partitions, pauses, failovers and a 600-step random schedule —
+at most one submitter per epoch). A standby serves reads and does not poll orders, reconcile, resolve unknown orders or
+carry out kill-switch actions; when it acquires the lease it runs the startup bootstrap (reconcile, restore in-flight
+orders) before executing, and an instance that loses the lease goes back to waiting for it.
+
+`GET /server/executor` shows this instance's role (ACTIVE, STANDBY, or NOT_REQUIRED under the test profile), the active
+instance and epoch. `POST /server/failover {"confirmation": "FAILOVER"}` (admin, also `hejje failover` and the Server
+page) on the active instance releases the lease; the standby acquires it on its next heartbeat and the old active does
+not contend for `failover-hold` (2 min). Deployment: `deploy/RUNBOOK.md` §9.
+
+**Broker dimension**: `broker.call{op, broker}` and `broker.ack{broker}` carry the broker code, `GET /server/latency`
+returns it per timer, and reconciliation issues record the broker they were found on.
+
+**Broker accounts** (`broker_account`): every login registers its account; the first becomes the active transactional
+account; `POST /broker/accounts/{id}/activate` (admin) switches (one active at a time, enforced by a partial unique
+index). The `brokerAccount` readiness check blocks orders while the connected account is not the active one; switching
+to another broker's account needs a restart with that adapter.
 

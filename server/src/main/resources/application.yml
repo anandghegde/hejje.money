@@ -79,6 +79,15 @@ hejje:
     fake:
       connected: true
       starting-capital: 1000000
+    dhan:
+      client-id: ${HEJJE_DHAN_CLIENT_ID:}
+      app-id: ${HEJJE_DHAN_APP_ID:}
+      app-secret: ${HEJJE_DHAN_APP_SECRET:}
+      base-url: https://api.dhan.co/v2
+      quote-poll-interval: 2s   # Dhan allows one quote request per second; leaves room for on-demand quotes
+    rate-limits:                # per broker (M5.6, PRD 39), from the brokers' published limits; others use hejje.broker.limits
+      zerodha: { orders-per-second: 10, orders-per-minute: 200, orders-per-day: 3000, quote-per-second: 1, historical-per-second: 3, general-per-second: 10 }
+      dhan: { orders-per-second: 10, orders-per-minute: 250, orders-per-day: 7000, quote-per-second: 1, historical-per-second: 5, general-per-second: 20 }
   security:
     encryption-key: ${HEJJE_ENCRYPTION_KEY:}
   market:
