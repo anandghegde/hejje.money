@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, request } from '../api/client';
 import { Backtest, Strategy, StrategyVersion, ValidationReport } from '../api/types';
+import { DescribeStrategy } from '../components/DescribeStrategy';
 
 const TEMPLATE = `name: my_orb
 family: index
@@ -94,6 +95,7 @@ export function Lab() {
   return (
     <div>
       <h1>Lab {strategy ? `— ${strategy.slug}` : ''}</h1>
+      <DescribeStrategy strategyId={strategyId} />
       <div style={{ display: 'flex', gap: 16 }}>
         <div style={{ flex: 1 }}>
           <textarea data-testid="yaml-editor" value={yaml} onChange={(e) => setYaml(e.target.value)} style={{ width: '100%', height: 420, fontFamily: 'monospace' }} />

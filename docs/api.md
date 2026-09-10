@@ -973,3 +973,19 @@ Body `{ "from": "2026-09-01", "to": "2026-09-30", "exclude": { "families": ["MEA
 ```
 
 `GET /api/v1/analytics/pnl` also accepts `groupBy=family|eventContext|newsBias|exitReason`.
+
+## Natural-language strategy drafts (Phase 4, M4.6)
+
+### `POST /api/v1/strategies/drafts`
+
+Scope `strategies:write`. Body `{ "description": "Buy NIFTY when …", "strategy": null }` (`strategy`: id or slug to draft that
+strategy's next version). 201 when a DRAFT was created, 422 when no valid definition came out after three fixes, 503 when the
+LLM is off.
+
+```json
+{ "created": true, "strategyId": "0192…", "slug": "nifty_orb_vwap_rv", "versionId": "0192…", "version": 1, "status": "DRAFT", "changeNote": "NL draft",
+  "yaml": "name: nifty_orb_vwap_rv\n…", "rules": [ "Long on NIFTY, 5-minute bars.", "Enter when all of these hold at a bar close:",
+  "• the close is above the 15-minute opening-range high", "• the close is above VWAP", "• relative volume (20 sessions) is above 1.5",
+  "Stop: below the opening-range low.", "Target: 2R (2 × the risk).", "…" ],
+  "parentYaml": null, "parentVersion": null, "attempts": [ { "iteration": 1, "yaml": "…", "errors": [] } ], "errors": [] }
+```

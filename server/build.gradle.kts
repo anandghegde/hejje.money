@@ -82,6 +82,11 @@ tasks.processResources {
         into("universe")
         include("*.yaml")
     }
+    // The strategy DSL reference is part of the NL strategy builder prompt (M4.6), so the prompt never drifts from the doc.
+    from("../docs") {
+        into("prompts")
+        include("strategy-dsl.md")
+    }
 }
 
 tasks.withType<Test> {

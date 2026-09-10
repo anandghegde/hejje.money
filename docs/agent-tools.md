@@ -13,6 +13,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `close_position_intent` | `orders:prepare` | transactional | Asks a human to approve closing the open position in an instrument. |
 | `compare_strategies` | `strategies:read` | read | Side-by-side comparison of 2 to 6 strategy versions: trades, win rate, profit factor, expectancy (R), max drawdown (R), similar-regime performance and Hejje Score. |
 | `compare_strategy_versions` | `strategies:read` | read | Compare two versions of one strategy: both rows, metric deltas and a templated verdict. |
+| `create_strategy_draft` | `strategies:write` | transactional | Turns a plain-language strategy description into a validated DRAFT strategy definition (YAML plus the rules in words), as a new strategy or, with `strategy`, as that strategy's next version. Hejje validates it and lets the model fix errors up to three times. A draft cannot trade: it still needs a backtest, validation and human status changes. |
 | `get_account_risk` | `risk:read` | read | Account risk dashboard (PRD 54): P&L vs the daily loss limit, exposure, open positions, trades today, consecutive losses, margin use and the kill switch. |
 | `get_audit_trail` | `admin` | read | Audit events, newest first, filtered by order id, event type or start date (at most 50). |
 | `get_event_calendar` | `market:read` | read | Market and instrument events (holidays, expiries, results, RBI/FOMC/CPI) between two dates (default the next 7 days, at most 62), plus the instrument's current event risk when an instrument is given. |
@@ -477,6 +478,109 @@ Output schema:
       "type" : "string"
     }
   }
+}
+```
+
+## `create_strategy_draft`
+
+Turns a plain-language strategy description into a validated DRAFT strategy definition (YAML plus the rules in words), as a new strategy or, with `strategy`, as that strategy's next version. Hejje validates it and lets the model fix errors up to three times. A draft cannot trade: it still needs a backtest, validation and human status changes.
+
+Scope `strategies:write`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "description" : {
+      "type" : "string",
+      "minLength" : 10,
+      "maxLength" : 2000
+    },
+    "strategy" : {
+      "type" : "string",
+      "description" : "Id or slug of an existing strategy to draft a new version of"
+    }
+  },
+  "required" : [ "description" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "created" : {
+      "type" : "boolean"
+    },
+    "strategyId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "slug" : {
+      "type" : "string"
+    },
+    "versionId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "version" : {
+      "type" : "integer"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "changeNote" : {
+      "type" : "string"
+    },
+    "yaml" : {
+      "type" : "string"
+    },
+    "rules" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "parentYaml" : {
+      "type" : "string"
+    },
+    "parentVersion" : {
+      "type" : "integer"
+    },
+    "attempts" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "iteration" : {
+            "type" : "integer"
+          },
+          "yaml" : {
+            "type" : "string"
+          },
+          "errors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "iteration" ]
+      }
+    },
+    "errors" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    }
+  },
+  "required" : [ "created" ]
 }
 ```
 

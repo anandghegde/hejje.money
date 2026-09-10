@@ -124,3 +124,22 @@ failed proposals leave their intent `DECLINED`. Every change is pushed on `/ws/e
 
 The audit trail of an approved agent order reads `AGENT_RECOMMENDED → USER_APPROVED → RISK_CHECK_PASSED →
 ORDER_SUBMITTED`. The approval policy itself is documented in `docs/risk.md`.
+
+## Natural-language strategy builder (plan M4.6, PRD 22)
+
+`create_strategy_draft` (tool, `strategies:write`) and `POST /api/v1/strategies/drafts` (the Lab's "Describe a strategy"
+panel) turn a description into a strategy definition:
+
+1. the LLM (profile `reasoning`, temperature 0, prompt `strategy_builder_v1`) gets the DSL reference — `docs/strategy-dsl.md`,
+   copied into the jar at build time so the prompt never drifts from the doc — and two bundled examples (`nifty_orb`,
+   `vwap_reversion`), and replies with YAML;
+2. Hejje validates it with the same parser and semantic rules as every other definition; errors (`path: message`) are fed
+   back and the model gets up to three fixes;
+3. a valid definition is saved as a **DRAFT** version with change note `NL draft`: a new strategy (its name gets `_nl`,
+   `_nl2`, … if taken) or, with `strategy`, that strategy's next version (the name is forced to the strategy's slug);
+4. the result carries the YAML, the rules in words (`RuleWords`, rendered from the parsed definition), every attempt with
+   its errors, and the parent version's YAML for the Lab's diff.
+
+Nothing in the builder or the tool registry changes a strategy's status: a draft still needs a backtest, a validation
+backtest and human status changes before it can be deployed (M2.1 lifecycle). The Lab panel offers Run backtest, Edit
+(opens the version in the editor) and Discard (retires the version).

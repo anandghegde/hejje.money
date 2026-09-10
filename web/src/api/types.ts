@@ -216,3 +216,10 @@ export interface CounterfactualReport {
   counterfactual: { basis: 'SIMULATED'; note: string; actual: Outcome; simulated: Outcome; excludedTrades: number; excludedNetPnl: number;
     netDifference: number; drawdownDifference: number };
 }
+
+// Natural-language strategy builder (M4.6)
+export interface StrategyDraftAttempt { iteration: number; yaml: string; errors: string[] }
+export interface StrategyDraft {
+  created: boolean; strategyId: string | null; slug: string | null; versionId: string | null; version: number | null; status: string | null;
+  changeNote: string | null; yaml: string; rules: string[]; parentYaml: string | null; parentVersion: number | null; attempts: StrategyDraftAttempt[]; errors: string[];
+}
