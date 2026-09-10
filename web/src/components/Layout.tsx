@@ -1,10 +1,11 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
 import { Approval, Health } from '../api/types';
 import { useEventsSocket } from '../ws/useEventsSocket';
 import { useAuth } from '../auth/AuthContext';
+import { PushedNotification, SEVERITY_COLOR, pushedNotification } from '../lib/notifications';
 
 const ACTIVE = ['Today', 'Approvals', 'Strategies', 'Lab', 'Orders', 'Trades', 'Positions', 'Reviews', 'Analytics', 'Hejje AI', 'Risk', 'Broker', 'Server', 'Settings'];
 const PLACEHOLDERS = ['Pulse'];
@@ -34,7 +35,17 @@ export function Layout({ children }: { children: ReactNode }) {
     refetchInterval: 10000,
     retry: false,
   });
-  useEventsSocket((e) => { if (e.type === 'approval') qc.invalidateQueries({ queryKey: ['approvals'] }); });
+  const [toasts, setToasts] = useState<PushedNotification[]>([]);
+  useEventsSocket((e) => {
+    if (e.type === 'approval') qc.invalidateQueries({ queryKey: ['approvals'] });
+    const n = pushedNotification(e);
+    if (n) {
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      setToasts((t) => [...t.slice(-3), n]);
+      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== n.id)), 8000);
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(n.title, { body: n.body });
+    }
+  });
   const pending = pendingApprovals?.length ?? 0;
   const mode = health?.mode ?? 'PAPER';
   const live = mode === 'CONFIRM' || mode === 'AUTO';
@@ -73,6 +84,13 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
         </div>
         <div style={{ padding: 24 }}>{children}</div>
+        <div data-testid="toasts" style={{ position: 'fixed', right: 16, bottom: 16, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 10 }}>
+          {toasts.map((t) => (
+            <div key={t.id} style={{ background: '#fff', borderLeft: `4px solid ${SEVERITY_COLOR[t.severity]}`, padding: '8px 12px', boxShadow: '0 2px 6px #0003', maxWidth: 360 }}>
+              <b>{t.title}</b>{t.body && <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{t.body}</div>}
+            </div>
+          ))}
+        </div>
       </main>
     </div>
   );

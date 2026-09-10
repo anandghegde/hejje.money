@@ -127,6 +127,11 @@ public class ApprovalService {
      * signal is no longer actionable or would not size or pass risk (a human could not execute it either).
      */
     public Optional<Approval> proposeHeldSignal(UUID signalId, String requestedBy, PolicyResult policy, String reason) {
+        return proposeHeldSignal(signalId, requestedBy, "STRATEGY", policy, reason);
+    }
+
+    /** {@link #proposeHeldSignal(UUID, String, PolicyResult, String)} with the requester type (STRATEGY, or WEBHOOK for external signals, M5.5). */
+    public Optional<Approval> proposeHeldSignal(UUID signalId, String requestedBy, String requestedByType, PolicyResult policy, String reason) {
         String key = "held:" + signalId;
         Optional<Approval> existing = store.findByRequestKey(STRATEGY_PRINCIPAL, key);
         if (existing.isPresent()) {
@@ -153,7 +158,7 @@ public class ApprovalService {
                 OrderReason.STRATEGY_SIGNAL, mode, IntentStatus.PROPOSED, List.of(), now);
         orders.saveIntent(proposed);
         Approval a = new Approval(id, ApprovalKind.ORDER_NEW, ApprovalStatus.PENDING, mode.name(), proposed.id(), signalId, c.strategyId(), c.instrumentId(),
-                p.proposal().instrument(), null, null, requestedBy, STRATEGY_PRINCIPAL, "STRATEGY", key, p.proposal().summary(), reason,
+                p.proposal().instrument(), null, null, requestedBy, STRATEGY_PRINCIPAL, requestedByType, key, p.proposal().summary(), reason,
                 json.valueToTree(p.proposal()), json.valueToTree(p.risk()), json.valueToTree(policy), now, expires, null, null, null, null, null);
         store.insert(a);
         audit.record(AuditEvent.of(AuditEventType.APPROVAL_CREATED, ActorType.STRATEGY).withActorId(requestedBy).withOrderIntentId(a.intentId())
@@ -183,6 +188,52 @@ public class ApprovalService {
                 ctx.principal().name(), ctx.principal().id(), ctx.principal().type().name(), ctx.idempotencyKey(), summary, rationale, json.valueToTree(proposal),
                 null, json.valueToTree(policy), now, now.plus(props.approvals().ttl()), null, null, null, null, null);
         return recordProposal(a, ctx);
+    }
+
+    /**
+     * A manual order proposal from an external webhook (plan M5.5, MANUAL_EXTERNAL): sized and risk-checked like an agent's
+     * manual proposal, requested by the webhook (type WEBHOOK, no agent session), idempotent by the webhook's replay key.
+     *
+     * @throws IllegalStateException when the policy denies it, it cannot be sized or risk would reject it
+     */
+    public Approval proposeExternalOrder(ProposalSpec spec, String requestedBy, UUID principalId, String key, String rationale) {
+        Optional<Approval> existing = key == null ? Optional.empty() : store.findByRequestKey(principalId, key);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        HejjePrincipal principal = new HejjePrincipal(principalId, requestedBy, HejjePrincipal.Type.CLIENT,
+                java.util.Set.of(money.hejje.common.security.ScopeCatalog.MARKET_READ, money.hejje.common.security.ScopeCatalog.ORDERS_PREPARE));
+        OrderProposals.Prepared p;
+        try {
+            p = proposals.prepare(spec, principal);
+        } catch (ToolException e) {
+            throw new IllegalStateException(e.getMessage());
+        }
+        if (p.policy().decision() == PolicyDecision.DENY) {
+            throw new IllegalStateException("Policy denies: " + p.policy().reason());
+        }
+        if (p.proposal().quantity() <= 0) {
+            throw new IllegalStateException("Cannot size the order: " + String.join("; ", p.proposal().notes()));
+        }
+        if (!p.risk().isApproved()) {
+            throw new IllegalStateException("Risk would reject this order: " + String.join("; ", p.risk().failures()));
+        }
+        Instant now = clock.now();
+        UUID id = Ids.newId();
+        var c = p.command();
+        ExecutionMode mode = proposals.mode();
+        OrderIntent proposed = new OrderIntent(Ids.newId(), "proposal:" + id, principalId, ActorType.AGENT, requestedBy, c.strategyId(), null, c.instrumentId(),
+                c.side(), c.quantity(), c.orderType(), c.product(), c.limitPrice(), c.triggerPrice(), c.stopPrice(), c.targetPrice(), c.maxRisk(),
+                OrderReason.WEBHOOK, mode, IntentStatus.PROPOSED, List.of(), now);
+        orders.saveIntent(proposed);
+        Approval a = new Approval(id, ApprovalKind.ORDER_NEW, ApprovalStatus.PENDING, mode.name(), proposed.id(), null, c.strategyId(), c.instrumentId(),
+                p.proposal().instrument(), null, null, requestedBy, principalId, "WEBHOOK", key, p.proposal().summary(), rationale, json.valueToTree(p.proposal()),
+                json.valueToTree(p.risk()), json.valueToTree(p.policy()), now, now.plus(props.approvals().ttl()), null, null, null, null, null);
+        store.insert(a);
+        audit.record(AuditEvent.of(AuditEventType.APPROVAL_CREATED, ActorType.AGENT).withActorId(requestedBy).withOrderIntentId(a.intentId())
+                .withPayload(Map.of("approvalId", id.toString(), "kind", a.kind().name(), "summary", a.summary(), "source", "webhook")));
+        notify(a);
+        return a;
     }
 
     public Approval proposeModify(ToolContext ctx, HejjeOrder order, Integer quantity, OrderType orderType, java.math.BigDecimal limitPrice,

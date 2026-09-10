@@ -307,3 +307,25 @@ export interface OptionsPosition {
     entryPrice?: number; exitPrice?: number }[];
 }
 
+
+// Notifications (M5.5)
+export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type NotificationChannel = 'IN_APP' | 'EMAIL' | 'TELEGRAM';
+export interface HejjeNotification {
+  id: string; type: string; severity: NotificationSeverity; title: string; body: string; data: Record<string, unknown>;
+  createdAt: string; readAt?: string | null;
+}
+export interface NotificationRule {
+  id: string; eventType: string; channel: NotificationChannel; minSeverity: NotificationSeverity; enabled: boolean; updatedAt: string; updatedBy: string;
+}
+export interface ChannelStatus { channel: NotificationChannel; configured: boolean; status: string; perMinute: number; }
+export interface NotificationDelivery { channel: NotificationChannel; status: string; detail?: string; createdAt: string; sentAt?: string; }
+export interface NotificationTestResult { notification: HejjeNotification; deliveries: NotificationDelivery[]; }
+
+// External webhooks (M5.5)
+export interface Webhook {
+  id: string; name: string; authMode: 'HMAC' | 'PASSPHRASE'; strategyVersionId?: string | null; enabled: boolean; allowedInstruments: string[];
+  createdAt: string; createdBy: string; updatedAt: string; lastReceivedAt?: string | null;
+}
+export interface WebhookCreated { webhook: Webhook; secret: string; url: string; note: string; }
+export interface WebhookDelivery { id: string; receivedAt: string; status: 'ACCEPTED' | 'REJECTED' | 'REPLAYED'; detail?: string; signalId?: string; approvalId?: string; }

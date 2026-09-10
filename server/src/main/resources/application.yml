@@ -57,6 +57,9 @@ management:
         enabled: true
 
 hejje:
+  notify:
+    telegram:
+      bot-token: ${HEJJE_TELEGRAM_BOT_TOKEN:}   # env only: never in a config file or the API (docs/notifications.md)
   mode: ${HEJJE_MODE:PAPER}
   timezone: Asia/Kolkata
   data-dir: ${HEJJE_DATA_DIR:./data}

@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import money.hejje.common.Side;
 import money.hejje.audit.AuditEvent;
 import money.hejje.audit.AuditEventType;
 import money.hejje.audit.AuditService;
@@ -42,6 +43,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class SignalService {
 
+    private final org.springframework.context.ApplicationEventPublisher events;
+
     private final money.hejje.options.OptionsExecutor options;
 
     /** Client id of AUTO submissions (plan M5.2). */
@@ -59,7 +62,8 @@ public class SignalService {
     private final money.hejje.market.MarketService market;
 
     SignalService(SignalStore store, SignalEngine engine, StrategyService strategies, InstrumentService instruments, RiskEngine risk, ExecutionEngine execution,
-            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options) {
+            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options, org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.options = options;
         this.market = market;
         this.store = store;
@@ -232,6 +236,24 @@ public class SignalService {
         store.update(executed);
         engine.entrySubmitted(pending, order.id());
         return order;
+    }
+
+    /**
+     * A signal from outside the runners (an external webhook, plan M5.5) on an enabled deployment of the version: stored
+     * ACTIVE like a runner's signal (shown in Today, confirmable, AUTO-eligible) and announced with the same event.
+     */
+    public Signal createExternal(StrategyDeployment deployment, UUID instrumentId, Side side, BigDecimal reference, BigDecimal stop, BigDecimal target,
+            java.time.Duration validity, String actorId, Map<String, Object> evidence) {
+        Instant now = clock.now();
+        Signal signal = new Signal(money.hejje.common.Ids.newId(), deployment.versionId(), deployment.strategyId(), deployment.id(), instrumentId, properties.mode(),
+                side, reference, stop, target, reference.subtract(stop).abs(), now, now.plus(validity), List.of(evidence), SignalStatus.ACTIVE, null, null, null, now, now);
+        store.insert(signal);
+        audit.record(AuditEvent.of(AuditEventType.SIGNAL_CREATED, ActorType.STRATEGY).withActorId(actorId).withStrategyId(signal.strategyId())
+                .withSignalId(signal.id()).withPayload(Map.of("instrumentId", instrumentId.toString(), "side", side.name(), "reference", reference.toPlainString(),
+                        "stop", stop.toPlainString(), "target", target == null ? "none" : target.toPlainString(), "validUntil", signal.validUntil().toString(),
+                        "source", actorId)));
+        events.publishEvent(new SignalGeneratedEvent(money.hejje.common.event.EventMeta.create(clock), signal.id(), signal.versionId(), signal.instrumentId()));
+        return signal;
     }
 
     /** True when the signal's strategy trades option legs (plan M5.4): it executes through {@link #executeOptions}. */

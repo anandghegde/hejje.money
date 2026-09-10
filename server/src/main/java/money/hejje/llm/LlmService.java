@@ -57,7 +57,11 @@ public class LlmService {
     private final ProviderCircuits circuits;
     private final AtomicReference<LocalDate> budgetAlerted = new AtomicReference<>();
 
-    LlmService(LlmProperties props, List<LlmProvider> providerBeans, LlmCallStore calls, HejjeClock clock, AuditService audit) {
+    private final org.springframework.context.ApplicationEventPublisher events;
+
+    LlmService(LlmProperties props, List<LlmProvider> providerBeans, LlmCallStore calls, HejjeClock clock, AuditService audit,
+            org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.props = props;
         this.providers = providerBeans.stream().collect(java.util.stream.Collectors.toMap(LlmProvider::name, p -> p, (a, b) -> a));
         this.calls = calls;
@@ -197,6 +201,7 @@ public class LlmService {
             log.warn("LLM daily cost cap reached: spent {} paise of {} paise; LLM calls disabled until tomorrow", spent, cap);
             audit.record(AuditEvent.of(AuditEventType.LLM_BUDGET_EXCEEDED, ActorType.SYSTEM).withActorId("llm")
                     .withPayload(Map.of("date", today.toString(), "spentPaise", spent, "capPaise", cap)));
+            events.publishEvent(new money.hejje.common.ClientNotification("llm_budget", Map.of("date", today.toString(), "spentPaise", spent, "capPaise", cap)));
         }
         throw new LlmException.BudgetExceeded("LLM daily cost cap reached (" + spent + " of " + cap + " paise)");
     }

@@ -86,7 +86,7 @@ class LlmResilienceTest {
     @Test
     void circuitOpensAfterConsecutiveRetryableFailuresThenLetsOneTrialThroughAfterTheCooldown() {
         Failing p = new Failing("p");
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 3), List.of(p), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 3), List.of(p), store, clock, audit, e -> { });
         for (int i = 0; i < 3; i++) {
             assertThatThrownBy(() -> llm.complete(request("fast"))).hasMessageContaining("HTTP 503");
         }
@@ -113,7 +113,7 @@ class LlmResilienceTest {
     void nonRetryableFailuresMeanTheProviderAnsweredAndNeverOpenTheCircuit() {
         Failing p = new Failing("p");
         p.retryable = false;
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 2), List.of(p), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 2), List.of(p), store, clock, audit, e -> { });
         for (int i = 0; i < 5; i++) {
             assertThatThrownBy(() -> llm.complete(request("fast"))).hasMessageContaining("HTTP 503");
         }
@@ -126,7 +126,7 @@ class LlmResilienceTest {
         FixtureLlmProvider fx = new FixtureLlmProvider("fx");
         fx.respondWhenContains("x", "from fallback");
         LlmService llm = new LlmService(props(Map.of("reasoning", profile("bad", "fast"), "fast", profile("fx", null)), null, 5), List.of(bad, fx), store, clock,
-                audit);
+                audit, e -> { });
         LlmResponse r = llm.complete(request("reasoning"));
         assertThat(r.text()).isEqualTo("from fallback");
         assertThat(r.provider()).isEqualTo("fx");
@@ -141,7 +141,7 @@ class LlmResilienceTest {
         FixtureLlmProvider fx = new FixtureLlmProvider("p");
         fx.fallback(r -> "fine");
         when(store.costSince(any())).thenReturn(1_000L);
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), new BigDecimal("10"), 5), List.of(fx), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), new BigDecimal("10"), 5), List.of(fx), store, clock, audit, e -> { });
         assertThatThrownBy(() -> llm.complete(request("fast"))).isInstanceOf(LlmException.BudgetExceeded.class).hasMessageContaining("1000 of 1000 paise");
         assertThatThrownBy(() -> llm.complete(request("fast"))).isInstanceOf(LlmException.BudgetExceeded.class);
         assertThat(fx.requests()).isEmpty();
@@ -163,7 +163,7 @@ class LlmResilienceTest {
     void jsonModeDefaultsTemperatureToZeroUnlessTheProfileOrRequestSetsOne() {
         FixtureLlmProvider fx = new FixtureLlmProvider("p");
         fx.fallback(r -> "{}");
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit, e -> { });
         llm.complete(new LlmRequest("fast", "t", "v1", null, "x", null, null, true));
         llm.complete(new LlmRequest("fast", "t", "v1", null, "x", null, null, false));
         llm.complete(new LlmRequest("fast", "t", "v1", null, "x", null, 0.7, true));
@@ -174,7 +174,7 @@ class LlmResilienceTest {
     void streamForwardsDeltasAndReturnsTheFullResponse() {
         FixtureLlmProvider fx = new FixtureLlmProvider("p");
         fx.respondWhenContains("x", "alpha beta gamma");
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit, e -> { });
         List<String> deltas = new ArrayList<>();
         LlmResponse r = llm.stream(request("fast"), deltas::add);
         assertThat(deltas).containsExactly("alpha ", "beta ", "gamma");
@@ -187,7 +187,7 @@ class LlmResilienceTest {
         FixtureLlmProvider fx = new FixtureLlmProvider("p");
         fx.responder(r -> r.messages().size() == 1 ? FixtureLlmProvider.calls(new LlmToolCall("c1", "get_market_regime", JSON.createObjectNode()))
                 : FixtureLlmProvider.text("Trending up."));
-        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit);
+        LlmService llm = new LlmService(props(Map.of("fast", profile("p", null)), null, 5), List.of(fx), store, clock, audit, e -> { });
         List<LlmTool> tools = List.of(new LlmTool("get_market_regime", "Current regime", null));
         List<LlmMessage> convo = new ArrayList<>(List.of(LlmMessage.user("What is the regime?")));
         LlmResponse first = llm.complete(LlmRequest.chat("fast", "chat", "v1", "sys", convo, tools));

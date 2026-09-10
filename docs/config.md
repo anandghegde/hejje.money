@@ -151,3 +151,12 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.news.max-items-per-poll` / `title-similarity` / `fetch-timeout` | — | `25` / `0.8` / `30s` | Classification cap per poll, dedupe similarity, HTTP timeout. |
 | `hejje.recommend.min-score` | `HEJJE_RECOMMEND_MIN_SCORE` | `70` | (now overridable by env; the e2e stack sets 0 so Today carries a decision without a backtest history). |
 | `hejje.recommend.caution.vix-rise-pct` / `news-opposing-score` | — | `5` / `0.4` | PRD 15 caution thresholds (`docs/decisions.md`); the stale-quote caution uses `hejje.market.quote-stale-after`. |
+| `hejje.notify.enabled` | — | `true` | Notifications (`docs/notifications.md`); off creates none. |
+| `hejje.notify.high-score` | — | `80` | A signal at or above this Hejje Score is also a `HIGH_SCORE_SETUP`. |
+| `hejje.notify.event-lead` / `dedupe-window` / `digest-interval` | — | `60m` / `10m` / `5m` | Warning ahead of HIGH-risk events; repeats with the same key skipped; rate-limited notifications sent as one digest. |
+| `hejje.notify.email.enabled` / `from` / `to` / `per-minute` | `HEJJE_NOTIFY_EMAIL_ENABLED` / `…_FROM` / `…_TO` | `false` / — / — / `5` | Email channel; SMTP from `spring.mail.host`, `port`, `username`, `password` (`SPRING_MAIL_*`). |
+| `hejje.notify.telegram.enabled` / `chat-id` / `per-minute` / `timeout` | `HEJJE_NOTIFY_TELEGRAM_ENABLED` / `…_CHAT_ID` | `false` / — / `20` / `10s` | Telegram channel. |
+| `hejje.notify.telegram.bot-token` | `HEJJE_TELEGRAM_BOT_TOKEN` | — | Bot token: env only, never in a config file, the API or a log. |
+| `hejje.webhooks.replay-window` | — | `5m` | Allowed distance between a webhook's timestamp and the server clock (`docs/webhooks.md`). |
+| `hejje.webhooks.signal-validity` | — | `5m` | How long an external signal stays actionable. |
+| `hejje.webhooks.default-risk-rupees` | — | `2000` | Sizing of MANUAL_EXTERNAL intents without `riskRupees`. |

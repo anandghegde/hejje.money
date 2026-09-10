@@ -1127,3 +1127,55 @@ An options position: `{ "id", "underlying", "direction", "underlyingStop", "bask
 
 `POST /api/v1/signals/{id}/execute` on a signal of an options strategy returns the options position (201) instead of an order.
 
+
+## Notifications (Phase 5, M5.5)
+
+Rules and channels: `docs/notifications.md`.
+
+### `GET /api/v1/notifications?limit=50` · `POST /api/v1/notifications/{id}/read` (`market:read`)
+
+The in-app inbox, newest first: `{id, type, severity, title, body, data, dedupeKey, createdAt, readAt}`. New ones are also
+pushed on `/ws/events` as `{"type": "notification", "data": {id, notificationType, severity, title, body}}`.
+
+### `GET /api/v1/notifications/{id}/deliveries` (`admin`)
+
+The delivery log of one notification: `[{channel, status, detail, createdAt, sentAt}]`; status `QUEUED`, `SENT`,
+`FAILED` (detail: the error), `SKIPPED` (detail: what the channel is missing), `DIGESTED` (held by the rate limit),
+`DIGEST_SENT`.
+
+### `GET /api/v1/notifications/rules` · `PUT /api/v1/notifications/rules/{id}` (`admin`)
+
+`[{id, eventType, channel, minSeverity, enabled, updatedAt, updatedBy}]`; the update takes `{"enabled": false}` and/or
+`{"minSeverity": "WARNING"}` (audited `NOTIFICATION_RULE_UPDATED`).
+
+### `GET /api/v1/notifications/channels` · `POST /api/v1/notifications/test` (`admin`)
+
+Channel status `[{channel, configured, status, perMinute}]` (never the Telegram token). The test sends a `TEST`
+notification through every channel with an enabled TEST rule and returns `{notification, deliveries}` once sent.
+
+## External webhooks (Phase 5, M5.5)
+
+Flow, authentication and the TradingView template: `docs/webhooks.md`.
+
+### `GET /api/v1/webhooks` · `POST /api/v1/webhooks` · `PUT /api/v1/webhooks/{id}` · `POST /api/v1/webhooks/{id}/rotate` (`admin`)
+
+```json
+POST /api/v1/webhooks
+{ "name": "tv-orb", "strategyVersionId": "…", "allowedInstruments": ["NSE:INFY"], "authMode": "HMAC" }
+→ 201 { "webhook": {id, name, authMode, strategyVersionId, enabled, allowedInstruments, createdAt, createdBy, updatedAt, lastReceivedAt},
+        "secret": "whsec_…", "url": "/api/v1/webhooks/{id}", "note": "The secret is shown only now; …" }
+```
+
+No `strategyVersionId` makes a `MANUAL_EXTERNAL` webhook; `authMode` is `HMAC` (default) or `PASSPHRASE`. The secret is
+returned only here and by `rotate` (the old one stops working at once); `PUT` takes `{enabled, allowedInstruments}`.
+Option-leg strategies are refused. Audited `WEBHOOK_CREATED` / `WEBHOOK_UPDATED`.
+
+### `GET /api/v1/webhooks/{id}/deliveries?limit=50` (`admin`)
+
+`[{id, receivedAt, status, detail, signalId, approvalId}]`; status `ACCEPTED`, `REJECTED` or `REPLAYED`.
+
+### `POST /api/v1/webhooks/{id}` (no login: the signature or passphrase authenticates)
+
+Body: a signal intent (`docs/webhooks.md`). Answers `202 {result: "ACCEPTED", detail, signalId?, approvalId?}`;
+`401` bad signature/passphrase or timestamp outside the window, `409` replay, `403` disabled, `404` unknown webhook,
+`400` not JSON, `422` validation or mapping refused (`detail` says why). Audited `WEBHOOK_RECEIVED`.
