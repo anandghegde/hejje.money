@@ -176,3 +176,12 @@ export interface StrategyContext {
   versionId: string; instrumentId?: string; asOf: string; technicalFit: ContextItem; marketRegime: ContextItem; newsBias: ContextItem; eventRisk: ContextItem;
   sector: ContextItem; nextEvent?: string; netImpact: number; items: ContextItem[];
 }
+
+// Hejje AI (M4.3)
+export interface AiStatus { enabled: boolean; llmEnabled: boolean; profile: string; followUpProfile: string; maxSteps: number; reason: string | null }
+export interface AiTraceStep { actionId: string; tool: string; status: string; requiredScope: string | null; latencyMs: number; error: string | null }
+export interface Grounding { verifiedNumbers: string[]; unverifiedNumbers: string[]; citedIds: string[]; unknownIds: string[] }
+export interface AiTurn {
+  conversationId: string; messageId: string; answer: string; grounding: Grounding; trace: AiTraceStep[]; steps: number; profile: string;
+  flow: string | null; stepLimitReached: boolean;
+}

@@ -18,6 +18,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_market_snapshot` | `market:read` | read | Latest quote (last price, bid/ask, volume, open interest, staleness) for one or up to 20 instruments. |
 | `get_news_context` | `market:read` | read | News bias for an instrument (score -1..1, label, evidence per story) plus the last 24 hours of matched headlines. |
 | `get_orders` | `market:read` | read | Today's orders in the current execution mode, optionally filtered by state (newest first). |
+| `get_pnl_breakdown` | `market:read` | read | Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour or market regime, between two dates (default today, at most 92 days). |
 | `get_positions` | `market:read` | read | Open positions in the current execution mode with average price, last price and unrealized/realized P&L (rupees). |
 | `get_pulse` | `market:read` | read | Technical Pulse (direction, strength, -100..100 score, per-rule components) and Market Pulse rows (regime, volatility, breadth, sector strength). |
 | `get_strategy` | `strategies:read` | read | One strategy version (default the latest): rules in words (entry/exit conditions, stop, target, trailing, window), regime preferences, event rules, the best instrument's score breakdown and its deployments. |
@@ -953,6 +954,102 @@ Output schema:
 }
 ```
 
+## `get_pnl_breakdown`
+
+Realized P&L of closed round trips (net of fees, rupees) grouped by strategy, version, instrument, weekday, hour or market regime, between two dates (default today, at most 92 days).
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "groupBy" : {
+      "type" : "string",
+      "enum" : [ "strategy", "version", "instrument", "weekday", "hour", "regime" ]
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "groupBy" : {
+      "type" : "string"
+    },
+    "from" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "to" : {
+      "type" : "string",
+      "format" : "date"
+    },
+    "trades" : {
+      "type" : "integer"
+    },
+    "netPnl" : {
+      "type" : "number"
+    },
+    "buckets" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "trades" : {
+            "type" : "integer"
+          },
+          "wins" : {
+            "type" : "integer"
+          },
+          "grossPnl" : {
+            "type" : "number"
+          },
+          "fees" : {
+            "type" : "number"
+          },
+          "netPnl" : {
+            "type" : "number"
+          },
+          "winRate" : {
+            "type" : "number"
+          },
+          "averageR" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "trades", "wins", "winRate" ]
+      }
+    }
+  },
+  "required" : [ "trades" ]
+}
+```
+
 ## `get_positions`
 
 Open positions in the current execution mode with average price, last price and unrealized/realized P&L (rupees).
@@ -1593,6 +1690,26 @@ Output schema:
           "items" : {
             "type" : "string"
           }
+        },
+        "context" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "name" : {
+                "type" : "string"
+              },
+              "status" : {
+                "type" : "string"
+              },
+              "value" : {
+                "type" : "string"
+              },
+              "delta" : {
+                "type" : "integer"
+              }
+            }
+          }
         }
       },
       "required" : [ "version" ]
@@ -1676,6 +1793,26 @@ Output schema:
             "type" : "array",
             "items" : {
               "type" : "string"
+            }
+          },
+          "context" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "name" : {
+                  "type" : "string"
+                },
+                "status" : {
+                  "type" : "string"
+                },
+                "value" : {
+                  "type" : "string"
+                },
+                "delta" : {
+                  "type" : "integer"
+                }
+              }
             }
           }
         },

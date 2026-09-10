@@ -110,6 +110,12 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.llm.daily-cost-cap` | `HEJJE_LLM_DAILY_COST_CAP` | (none) | Rupees per IST day, summed from the call log's cost estimates (calls without `pricing` count as zero). Reaching it disables every LLM call until the next IST day and records one `LLM_BUDGET_EXCEEDED` audit alert. |
 | `hejje.llm.circuit-breaker.failure-threshold` / `open-for` | — | `5` / `60s` | Consecutive retryable failures (timeouts, 429, 5xx) that open a provider's circuit, and how long it stays open before one trial call. |
 | `hejje.llm.profiles.<name>.fallback` | — | (none) | Profile tried once when this profile's provider fails or its circuit is open (not after streaming has started). |
+| `hejje.llm.dev-fixture-endpoint` | — | `false` (`true` in dev/test) | Enables `POST /agents/llm/dev/fixture` (canned answers on a `type: fixture` provider). |
+| `hejje.agent.ai.enabled` | — | `true` | Hejje AI chat (also needs `hejje.llm.enabled`). |
+| `hejje.agent.ai.profile` / `follow-up-profile` | — | `reasoning` / `fast` | LLM profile for the first question of a conversation / later questions. |
+| `hejje.agent.ai.max-steps` | — | `8` | LLM steps per question before the tool loop stops. |
+| `hejje.agent.ai.max-tool-result-chars` | — | `12000` | Characters of each tool result the model sees. |
+| `hejje.agent.ai.history-turns` | — | `10` | Earlier question/answer pairs replayed to the model. |
 | `hejje.news.enabled` | `HEJJE_NEWS_ENABLED` | `false` | News polling and classification (`docs/news.md`). |
 | `hejje.news.poll-minutes` | — | `5` | Poll interval. |
 | `hejje.news.sources` / `aliases` | — | `classpath:news-sources.yaml` / `classpath:aliases.yaml` | Feed list and instrument alias map (`file:` paths override the bundled copies). |

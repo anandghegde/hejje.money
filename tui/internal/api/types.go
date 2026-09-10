@@ -308,3 +308,42 @@ type PulseSnapshot struct {
 	Technical TechnicalPulse `json:"technical"`
 	Market    MarketPulse    `json:"market"`
 }
+
+// Hejje AI (M4.3)
+
+type AiTraceStep struct {
+	ActionID      string `json:"actionId"`
+	Tool          string `json:"tool"`
+	Status        string `json:"status"`
+	RequiredScope string `json:"requiredScope"`
+	LatencyMs     int64  `json:"latencyMs"`
+	Error         string `json:"error"`
+}
+
+type Grounding struct {
+	VerifiedNumbers   []string `json:"verifiedNumbers"`
+	UnverifiedNumbers []string `json:"unverifiedNumbers"`
+	CitedIDs          []string `json:"citedIds"`
+	UnknownIDs        []string `json:"unknownIds"`
+}
+
+type AiTurn struct {
+	ConversationID   string        `json:"conversationId"`
+	MessageID        string        `json:"messageId"`
+	Answer           string        `json:"answer"`
+	Grounding        Grounding     `json:"grounding"`
+	Trace            []AiTraceStep `json:"trace"`
+	Steps            int           `json:"steps"`
+	Profile          string        `json:"profile"`
+	Flow             string        `json:"flow"`
+	StepLimitReached bool          `json:"stepLimitReached"`
+}
+
+type AiStatus struct {
+	Enabled         bool   `json:"enabled"`
+	LlmEnabled      bool   `json:"llmEnabled"`
+	Profile         string `json:"profile"`
+	FollowUpProfile string `json:"followUpProfile"`
+	MaxSteps        int    `json:"maxSteps"`
+	Reason          string `json:"reason"`
+}

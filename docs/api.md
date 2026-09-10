@@ -881,3 +881,37 @@ Authenticated; own sessions (admin: all). The detail is `{ "session": {…}, "ac
 ### `POST /mcp`
 
 MCP (streamable HTTP, JSON-RPC 2.0, JSON responses; `GET /mcp` is 405). Authenticated with an API key.
+
+## Hejje AI (Phase 4, M4.3)
+
+See `docs/agents.md`. All endpoints need an authenticated caller; tool calls inside use that caller's scopes.
+
+### `GET /api/v1/agents/ai/status`
+
+`{ "enabled": true, "llmEnabled": true, "profile": "reasoning", "followUpProfile": "fast", "maxSteps": 8, "reason": null }`
+(`enabled: false` with a `reason` when the LLM or the chat is off).
+
+### `POST /api/v1/agents/ai/ask`
+
+Body `{ "question": "Why is nifty_orb ranked first?", "conversationId": null, "flow": null }` (`flow`: `why_ranked_first`,
+`compare`, `working_today`; normally detected from the question). With `Accept: application/json`:
+
+```json
+{ "conversationId": "0192…", "messageId": "0192…", "answer": "nifty_orb v3 ranks first with score 87 [0192…] …",
+  "grounding": { "verifiedNumbers": ["87"], "unverifiedNumbers": [], "citedIds": ["0192…"], "unknownIds": [] },
+  "trace": [ { "actionId": "0192…", "tool": "get_strategy_rankings", "status": "OK", "requiredScope": "strategies:read", "latencyMs": 41, "error": null } ],
+  "steps": 1, "profile": "reasoning", "flow": "why_ranked_first", "stepLimitReached": false }
+```
+
+503 when the chat is disabled, 502 when the LLM fails. With `Accept: text/event-stream` the same turn streams as
+server-sent events: `tool` (a trace step), `delta` (`{ "step": 1, "text": "…" }`; a later step's text replaces an earlier
+one), `done` (the turn above) or `error` (`{ "error": "…" }`).
+
+### `GET /api/v1/agents/ai/conversations?limit=20` · `GET /api/v1/agents/ai/conversations/{id}`
+
+The caller's conversations; the detail is `{ "conversation": {…}, "messages": [ { "seq", "role": "USER|ASSISTANT", "content", "flow", "profile", "grounding", "trace", "steps" } ] }`.
+
+### `POST /api/v1/agents/llm/dev/fixture` (dev/test profiles only)
+
+Admin. `{ "contains": "What is working today?", "response": "…" }` registers a canned answer on the `fixture` provider
+(`hejje.llm.dev-fixture-endpoint=true`), for the web e2e.

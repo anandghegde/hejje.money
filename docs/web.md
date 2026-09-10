@@ -32,7 +32,7 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
 - **Trades** with the attribution column and review links; **Reviews** (`/reviews`, `/reviews/:id`) with the PRD 55
   postmortem; **Analytics** (`/analytics`) P&L breakdown by strategy / version / instrument / weekday / hour / regime.
 - Orders (manual order form with the stop prefilled from `GET /risk/stop-suggestion` + cancel), Positions (close, close-all), Risk (dashboard, kill switch with typed `CLOSE
-  ALL` confirmation, re-arm), Broker, Server, Settings. Pulse and Hejje AI remain placeholders. A mode banner (red LIVE
+  ALL` confirmation, re-arm), Broker, Server, Settings. Pulse remains a placeholder in the nav (the `/pulse` page exists). A mode banner (red LIVE
   / blue PAPER) and server/broker/market-data status dots sit across the top of every screen.
 
 ## Realtime
@@ -58,3 +58,10 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
 - `npm run e2e` expects the dev stack started with `HEJJE_RECOMMEND_MIN_SCORE=0` (in addition to the Phase 2 recipe in
   `plan/PROGRESS.md`) so the paper flow's Today card carries a decision; the spec injects a results event and asserts
   `TRADE WITH CAUTION`.
+
+## Phase 4 additions
+
+- **Hejje AI** (`/agent`, M4.3): chat with streamed answers (`POST /agents/ai/ask` as server-sent events, parsed by
+  `lib/agent.ts`), quick prompts for the canned flows, a tool-call trace panel (tool, required scope, status, latency),
+  numbers not traced to a tool result highlighted as "unverified", and a disabled state when `hejje.llm.enabled=false`.
+  e2e: `tests-e2e/agent-chat.spec.ts` (fixture LLM on the stack, or the disabled state when it is off).

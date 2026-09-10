@@ -60,3 +60,32 @@ claude mcp add --transport http hejje https://<HEJJE_DOMAIN>/mcp --header "Autho
 ```
 
 The key is shown once; revoke it with `DELETE /api/v1/auth/clients/{id}`.
+
+## Hejje AI chat (plan M4.3)
+
+`HejjeAiService` answers a question in a `chat` agent session (one per conversation):
+
+1. **Canned analyst flows** run first when the question matches (or `flow` is given): `why_ranked_first`
+   ("why is X ranked first": rankings, then the chosen row's score breakdown and rules), `compare` ("compare A and B":
+   two strategies on their latest versions, or two versions of one strategy with `slug v2` / `slug v3`), `working_today`
+   ("what is working today": today's P&L by strategy plus the current decisions). Their tool outputs are rendered into
+   a templated evidence block appended to the question.
+2. **Tool loop**: the model (profile `reasoning` for the first question of a conversation, `fast` for follow-ups) is
+   offered only the tools the caller's credential may call; each tool call goes through `AgentToolService` (scope,
+   schemas, audit), at most `max-steps` (8) LLM steps. Tool results are fed back as JSON (truncated at
+   `max-tool-result-chars`), refusals as `{"status":"FORBIDDEN",…}`.
+3. **Grounding check**: the final answer's numbers must appear in this turn's tool outputs (rounding and fraction →
+   percentage allowed) and cited ids must be ids those outputs contain. Anything else is returned as
+   `grounding.unverifiedNumbers` / `unknownIds` and shown as "unverified" by the web and TUI; dates, times, ids and bare
+   integers below 10 are not treated as claims.
+
+The system prompt is `resources/prompts/hejje_ai_v1.txt` (role, PRD 66E non-responsibilities, tool rules, citation rule);
+its version is logged with every LLM call. Questions and answers are stored in `agent_conversation`/`agent_message`
+(with the grounding and tool trace); tool inputs/outputs stay in `agent_action`.
+
+With `hejje.llm.enabled=false` (the default) the chat reports itself disabled (`GET /api/v1/agents/ai/status`) and
+nothing else changes.
+
+Clients: web `/agent` (streamed answer, tool-call trace with scope/status/latency, unverified numbers highlighted,
+quick prompts for the flows) and TUI `hejje ai "question"` (one-shot, `--flow`, `--json`) or `hejje ai` (interactive;
+`/new`, `/quit`).

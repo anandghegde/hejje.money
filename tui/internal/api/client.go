@@ -59,6 +59,7 @@ func (c *Client) do(method, path string, body any, idempotent bool, out any) err
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	}
@@ -266,4 +267,24 @@ func (c *Client) SkipSignal(id, reason string) (Signal, error) {
 func (c *Client) Pulse() (PulseSnapshot, error) {
 	var p PulseSnapshot
 	return p, c.do(http.MethodGet, "/context/pulse", nil, false, &p)
+}
+
+// Hejje AI (M4.3)
+
+func (c *Client) AiStatus() (AiStatus, error) {
+	var s AiStatus
+	return s, c.do(http.MethodGet, "/agents/ai/status", nil, false, &s)
+}
+
+// Ask sends a question to Hejje AI; conversationID continues a conversation, flow picks a canned analyst flow.
+func (c *Client) Ask(question, conversationID, flow string) (AiTurn, error) {
+	body := map[string]any{"question": question}
+	if conversationID != "" {
+		body["conversationId"] = conversationID
+	}
+	if flow != "" {
+		body["flow"] = flow
+	}
+	var t AiTurn
+	return t, c.do(http.MethodPost, "/agents/ai/ask", body, false, &t)
 }

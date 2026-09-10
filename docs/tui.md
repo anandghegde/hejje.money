@@ -43,3 +43,10 @@ deployed" until Phase 2), positions with live P&L, open orders, daily P&L vs lim
 
 Dashboard: the Best Hejje card replaces the placeholder; `[E]` prepares the best signal's order and shows the risk
 checks, then `y` executes (anything else cancels), `[D]` toggles the evidence and risks, `[S]` skips the signal.
+
+## Phase 4 commands
+
+- `hejje ai "question" [--flow why_ranked_first|compare|working_today] [--json]` — one-shot Hejje AI answer, the grounding
+  note (numbers not found in this turn's tool results are marked `[unverified]`) and the tool trace (tool, scope, status,
+  latency).
+- `hejje ai` — interactive: each answer continues the conversation; `/new` starts another, `/quit` exits.

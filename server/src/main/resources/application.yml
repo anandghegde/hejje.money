@@ -127,6 +127,14 @@ hejje:
     circuit-breaker:
       failure-threshold: 5
       open-for: 60s
+  agent:
+    ai:
+      enabled: true                    # Hejje AI chat; also needs hejje.llm.enabled
+      profile: reasoning               # first question of a conversation
+      follow-up-profile: fast          # later questions in the same conversation
+      max-steps: 8
+      max-tool-result-chars: 12000
+      history-turns: 10
   news:
     enabled: ${HEJJE_NEWS_ENABLED:false}
     poll-minutes: 5
@@ -165,6 +173,8 @@ spring:
     activate:
       on-profile: dev
 hejje:
+  llm:
+    dev-fixture-endpoint: true         # POST /agents/llm/dev/fixture (only acts on type: fixture providers)
   instruments:
     sync-on-startup: true
   strategy:
@@ -198,6 +208,8 @@ hejje:
     profiles:
       news: { provider: fixture, model: fixture-news }
       fast: { provider: fixture, model: fixture-fast }
+      reasoning: { provider: fixture, model: fixture-reasoning }
+    dev-fixture-endpoint: true
   news:
     enabled: true                      # ingest is driven by tests; the scheduler is a no-op in tests
     aliases: classpath:aliases.yaml

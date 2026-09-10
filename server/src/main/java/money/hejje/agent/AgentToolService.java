@@ -65,6 +65,10 @@ public class AgentToolService {
         return registry.catalog();
     }
 
+    public Optional<ToolDescriptor> descriptor(String name) {
+        return registry.find(name).map(ToolRegistry.Registered::descriptor);
+    }
+
     /** The tools this credential may call. */
     public List<ToolDescriptor> catalogFor(HejjePrincipal principal) {
         return registry.catalog().stream().filter(d -> principal.hasScope(d.requiredScope())).toList();

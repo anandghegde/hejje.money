@@ -24,6 +24,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 class BrokerSessionIT extends AbstractIntegrationTest {
 
     @Autowired
+    money.hejje.common.time.MutableClock clock;
+
+    @Autowired
     BrokerSessionService sessions;
 
     @Autowired
@@ -53,6 +56,8 @@ class BrokerSessionIT extends AbstractIntegrationTest {
 
     @Test
     void statusLoginUrlLogoutAndLoginRoundTrip() {
+        // Sunday: the session is closed, so market-data readiness is SKIPPED whether or not an earlier suite started streaming
+        clock.setIst("2026-09-13T10:00:00");
         String token = adminAccessToken();
         ResponseEntity<Map> status = rest.exchange("/api/v1/broker/status", HttpMethod.GET, new HttpEntity<>(bearer(token)), Map.class);
         assertThat(status.getStatusCode()).isEqualTo(HttpStatus.OK);

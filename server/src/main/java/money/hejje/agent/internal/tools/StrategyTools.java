@@ -70,10 +70,14 @@ public class StrategyTools implements AgentToolProvider {
 
     public record RankingsInput(Integer limit) {}
 
-    /** PRD 29 agent decision object. */
+    /** One Strategy Context Card row (PRD 19). */
+    public record ContextRow(String name, String status, String value, Integer delta) {}
+
+    /** PRD 29 agent decision object, plus the Context Card rows. */
     public record DecisionObject(UUID versionId, UUID strategyId, String strategy, int version, UUID instrumentId, String instrument, Integer score,
             String decision, String direction, UUID signalId, Instant signalValidUntil, BigDecimal entry, BigDecimal stop, BigDecimal target, Integer quantity,
-            BigDecimal riskRupees, String regime, Double newsBias, String eventRisk, String nextEvent, List<String> hardBlocks, List<String> cautions) {}
+            BigDecimal riskRupees, String regime, Double newsBias, String eventRisk, String nextEvent, List<String> hardBlocks, List<String> cautions,
+            List<ContextRow> context) {}
 
     public record Rankings(Instant asOf, DecisionObject best, List<DecisionObject> ranked, String noTrade) {}
 
@@ -233,7 +237,8 @@ public class StrategyTools implements AgentToolProvider {
     static DecisionObject decision(Recommendation r) {
         return new DecisionObject(r.versionId(), r.strategyId(), r.strategy(), r.version(), r.instrumentId(), r.instrument(), r.score(), name(r.decision()),
                 name(r.direction()), r.signalId(), r.signalValidUntil(), r.entry(), r.stop(), r.target(), r.quantity(), r.riskRupees(), r.regime(), r.newsBias(),
-                r.eventRisk(), r.nextEvent(), r.hardBlocks(), r.cautions() == null ? List.of() : r.cautions().stream().map(c -> c.code() + ": " + c.message()).toList());
+                r.eventRisk(), r.nextEvent(), r.hardBlocks(), r.cautions() == null ? List.of() : r.cautions().stream().map(c -> c.code() + ": " + c.message()).toList(),
+                r.context() == null ? List.of() : r.context().items().stream().map(c -> new ContextRow(c.name(), name(c.status()), c.value(), c.delta())).toList());
     }
 
     BacktestView backtest(BacktestQuery in, ToolContext ctx) {
