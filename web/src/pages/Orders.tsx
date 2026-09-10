@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
 import { Order } from '../api/types';
 import { ManualOrder } from './ManualOrder';
+import { Baskets, Splits } from '../components/Baskets';
 
 export function Orders() {
   const qc = useQueryClient();
@@ -29,6 +30,8 @@ export function Orders() {
           ))}
         </tbody>
       </table>
+      <Baskets />
+      <Splits />
     </div>
   );
 }

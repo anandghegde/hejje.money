@@ -62,3 +62,29 @@ staleness, bootstrap) and the kill switch, and returns the reasons. Exposure-red
 Nothing on this path calls an LLM. After a restart the signal engine re-attaches protective stops (M2.6) and the sweep
 re-offers only signals that are still actionable.
 
+## Smart, basket and split orders (Phase 5, M5.3)
+
+- **Smart (position-aware) intents** (PRD 33): `POST /orders/intents` with `targetPosition` instead of `side` + `quantity`.
+  `ExecutionPlanner` takes the current net position for (server mode, instrument, product, strategy; no strategy = the
+  manual book) and submits the delta (−50 → +100 is BUY 150; equal is a no-op answered with `200 {noop: true, plan}`).
+- **Baskets** (PRD 34, `POST /baskets`): the broker's margin for all legs together (`getOrderMargins`) is compared with
+  available funds first; a basket that does not fit fails before any leg. Legs then go through the normal pipeline
+  (validation, risk, kill switch, gate, idempotency key `basket:<id>:<n>`) one at a time, hedge legs first, each waited
+  on until filled before the next (explicit legging, no naked leg while a hedge is outstanding). ALL_OR_NOTHING stops at
+  the first failed leg (refused, rejected, or unfilled at the deadline, which is cancelled); with `CLOSE_FILLED_LEGS` the
+  filled legs are closed with market orders in reverse placement order (reason `BASKET_ROLLBACK`, exposure-reducing).
+  BEST_EFFORT places every leg (PARTIAL when some fail). Statuses: PENDING, EXECUTING, COMPLETED, PARTIAL, FAILED,
+  ROLLED_BACK, EXPIRED; each leg records its order, state, detail and placement order. Audit `BASKET_CREATED` /
+  `BASKET_FINISHED`. Agents ask with the `submit_basket_intent` tool (a BASKET_NEW approval; approving submits the basket).
+- **Splits** (PRD 35): `split {maxChildQuantity, delayMs, priceTolerancePct, cancelOnMove, deadlineSeconds}` on an
+  intent (or automatically above `hejje.execution.planning.auto-split-above`). The whole intent is validated and
+  risk-checked once first (a split never works around a limit such as max quantity); children of at most
+  `maxChildQuantity` (whole lots) are then placed through the pipeline one at a time, `delayMs` apart, each waited on,
+  as orders whose `parentOrderId` is the split. Each child is risk-checked again, except `reentryCooldown`: the
+  account's cooldown counts from the last fill on the instrument, so it would stop every child after the first; the
+  whole intent passed it, and the child's risk decision records the check as `waived: child of split …`. An adverse move beyond `priceTolerancePct` from the reference (limit
+  price, else the last price at the start) ends the split (`cancelOnMove`) or pauses it until the price returns; the
+  deadline cancels a working child and ends the split (EXPIRED). Audit `SPLIT_STARTED` / `SPLIT_FINISHED`.
+- Baskets and splits interrupted by a restart are marked FAILED on startup; the orders they had placed are ordinary
+  orders that reconciliation tracks. Web: Orders page "Baskets" and "Split orders"; TUI `hejje baskets [id]`, `hejje splits`.
+

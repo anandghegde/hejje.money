@@ -19,7 +19,7 @@ Limit checks (skipped for exposure-reducing intents — reason `POSITION_CLOSE`/
 opposite to an open position): `killSwitch`, `dailyLoss`, `realizedLoss`, `totalLoss`, `openPositions`, `tradesPerDay`,
 `riskPerTrade` (|entry−stop|×qty), `quantity`, `notional`, `marginUtilization` (broker `getOrderMargins`, else notional),
 `minRewardRisk` (when a target is set), `mandatoryStop`, `maxStopDistance`, `tradingWindow` (no new trades after 14:45),
-`averagingDown`, `reentryCooldown` (10 min), `consecutiveLosses`.
+`averagingDown`, `reentryCooldown` (10 min since the last fill on the instrument; waived only for the children of a split order, whose whole intent passed it, M5.3), `consecutiveLosses`.
 
 ## Kill switch
 

@@ -88,6 +88,15 @@ public class OrderService {
         return intents.findById(id);
     }
 
+    /** Links a child order to its parent (split orders, M5.3); the parent is the split's id. */
+    public void setParent(UUID orderId, UUID parentId) {
+        orders.setParent(orderId, parentId);
+    }
+
+    public List<HejjeOrder> childrenOf(UUID parentId) {
+        return orders.findByParent(parentId);
+    }
+
     public Optional<HejjeOrder> findById(UUID id) {
         return orders.findById(id);
     }

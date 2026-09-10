@@ -270,3 +270,23 @@ export interface PolicyRule {
 }
 
 export interface PolicyView { rules: PolicyRule[]; defaultDecision: PolicyDecision; notes: string[] }
+
+export interface BasketLeg {
+  id: string; sequence: number; hedgeFirst: boolean; executionOrder?: number; instrumentId: string; side: 'BUY' | 'SELL'; quantity: number;
+  orderType: string; product: string; limitPrice?: number; stopPrice?: number; targetPrice?: number; orderId?: string;
+  status: 'PENDING' | 'SUBMITTED' | 'FILLED' | 'FAILED' | 'CANCELLED' | 'SKIPPED' | 'ROLLED_BACK'; detail?: string; rollbackOrderId?: string;
+}
+
+export interface Basket {
+  id: string; mode: string; name?: string; source: string; actorId?: string; policy: 'ALL_OR_NOTHING' | 'BEST_EFFORT'; rollback: 'NONE' | 'CLOSE_FILLED_LEGS';
+  deadline: string; status: 'PENDING' | 'EXECUTING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'ROLLED_BACK' | 'EXPIRED'; marginRequired?: Money;
+  marginAvailable?: Money; detail?: string; createdAt: string; legs: BasketLeg[];
+}
+
+export interface SplitOrder {
+  id: string; instrumentId: string; side: 'BUY' | 'SELL'; quantity: number; orderType: string; product: string;
+  policy: { maxChildQuantity: number; delayMs: number; priceTolerancePct?: number; cancelOnMove: boolean; deadlineSeconds: number };
+  status: 'WORKING' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' | 'FAILED'; filledQuantity: number; children: number; referencePrice?: number;
+  deadline: string; detail?: string; createdAt: string;
+}
+

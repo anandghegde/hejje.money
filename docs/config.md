@@ -121,6 +121,10 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.agent.approvals.expiry-sweep` | — | `30s` | How often expired approvals are marked EXPIRED (also done whenever approvals are read or decided). |
 | `hejje.backtest.experiments.parallelism` | — | `2` | Experiment variants backtested at once. |
 | `hejje.backtest.experiments.max-variants` | — | `12` | Variants per experiment (baseline not counted). |
+| `hejje.execution.planning.leg-timeout` | — | `30s` | Longest a basket leg or split child is waited on (besides the deadline). |
+| `hejje.execution.planning.max-basket-legs` | — | `20` | Legs per basket. |
+| `hejje.execution.planning.basket-deadline` / `split-deadline` | — | `15m` / `15m` | Default deadlines. |
+| `hejje.execution.planning.auto-split-above` / `auto-split-child-quantity` / `auto-split-delay` | — | `0` (off) / `0` (= the threshold) / `1s` | Automatic splitting of large intents. |
 | `hejje.auto.acknowledged` | `HEJJE_AUTO_ACKNOWLEDGED` | `false` | Required (with the `prod` profile) for `hejje.mode=AUTO`; startup fails otherwise. |
 | `hejje.auto.min-paper-trades` | — | `30` | Closed paper trades a version needs before an AUTO deployment at autonomy 4-5 ("a new strategy version is never automatic"). |
 | `hejje.auto.default-max-trades-per-day` / `default-max-loss-rupees` | — | `3` / `5000` | Per-deployment daily budget at autonomy 4-5 (entries; gross realized loss); deployment params `daily_max_trades` / `daily_max_loss_rupees` override. |

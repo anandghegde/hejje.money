@@ -12,6 +12,9 @@ public interface ExecutionEngine {
 
     HejjeOrder submit(OrderIntentCommand command);
 
+    /** As {@link #submit(OrderIntentCommand)} with named risk checks waived for this intent (split children, M5.3); recorded in the risk decision. */
+    HejjeOrder submit(OrderIntentCommand command, java.util.Set<String> waivedRiskChecks, String waiverReason);
+
     HejjeOrder modify(UUID orderId, ModifyCommand command);
 
     HejjeOrder cancel(UUID orderId);

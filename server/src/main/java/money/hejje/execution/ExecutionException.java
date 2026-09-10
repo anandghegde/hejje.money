@@ -28,6 +28,17 @@ public sealed class ExecutionException extends RuntimeException {
             this.checks = List.copyOf(checks);
         }
         public List<RiskCheck> checks() { return checks; }
+
+        /** The failed checks as "name (observed vs limit): message", for progress details (baskets, splits). */
+        public String failures() {
+            return checks.stream().filter(c -> !c.passed()).map(c -> c.name() + (c.observed() == null ? "" : " (" + c.observed()
+                    + (c.limit() == null ? "" : " vs " + c.limit()) + ")") + ": " + c.message()).collect(java.util.stream.Collectors.joining("; "));
+        }
+    }
+
+    /** Why an execution attempt was refused, with the failed risk checks when there are any. */
+    public static String describe(RuntimeException e) {
+        return e instanceof RiskRejected r && !r.failures().isEmpty() ? "Risk rejected: " + r.failures() : e.getMessage();
     }
 
     /** Same idempotency key is still in flight; 409. */

@@ -51,6 +51,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class ApprovalService {
 
+    private final money.hejje.execution.BasketService baskets;
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApprovalService.class);
 
     private final ApprovalStore store;
@@ -66,7 +68,9 @@ public class ApprovalService {
     private final ObjectMapper json;
 
     ApprovalService(ApprovalStore store, OrderProposals proposals, OrderService orders, ExecutionEngine execution, SignalService signals, PolicyEngine policies,
-            AuditService audit, ApplicationEventPublisher events, AgentProperties props, HejjeClock clock, ObjectMapper json) {
+            AuditService audit, ApplicationEventPublisher events, AgentProperties props, HejjeClock clock, ObjectMapper json,
+            money.hejje.execution.BasketService baskets) {
+        this.baskets = baskets;
         this.store = store;
         this.proposals = proposals;
         this.orders = orders;
@@ -157,6 +161,28 @@ public class ApprovalService {
                         "summary", a.summary(), "expiresAt", expires.toString(), "reason", reason)));
         notify(a);
         return Optional.of(a);
+    }
+
+    /**
+     * A basket proposal (plan M5.3): the legs as given, policy-checked like any agent proposal (account autonomy, no
+     * strategy); approving it submits the basket, whose legs then go through the normal pipeline one by one.
+     */
+    public Approval proposeBasket(ToolContext ctx, Map<String, Object> proposal, String summary, String rationale) {
+        Optional<Approval> replay = replay(ctx);
+        if (replay.isPresent()) {
+            return replay.get();
+        }
+        ExecutionMode mode = proposals.mode();
+        PolicyResult policy = policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.AGENT, mode, props.approvals().accountAutonomyLevel(), null, null,
+                false, null, null));
+        if (policy.decision() == PolicyDecision.DENY) {
+            throw new ToolException(ToolStatus.DENIED, "Policy denies: " + policy.reason());
+        }
+        Instant now = clock.now();
+        Approval a = new Approval(Ids.newId(), ApprovalKind.BASKET_NEW, ApprovalStatus.PENDING, mode.name(), null, null, null, null, null, null, ctx.sessionId(),
+                ctx.principal().name(), ctx.principal().id(), ctx.principal().type().name(), ctx.idempotencyKey(), summary, rationale, json.valueToTree(proposal),
+                null, json.valueToTree(policy), now, now.plus(props.approvals().ttl()), null, null, null, null, null);
+        return recordProposal(a, ctx);
     }
 
     public Approval proposeModify(ToolContext ctx, HejjeOrder order, Integer quantity, OrderType orderType, java.math.BigDecimal limitPrice,
@@ -320,12 +346,30 @@ public class ApprovalService {
                 HejjeOrder order = execution.cancel(a.orderId());
                 result.put("orderId", order.id().toString()).put("state", order.state().name());
             }
+            case BASKET_NEW -> {
+                JsonNode p = a.proposal();
+                java.util.List<money.hejje.execution.BasketCommand.Leg> legs = new java.util.ArrayList<>();
+                for (JsonNode l : p.path("legs")) {
+                    legs.add(new money.hejje.execution.BasketCommand.Leg(UUID.fromString(l.path("instrumentId").asText()), money.hejje.common.Side.valueOf(l.path("side").asText()),
+                            l.path("quantity").asInt(), OrderType.valueOf(l.path("orderType").asText("MARKET")), Product.valueOf(l.path("product").asText("MIS")),
+                            priceOf(l, "limitPrice"), null, priceOf(l, "stopPrice"), priceOf(l, "targetPrice"), l.path("hedgeFirst").asBoolean(false)));
+                }
+                money.hejje.execution.Basket basket = baskets.submit(new money.hejje.execution.BasketCommand(approver.id(), key, ActorType.USER, approver.name(),
+                        p.path("name").asText(null), money.hejje.execution.Basket.Policy.valueOf(p.path("policy").asText("ALL_OR_NOTHING")),
+                        money.hejje.execution.Basket.Rollback.valueOf(p.path("rollback").asText("NONE")),
+                        p.hasNonNull("deadlineMinutes") ? java.time.Duration.ofMinutes(p.get("deadlineMinutes").asLong()) : null, null, OrderReason.AGENT_PROPOSAL, legs));
+                result.put("basketId", basket.id().toString()).put("state", basket.status().name());
+            }
             case POSITION_CLOSE -> {
                 HejjeOrder order = execution.closePosition(a.instrumentId(), Product.valueOf(a.proposal().path("product").asText("MIS")), null);
                 result.put("orderId", order.id().toString()).put("executedIntentId", order.intentId().toString()).put("state", order.state().name());
             }
         }
         return result;
+    }
+
+    private static Price priceOf(JsonNode node, String field) {
+        return node.hasNonNull(field) ? Price.of(node.get(field).decimalValue().setScale(2, java.math.RoundingMode.HALF_UP)) : null;
     }
 
     public Approval reject(UUID id, String reason, String key, HejjePrincipal approver) {

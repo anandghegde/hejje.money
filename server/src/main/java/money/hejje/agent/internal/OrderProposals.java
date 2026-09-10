@@ -194,6 +194,7 @@ public class OrderProposals {
             case ORDER_MODIFY -> PolicyAction.ORDER_MODIFY;
             case ORDER_CANCEL -> PolicyAction.ORDER_CANCEL;
             case POSITION_CLOSE -> PolicyAction.POSITION_CLOSE;
+            case BASKET_NEW -> PolicyAction.ORDER_NEW; // legs are risk-checked one by one in the pipeline
         };
         Integer autonomy = autonomyFor(a);
         Integer score = a.proposal().hasNonNull("score") ? a.proposal().get("score").asInt() : null;

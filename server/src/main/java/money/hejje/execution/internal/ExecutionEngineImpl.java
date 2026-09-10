@@ -83,13 +83,18 @@ public class ExecutionEngineImpl implements ExecutionEngine {
 
     @Override
     public HejjeOrder submit(OrderIntentCommand command) {
+        return submit(command, java.util.Set.of(), null);
+    }
+
+    @Override
+    public HejjeOrder submit(OrderIntentCommand command, java.util.Set<String> waivedRiskChecks, String waiverReason) {
         String hash = requestHash(command);
         boolean owns = idempotency.begin(command.clientId(), command.idempotencyKey(), hash);
         if (!owns) {
             return replay(command, hash);
         }
         try {
-            return runPipeline(command);
+            return runPipeline(command, waivedRiskChecks, waiverReason);
         } catch (ExecutionException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -135,7 +140,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
         return intent;
     }
 
-    private HejjeOrder runPipeline(OrderIntentCommand command) {
+    private HejjeOrder runPipeline(OrderIntentCommand command, java.util.Set<String> waived, String waiverReason) {
         OrderIntent intent = persistIntent(command);
 
         OrderIntent validating = intent.withStatus(IntentStatus.VALIDATING, List.of());
@@ -150,7 +155,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
         Timer.Sample riskSample = Timer.start(meters);
         RiskDecision decision;
         try {
-            decision = risk.evaluate(validating);
+            decision = waived.isEmpty() ? risk.evaluate(validating) : risk.evaluate(validating, waived, waiverReason);
         } finally {
             riskSample.stop(Timer.builder("risk.evaluate").publishPercentileHistogram().register(meters));
         }
@@ -298,7 +303,7 @@ public class ExecutionEngineImpl implements ExecutionEngine {
 
     static OrderRole roleFor(OrderReason reason) {
         return switch (reason) {
-            case POSITION_CLOSE, STRATEGY_EXIT, KILL_SWITCH -> OrderRole.EXIT;
+            case POSITION_CLOSE, STRATEGY_EXIT, KILL_SWITCH, BASKET_ROLLBACK -> OrderRole.EXIT;
             case STRATEGY_STOP -> OrderRole.STOP;
             default -> OrderRole.ENTRY;
         };

@@ -101,6 +101,23 @@ func (c *Client) BrokerStatus() (BrokerStatus, error) {
 	return b, c.do(http.MethodGet, "/broker/status", nil, false, &b)
 }
 
+// Baskets lists recent baskets (M5.3).
+func (c *Client) Baskets() ([]Basket, error) {
+	var b []Basket
+	return b, c.do(http.MethodGet, "/baskets", nil, false, &b)
+}
+
+func (c *Client) Basket(id string) (Basket, error) {
+	var b Basket
+	return b, c.do(http.MethodGet, "/baskets/"+url.PathEscape(id), nil, false, &b)
+}
+
+// Splits lists recent split orders (M5.3).
+func (c *Client) Splits() ([]SplitOrder, error) {
+	var s []SplitOrder
+	return s, c.do(http.MethodGet, "/orders/splits", nil, false, &s)
+}
+
 func (c *Client) Orders() ([]Order, error) {
 	var o []Order
 	return o, c.do(http.MethodGet, "/orders", nil, false, &o)

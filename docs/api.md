@@ -1071,3 +1071,36 @@ like any other (approving executes the signal through the confirmation path).
 Audit types: `AUTO_EXECUTED` (actor STRATEGY, with the policy decision, rule, trace and context), `AUTO_HELD` (outcome
 HELD / DENIED / FAILED with the reason), `APPROVAL_CREATED` (a held signal's approval).
 
+## Smart, basket and split orders (Phase 5, M5.3)
+
+See `docs/execution.md`.
+
+### `POST /api/v1/orders/intents` (`orders:execute`, Idempotency-Key)
+
+New optional fields: `targetPosition` (instead of `side` + `quantity`; 400 when both are given) and `split`.
+
+```json
+{ "instrumentId": "0192…", "targetPosition": 100, "orderType": "MARKET", "product": "MIS", "stopPrice": "1495.00", "targetPrice": "1520.00" }
+```
+
+→ 201 `{ "plan": { "current": -50, "target": 100, "delta": 150, "side": "BUY", "quantity": 150 }, "order": { … } }`, or 200
+`{ "noop": true, "plan": { … "delta": 0 } }`. With `"split": { "maxChildQuantity": 100, "delayMs": 300, "priceTolerancePct": 1.0,
+"cancelOnMove": true, "deadlineSeconds": 900 }` → 201 `{ "split": { "id", "status": "WORKING", … } }`. A plain intent still
+returns the order. Prices are strings, as elsewhere in the API.
+
+### `GET /api/v1/orders/splits?limit=20` · `GET /api/v1/orders/splits/{id}` (`market:read`) · `POST /api/v1/orders/splits/{id}/cancel` (`orders:cancel`, Idempotency-Key)
+
+A split: `{ "id", "side", "quantity", "policy", "status": "WORKING|COMPLETED|CANCELLED|EXPIRED|FAILED", "filledQuantity", "children",
+"referencePrice", "deadline", "detail" }`; the detail view adds `children` (orders with `parentOrderId`).
+
+### `POST /api/v1/baskets` (`orders:execute`, Idempotency-Key) · `GET /api/v1/baskets?limit=20` · `GET /api/v1/baskets/{id}` (`market:read`)
+
+```json
+{ "name": "pair", "policy": "ALL_OR_NOTHING", "rollback": "CLOSE_FILLED_LEGS", "deadlineSeconds": 600,
+  "legs": [ { "instrumentId": "0192…", "side": "SELL", "quantity": 10, "stopPrice": "1505.00", "targetPrice": "1480.00", "hedgeFirst": true },
+            { "instrumentId": "0192…", "side": "BUY", "quantity": 10, "orderType": "LIMIT", "limitPrice": "799.50", "stopPrice": "795.00", "targetPrice": "820.00" } ] }
+```
+
+→ 201 with the basket (`status`, `marginRequired`, `marginAvailable`, `detail`, `legs[]` with `sequence`, `executionOrder`,
+`orderId`, `status`, `detail`, `rollbackOrderId`). The same key returns the same basket.
+

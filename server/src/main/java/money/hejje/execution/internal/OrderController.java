@@ -45,17 +45,28 @@ class OrderController {
     private final ExecutionEngine engine;
     private final OrderService orders;
     private final HejjeProperties properties;
+    private final money.hejje.execution.ExecutionPlanner planner;
+    private final money.hejje.execution.SplitService splits;
+    private final money.hejje.execution.PlanningProperties planning;
 
-    OrderController(ExecutionEngine engine, OrderService orders, HejjeProperties properties) {
+    OrderController(ExecutionEngine engine, OrderService orders, HejjeProperties properties, money.hejje.execution.ExecutionPlanner planner,
+            money.hejje.execution.SplitService splits, money.hejje.execution.PlanningProperties planning) {
         this.engine = engine;
         this.orders = orders;
         this.properties = properties;
+        this.planner = planner;
+        this.splits = splits;
+        this.planning = planning;
     }
 
+    /**
+     * Either {@code side} + {@code quantity}, or {@code targetPosition} (a smart intent, M5.3: the planner computes the
+     * delta from the current position). {@code split} works the order as child orders.
+     */
     record IntentRequest(
             @NotNull UUID instrumentId,
-            @NotNull Side side,
-            @NotNull Quantity quantity,
+            Side side,
+            Quantity quantity,
             @NotNull OrderType orderType,
             @NotNull Product product,
             Price limitPrice,
@@ -65,8 +76,12 @@ class OrderController {
             Long maxRiskPaise,
             OrderReason reason,
             UUID strategyId,
-            UUID signalId) {
+            UUID signalId,
+            Integer targetPosition,
+            SplitRequest split) {
     }
+
+    record SplitRequest(int maxChildQuantity, Long delayMs, java.math.BigDecimal priceTolerancePct, Boolean cancelOnMove, Long deadlineSeconds) {}
 
     record ModifyRequest(Quantity quantity, OrderType orderType, Price limitPrice, Price triggerPrice) {}
 
@@ -74,16 +89,50 @@ class OrderController {
 
     @PostMapping("/intents")
     @PreAuthorize("hasAuthority('SCOPE_orders:execute')")
-    ResponseEntity<HejjeOrder> submit(@Valid @RequestBody IntentRequest body,
+    ResponseEntity<Object> submit(@Valid @RequestBody IntentRequest body,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal HejjePrincipal principal) {
         String key = requireKey(idempotencyKey);
+        Side side = body.side();
+        Quantity quantity = body.quantity();
+        money.hejje.execution.ExecutionPlanner.Plan plan = null;
+        if (body.targetPosition() != null) {
+            if (side != null || quantity != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Give targetPosition, or side and quantity, not both");
+            }
+            plan = planner.plan(body.instrumentId(), body.product(), body.strategyId(), body.targetPosition());
+            if (plan.noop()) {
+                return ResponseEntity.ok(Map.of("noop", true, "plan", plan));
+            }
+            side = plan.side();
+            quantity = Quantity.of(plan.quantity());
+        } else if (side == null || quantity == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "side and quantity are required (or give targetPosition)");
+        }
         OrderIntentCommand command = new OrderIntentCommand(principal.id(), key, actor(principal), principal.name(), body.strategyId(),
-                body.signalId(), body.instrumentId(), body.side(), body.quantity(), body.orderType(), body.product(), body.limitPrice(),
+                body.signalId(), body.instrumentId(), side, quantity, body.orderType(), body.product(), body.limitPrice(),
                 body.triggerPrice(), body.stopPrice(), body.targetPrice(), body.maxRiskPaise() == null ? null : Money.ofPaise(body.maxRiskPaise()),
                 body.reason() == null ? OrderReason.MANUAL : body.reason());
+        money.hejje.execution.SplitPolicy policy = splitPolicy(body.split(), quantity.value());
+        if (policy != null) {
+            money.hejje.execution.SplitOrder split = splits.start(command, policy);
+            return ResponseEntity.status(HttpStatus.CREATED).body(plan == null ? Map.of("split", split) : Map.of("plan", plan, "split", split));
+        }
         HejjeOrder order = engine.submit(command);
-        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+        return ResponseEntity.status(HttpStatus.CREATED).body(plan == null ? order : Map.of("plan", plan, "order", order));
+    }
+
+    /** The requested split, else the automatic one above {@code hejje.execution.planning.auto-split-above}, else null. */
+    private money.hejje.execution.SplitPolicy splitPolicy(SplitRequest r, int quantity) {
+        if (r != null) {
+            return new money.hejje.execution.SplitPolicy(r.maxChildQuantity(), r.delayMs() == null ? 0 : r.delayMs(), r.priceTolerancePct(),
+                    Boolean.TRUE.equals(r.cancelOnMove()), r.deadlineSeconds() == null ? planning.splitDeadline().toSeconds() : r.deadlineSeconds());
+        }
+        if (planning.autoSplitAbove() > 0 && quantity > planning.autoSplitAbove()) {
+            int child = planning.autoSplitChildQuantity() > 0 ? planning.autoSplitChildQuantity() : planning.autoSplitAbove();
+            return new money.hejje.execution.SplitPolicy(child, planning.autoSplitDelay().toMillis(), null, false, planning.splitDeadline().toSeconds());
+        }
+        return null;
     }
 
     @GetMapping

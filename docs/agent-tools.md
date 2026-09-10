@@ -39,6 +39,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `propose_variants` | `strategies:read` | read | Proposes 3 to 6 variants of a strategy version as deltas (filters or parameter changes) aimed at a goal, preferring out-of-sample robustness and simplicity; Hejje validates every delta. Nothing is run or saved. |
 | `run_counterfactual` | `market:read` | read | SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical. |
 | `run_experiment` | `strategies:write` | transactional | Backtests the base version and each variant (delta) on the same data and split, then ranks them deterministically with overfitting warnings. Runs in the background; poll get_experiment. Promoting a variant is a human action. |
+| `submit_basket_intent` | `orders:prepare` | transactional | Asks a human to approve a basket: up to 20 orders executed together through the normal pipeline, hedge legs first and one at a time, with ALL_OR_NOTHING (stop at the first failed leg; rollback CLOSE_FILLED_LEGS closes the filled ones) or BEST_EFFORT. Every leg is still validated and risk-checked; nothing is placed unless a human approves it. |
 | `submit_order_intent` | `orders:prepare` | transactional | Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale. |
 
 ## `calculate_position_size`
@@ -677,7 +678,7 @@ Input schema:
     },
     "type" : {
       "type" : "string",
-      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED", "EXPERIMENT_STARTED", "EXPERIMENT_FINISHED", "STRATEGY_DRIFT_CHANGED", "STRATEGY_DRIFT_OVERRIDDEN", "AUTO_EXECUTED", "AUTO_HELD", "APPROVAL_CREATED" ]
+      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED", "EXPERIMENT_STARTED", "EXPERIMENT_FINISHED", "STRATEGY_DRIFT_CHANGED", "STRATEGY_DRIFT_OVERRIDDEN", "AUTO_EXECUTED", "AUTO_HELD", "APPROVAL_CREATED", "BASKET_CREATED", "BASKET_FINISHED", "SPLIT_STARTED", "SPLIT_FINISHED" ]
     },
     "from" : {
       "type" : "string",
@@ -3938,6 +3939,133 @@ Output schema:
         },
         "required" : [ "ordinal", "parameterCount", "conditionCount" ]
       }
+    }
+  }
+}
+```
+
+## `submit_basket_intent`
+
+Asks a human to approve a basket: up to 20 orders executed together through the normal pipeline, hedge legs first and one at a time, with ALL_OR_NOTHING (stop at the first failed leg; rollback CLOSE_FILLED_LEGS closes the filled ones) or BEST_EFFORT. Every leg is still validated and risk-checked; nothing is placed unless a human approves it.
+
+Scope `orders:prepare`, transactional.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "name" : {
+      "type" : "string",
+      "maxLength" : 80
+    },
+    "policy" : {
+      "type" : "string",
+      "enum" : [ "ALL_OR_NOTHING", "BEST_EFFORT" ]
+    },
+    "rollback" : {
+      "type" : "string",
+      "enum" : [ "NONE", "CLOSE_FILLED_LEGS" ]
+    },
+    "deadlineMinutes" : {
+      "type" : "integer",
+      "minimum" : 1,
+      "maximum" : 375
+    },
+    "legs" : {
+      "type" : "array",
+      "minItems" : 1,
+      "maxItems" : 20,
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "instrument" : {
+            "type" : "string",
+            "minLength" : 1,
+            "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+          },
+          "side" : {
+            "type" : "string",
+            "enum" : [ "BUY", "SELL" ]
+          },
+          "quantity" : {
+            "type" : "integer",
+            "minimum" : 1
+          },
+          "orderType" : {
+            "type" : "string",
+            "enum" : [ "MARKET", "LIMIT" ]
+          },
+          "product" : {
+            "type" : "string",
+            "enum" : [ "MIS", "CNC", "NRML" ]
+          },
+          "limitPrice" : {
+            "type" : "number",
+            "minimum" : 0
+          },
+          "stopPrice" : {
+            "type" : "number",
+            "minimum" : 0
+          },
+          "targetPrice" : {
+            "type" : "number",
+            "minimum" : 0
+          },
+          "hedgeFirst" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "instrument", "side", "quantity" ],
+        "additionalProperties" : false
+      }
+    },
+    "rationale" : {
+      "type" : "string",
+      "maxLength" : 500,
+      "description" : "Why, in one or two sentences, shown to the approver"
+    }
+  },
+  "required" : [ "legs" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "approvalId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "kind" : {
+      "type" : "string"
+    },
+    "status" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "string"
+    },
+    "intentId" : {
+      "type" : "string",
+      "format" : "uuid"
+    },
+    "expiresAt" : {
+      "type" : "string"
+    },
+    "policyDecision" : {
+      "type" : "string"
+    },
+    "policyReason" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : "string"
     }
   }
 }

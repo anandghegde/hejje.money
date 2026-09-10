@@ -69,6 +69,15 @@ public class OrderStore {
                 .update();
     }
 
+    /** Links a child order (split, M5.3) to its parent. */
+    public void setParent(UUID orderId, UUID parentId) {
+        jdbc.sql("UPDATE hejje_order SET parent_order_id = :p WHERE id = :id").param("p", parentId).param("id", orderId).update();
+    }
+
+    public List<HejjeOrder> findByParent(UUID parentId) {
+        return jdbc.sql("SELECT * FROM hejje_order WHERE parent_order_id = :p ORDER BY updated_at, id").param("p", parentId).query(this::map).list();
+    }
+
     public Optional<HejjeOrder> findById(UUID id) {
         return jdbc.sql("SELECT * FROM hejje_order WHERE id = :id").param("id", id).query(this::map).optional();
     }

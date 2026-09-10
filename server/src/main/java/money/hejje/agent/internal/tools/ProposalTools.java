@@ -49,6 +49,11 @@ public class ProposalTools implements AgentToolProvider {
 
     public record CloseInput(String instrument, String product, String rationale) {}
 
+    public record BasketLegInput(String instrument, String side, Integer quantity, String orderType, String product, BigDecimal limitPrice, BigDecimal stopPrice,
+            BigDecimal targetPrice, Boolean hedgeFirst) {}
+
+    public record BasketInput(String name, String policy, String rollback, Integer deadlineMinutes, java.util.List<BasketLegInput> legs, String rationale) {}
+
     public record ApprovalView(UUID approvalId, String kind, String status, String summary, UUID intentId, Instant expiresAt, String policyDecision,
             String policyReason, String message) {}
 
@@ -101,7 +106,21 @@ public class ProposalTools implements AgentToolProvider {
                         schema("""
                                 {"type":"object","properties":{"instrument":%s,"product":{"type":"string","enum":["MIS","CNC","NRML"]},%s},
                                  "required":["instrument"],"additionalProperties":false}""".formatted(INSTRUMENT_PROP, RATIONALE)),
-                        CloseInput.class, ApprovalView.class, this::close));
+                        CloseInput.class, ApprovalView.class, this::close),
+                AgentTool.transactional("submit_basket_intent", "Asks a human to approve a basket: up to 20 orders executed together through the normal "
+                        + "pipeline, hedge legs first and one at a time, with ALL_OR_NOTHING (stop at the first failed leg; rollback CLOSE_FILLED_LEGS closes the "
+                        + "filled ones) or BEST_EFFORT. Every leg is still validated and risk-checked; nothing is placed unless a human approves it.",
+                        ScopeCatalog.ORDERS_PREPARE, schema("""
+                                {"type":"object","properties":{"name":{"type":"string","maxLength":80},
+                                 "policy":{"type":"string","enum":["ALL_OR_NOTHING","BEST_EFFORT"]},"rollback":{"type":"string","enum":["NONE","CLOSE_FILLED_LEGS"]},
+                                 "deadlineMinutes":{"type":"integer","minimum":1,"maximum":375},
+                                 "legs":{"type":"array","minItems":1,"maxItems":20,"items":{"type":"object","properties":{"instrument":%s,
+                                   "side":{"type":"string","enum":["BUY","SELL"]},"quantity":{"type":"integer","minimum":1},
+                                   "orderType":{"type":"string","enum":["MARKET","LIMIT"]},"product":{"type":"string","enum":["MIS","CNC","NRML"]},
+                                   "limitPrice":{"type":"number","minimum":0},"stopPrice":{"type":"number","minimum":0},"targetPrice":{"type":"number","minimum":0},
+                                   "hedgeFirst":{"type":"boolean"}},"required":["instrument","side","quantity"],"additionalProperties":false}},%s},
+                                 "required":["legs"],"additionalProperties":false}""".formatted(INSTRUMENT_PROP, RATIONALE)),
+                        BasketInput.class, ApprovalView.class, this::basket));
     }
 
     Proposal prepare(PrepareInput in, ToolContext ctx) {
@@ -138,6 +157,47 @@ public class ProposalTools implements AgentToolProvider {
                 .filter(p -> p.instrumentId().equals(instrumentId) && (in.product() == null || p.product() == Product.valueOf(in.product()))).findFirst()
                 .orElseThrow(() -> ToolException.notFound("No open position in " + in.instrument()));
         return view(approvals.proposeClose(ctx, position, in.rationale()));
+    }
+
+    ApprovalView basket(BasketInput in, ToolContext ctx) {
+        java.util.List<java.util.Map<String, Object>> legs = new java.util.ArrayList<>();
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        for (BasketLegInput l : in.legs()) {
+            money.hejje.instruments.Instrument instrument = support.instrument(l.instrument());
+            String orderType = l.orderType() == null ? "MARKET" : l.orderType();
+            if ("LIMIT".equals(orderType) && l.limitPrice() == null) {
+                throw ToolException.invalid("A LIMIT leg needs a limitPrice (" + l.instrument() + ")");
+            }
+            java.util.Map<String, Object> leg = new java.util.LinkedHashMap<>();
+            leg.put("instrumentId", instrument.id().toString());
+            leg.put("instrument", instrument.hejjeSymbol().format());
+            leg.put("side", l.side());
+            leg.put("quantity", l.quantity());
+            leg.put("orderType", orderType);
+            leg.put("product", l.product() == null ? "MIS" : l.product());
+            if (l.limitPrice() != null) {
+                leg.put("limitPrice", l.limitPrice());
+            }
+            if (l.stopPrice() != null) {
+                leg.put("stopPrice", l.stopPrice());
+            }
+            if (l.targetPrice() != null) {
+                leg.put("targetPrice", l.targetPrice());
+            }
+            leg.put("hedgeFirst", Boolean.TRUE.equals(l.hedgeFirst()));
+            legs.add(leg);
+            parts.add(l.side() + " " + l.quantity() + " " + instrument.hejjeSymbol().format() + (Boolean.TRUE.equals(l.hedgeFirst()) ? " (hedge first)" : ""));
+        }
+        java.util.Map<String, Object> proposal = new java.util.LinkedHashMap<>();
+        proposal.put("name", in.name());
+        proposal.put("policy", in.policy() == null ? "ALL_OR_NOTHING" : in.policy());
+        proposal.put("rollback", in.rollback() == null ? "NONE" : in.rollback());
+        if (in.deadlineMinutes() != null) {
+            proposal.put("deadlineMinutes", in.deadlineMinutes());
+        }
+        proposal.put("legs", legs);
+        String summary = "Basket" + (in.name() == null ? "" : " " + in.name()) + " (" + proposal.get("policy") + "): " + String.join(", ", parts);
+        return view(approvals.proposeBasket(ctx, proposal, summary, in.rationale()));
     }
 
     private HejjeOrder openOrder(String id) {

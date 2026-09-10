@@ -481,3 +481,43 @@ type Experiment struct {
 	Notes         []string            `json:"notes"`
 	Variants      []ExperimentVariant `json:"variants"`
 }
+
+// BasketLeg is one leg of a basket (M5.3).
+type BasketLeg struct {
+	Sequence       int    `json:"sequence"`
+	HedgeFirst     bool   `json:"hedgeFirst"`
+	ExecutionOrder *int   `json:"executionOrder"`
+	InstrumentID   string `json:"instrumentId"`
+	Side           string `json:"side"`
+	Quantity       int    `json:"quantity"`
+	OrderType      string `json:"orderType"`
+	Status         string `json:"status"`
+	Detail         string `json:"detail"`
+	OrderID        string `json:"orderId"`
+}
+
+type Basket struct {
+	ID       string      `json:"id"`
+	Name     string      `json:"name"`
+	Policy   string      `json:"policy"`
+	Rollback string      `json:"rollback"`
+	Status   string      `json:"status"`
+	Detail   string      `json:"detail"`
+	Deadline string      `json:"deadline"`
+	Legs     []BasketLeg `json:"legs"`
+}
+
+type SplitOrder struct {
+	ID       string `json:"id"`
+	Side     string `json:"side"`
+	Quantity int    `json:"quantity"`
+	Filled   int    `json:"filledQuantity"`
+	Children int    `json:"children"`
+	Status   string `json:"status"`
+	Detail   string `json:"detail"`
+	Policy   struct {
+		MaxChildQuantity int   `json:"maxChildQuantity"`
+		DelayMs          int64 `json:"delayMs"`
+	} `json:"policy"`
+}
+
