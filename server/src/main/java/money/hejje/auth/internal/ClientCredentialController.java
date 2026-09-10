@@ -2,10 +2,10 @@ package money.hejje.auth.internal;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import money.hejje.common.security.AgentPresets;
 import money.hejje.common.security.HejjePrincipal;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAuthority('SCOPE_admin')")
 class ClientCredentialController {
 
-    record CreateRequest(@NotBlank String name, @NotEmpty List<String> scopes, Instant expiresAt) {}
+    /** Either explicit {@code scopes} or an agent {@code preset} ({@link AgentPresets}: research, execution). */
+    record CreateRequest(@NotBlank String name, List<String> scopes, String preset, Instant expiresAt) {}
 
     private final ClientCredentialService clients;
 
@@ -36,7 +37,12 @@ class ClientCredentialController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     ClientCredentialService.Created create(@Valid @RequestBody CreateRequest request, @AuthenticationPrincipal HejjePrincipal actor) {
-        return clients.create(request.name(), request.scopes(), request.expiresAt(), actor);
+        boolean hasScopes = request.scopes() != null && !request.scopes().isEmpty();
+        boolean hasPreset = request.preset() != null && !request.preset().isBlank();
+        if (hasScopes == hasPreset) {
+            throw new IllegalArgumentException("Give either scopes or a preset (" + String.join(", ", AgentPresets.names()) + ")");
+        }
+        return clients.create(request.name(), hasPreset ? AgentPresets.scopes(request.preset()) : request.scopes(), request.expiresAt(), actor);
     }
 
     @GetMapping

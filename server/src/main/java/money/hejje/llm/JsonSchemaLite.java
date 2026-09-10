@@ -1,11 +1,21 @@
 package money.hejje.llm;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
-/** Validation of the JSON-schema subset {@link StructuredOutput} promises. Pure. */
+/**
+ * Validation of a JSON-schema subset: {@code type} (a name or a list of names), {@code enum}, {@code minimum}/{@code maximum},
+ * {@code minLength}/{@code maxLength}, {@code format} ({@code uuid}, {@code date}), {@code properties}, {@code required},
+ * {@code additionalProperties: false}, {@code items}, {@code minItems}/{@code maxItems}. Used by {@link StructuredOutput}
+ * and by the agent tool registry. Pure.
+ */
 public final class JsonSchemaLite {
+
+    private static final Pattern UUID_PATTERN = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
     private JsonSchemaLite() {
     }
@@ -17,10 +27,20 @@ public final class JsonSchemaLite {
     }
 
     private static void validate(JsonNode schema, JsonNode value, String path, List<String> errors) {
-        String type = schema.path("type").asText(null);
-        if (type != null && !matches(type, value)) {
-            errors.add(path + ": expected " + type);
+        JsonNode type = schema.path("type");
+        if (type.isTextual() && !matches(type.asText(), value)) {
+            errors.add(path + ": expected " + type.asText());
             return;
+        }
+        if (type.isArray()) {
+            boolean any = false;
+            for (JsonNode t : type) {
+                any |= matches(t.asText(), value);
+            }
+            if (!any) {
+                errors.add(path + ": expected one of " + type);
+                return;
+            }
         }
         if (schema.has("enum")) {
             boolean ok = false;
@@ -41,6 +61,26 @@ public final class JsonSchemaLite {
                 errors.add(path + ": above maximum " + schema.get("maximum"));
             }
         }
+        if (value.isTextual()) {
+            String text = value.asText();
+            if (schema.has("minLength") && text.length() < schema.get("minLength").asInt()) {
+                errors.add(path + ": shorter than " + schema.get("minLength") + " characters");
+            }
+            if (schema.has("maxLength") && text.length() > schema.get("maxLength").asInt()) {
+                errors.add(path + ": longer than " + schema.get("maxLength") + " characters");
+            }
+            String format = schema.path("format").asText("");
+            if (format.equals("uuid") && !UUID_PATTERN.matcher(text).matches()) {
+                errors.add(path + ": not a UUID");
+            }
+            if (format.equals("date")) {
+                try {
+                    LocalDate.parse(text);
+                } catch (DateTimeParseException e) {
+                    errors.add(path + ": not an ISO date (yyyy-mm-dd)");
+                }
+            }
+        }
         if (value.isObject()) {
             for (JsonNode required : schema.path("required")) {
                 if (!value.has(required.asText())) {
@@ -53,6 +93,21 @@ public final class JsonSchemaLite {
                     validate(props.get(name), value.get(name), path + "." + name, errors);
                 }
             });
+            if (schema.path("additionalProperties").isBoolean() && !schema.get("additionalProperties").asBoolean()) {
+                value.fieldNames().forEachRemaining(name -> {
+                    if (!props.has(name)) {
+                        errors.add(path + ": unknown property " + name);
+                    }
+                });
+            }
+        }
+        if (value.isArray()) {
+            if (schema.has("minItems") && value.size() < schema.get("minItems").asInt()) {
+                errors.add(path + ": fewer than " + schema.get("minItems") + " items");
+            }
+            if (schema.has("maxItems") && value.size() > schema.get("maxItems").asInt()) {
+                errors.add(path + ": more than " + schema.get("maxItems") + " items");
+            }
         }
         if (value.isArray() && schema.has("items")) {
             int i = 0;

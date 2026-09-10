@@ -846,3 +846,38 @@ Scope: `admin`. Body `{ "profile": "fast" }` (default `fast`). Sends "Reply with
 ```json
 { "ok": true, "profile": "fast", "provider": "primary", "model": "gpt-4.1-mini", "text": "OK", "inputTokens": 14, "outputTokens": 1, "latencyMs": 420, "error": null }
 ```
+
+## Agent tools (Phase 4, M4.2)
+
+See `docs/agents.md` and the generated catalog `docs/agent-tools.md`.
+
+### `POST /api/v1/auth/clients` with a preset
+
+`{ "name": "research-bot", "preset": "research" }` (or `"execution"`) instead of `scopes`; giving both, neither or an unknown
+preset is a 400.
+
+### `GET /api/v1/agents/tools`
+
+Authenticated. `[{ "name": "get_market_regime", "description": "…", "requiredScope": "market:read", "transactional": false,
+"inputSchema": {…}, "outputSchema": {…} }, …]`
+
+### `POST /api/v1/agents/tools/{name}`
+
+Authenticated; the tool's own scope is checked. Optional headers `X-Agent-Session` (one of the caller's open sessions) and
+`Idempotency-Key` (transactional tools). Body: the tool input.
+
+```json
+{ "tool": "calculate_position_size", "status": "OK", "output": { "quantity": 500, "riskPerUnit": 2, "totalRisk": 1000, "lotSize": 1, "notes": [] },
+  "error": null, "details": [], "actionId": "0192…", "sessionId": "0192…", "latencyMs": 3 }
+```
+
+Refusals and errors are problem+json: `{ "type": "https://hejje.money/problems/agent-tool", "title": "FORBIDDEN", "status": 403,
+"detail": "Tool get_account_risk requires scope risk:read", "tool": "get_account_risk", "toolStatus": "FORBIDDEN", "errors": [], "actionId": "…" }`.
+
+### `GET /api/v1/agents/sessions?limit=50` · `GET /api/v1/agents/sessions/{id}`
+
+Authenticated; own sessions (admin: all). The detail is `{ "session": {…}, "actions": [ { "tool", "input", "outputSummary", "scopeOk", "status", "error", "latencyMs", "correlationId", "ts" } ] }`.
+
+### `POST /mcp`
+
+MCP (streamable HTTP, JSON-RPC 2.0, JSON responses; `GET /mcp` is 405). Authenticated with an API key.
