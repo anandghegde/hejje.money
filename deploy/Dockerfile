@@ -5,6 +5,8 @@ COPY server/build.gradle.kts server/settings.gradle.kts ./
 RUN gradle dependencies --no-daemon -q > /dev/null 2>&1 || true
 COPY server/src ./src
 COPY strategies /strategies
+COPY config /config
+COPY docs /docs
 RUN gradle bootJar --no-daemon -x test
 
 FROM eclipse-temurin:21-jre
