@@ -1,0 +1,41 @@
+# NIFTY intraday momentum, long only (docs/strategies/nifty_intraday_momentum_long.md)
+name: nifty_intraday_momentum_long
+family: index
+description: Buy the NIFTY future for the last half hour when the first half hour (previous close to 09:45) was positive.
+
+universe:
+  - NIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - opening_return(30m) > 0
+
+stop:
+  type: atr_multiple
+  value: 2
+
+target:
+  type: none
+
+trade_window:
+  start: "14:45"
+  end: "14:50"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  trending: preferred
+  ranging: neutral
+  volatile: neutral
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

@@ -1,0 +1,93 @@
+# Open = High, short only (docs/strategies/open_high_short.md)
+name: open_high_short
+family: trend
+description: Short a NIFTY 50 stock whose session high still equals its open after 15 minutes, below VWAP and the previous close.
+
+universe:
+  - NSE:ADANIENT
+  - NSE:ADANIPORTS
+  - NSE:APOLLOHOSP
+  - NSE:ASIANPAINT
+  - NSE:AXISBANK
+  - NSE:BAJAJ-AUTO
+  - NSE:BAJFINANCE
+  - NSE:BAJAJFINSV
+  - NSE:BEL
+  - NSE:BHARTIARTL
+  - NSE:CIPLA
+  - NSE:COALINDIA
+  - NSE:DRREDDY
+  - NSE:EICHERMOT
+  - NSE:ETERNAL
+  - NSE:GRASIM
+  - NSE:HCLTECH
+  - NSE:HDFCBANK
+  - NSE:HDFCLIFE
+  - NSE:HEROMOTOCO
+  - NSE:HINDALCO
+  - NSE:HINDUNILVR
+  - NSE:ICICIBANK
+  - NSE:INDUSINDBK
+  - NSE:INFY
+  - NSE:ITC
+  - NSE:JIOFIN
+  - NSE:JSWSTEEL
+  - NSE:KOTAKBANK
+  - NSE:LT
+  - NSE:M&M
+  - NSE:MARUTI
+  - NSE:NESTLEIND
+  - NSE:NTPC
+  - NSE:ONGC
+  - NSE:POWERGRID
+  - NSE:RELIANCE
+  - NSE:SBILIFE
+  - NSE:SBIN
+  - NSE:SHRIRAMFIN
+  - NSE:SUNPHARMA
+  - NSE:TATACONSUM
+  - NSE:TATAMOTORS
+  - NSE:TATASTEEL
+  - NSE:TCS
+  - NSE:TECHM
+  - NSE:TITAN
+  - NSE:TRENT
+  - NSE:ULTRACEMCO
+  - NSE:WIPRO
+
+timeframe: 5m
+direction: short
+
+entry:
+  all:
+    - session_high == session_open
+    - close < vwap
+    - close < prev_day_close
+
+stop:
+  type: percent
+  value: 0.75
+
+target:
+  type: risk_multiple
+  value: 2
+
+trade_window:
+  start: "09:30"
+  end: "09:35"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 1500
+
+regime_preferences:
+  trending: preferred
+  gap_down: preferred
+  ranging: avoid
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

@@ -26,8 +26,10 @@ class BundledStrategiesTest {
         try (Stream<Path> list = Files.list(DIR)) {
             files = list.filter(p -> p.toString().endsWith(".yaml")).sorted().toList();
         }
-        assertThat(files).extracting(p -> p.getFileName().toString()).containsExactly("ema_pullback.yaml", "nifty_bull_call_spread.yaml", "nifty_orb.yaml",
-                "nifty_orb_breakdown.yaml", "nifty_orb_call_buy.yaml", "pdh_pdl_breakout.yaml", "vwap_reversion.yaml", "vwap_trend_continuation.yaml");
+        assertThat(files).extracting(p -> p.getFileName().toString()).containsExactly("cpr_breakout.yaml", "ema_pullback.yaml", "nifty_bull_call_spread.yaml",
+                "nifty_intraday_momentum_long.yaml", "nifty_intraday_momentum_short.yaml", "nifty_nr7_orb.yaml", "nifty_orb.yaml", "nifty_orb_breakdown.yaml",
+                "nifty_orb_call_buy.yaml", "open_high_short.yaml", "open_low_long.yaml", "pdh_pdl_breakout.yaml", "stock_in_play_orb.yaml", "supertrend_vwap.yaml",
+                "vwap_reversion.yaml", "vwap_trend_continuation.yaml");
         for (Path file : files) {
             StrategyDefinition def = parser.parse(Files.readString(file));
             List<ValidationError> errors = validator.validate(def);

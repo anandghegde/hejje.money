@@ -1,0 +1,44 @@
+# NIFTY 15-minute opening range breakout after an NR7 day, long only (docs/strategies/nifty_nr7_orb.md)
+name: nifty_nr7_orb
+family: index
+description: The nifty_orb breakout taken only on the session after the narrowest range of the last seven days (Crabel NR7).
+
+universe:
+  - NIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close > opening_range_high(15m)
+    - close > vwap
+    - relative_volume(20) > 1.2
+    - prev_day_nr(7) == 1
+
+stop:
+  type: opening_range_low
+
+target:
+  type: risk_multiple
+  value: 2
+
+trade_window:
+  start: "09:30"
+  end: "12:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  trending: preferred
+  ranging: avoid
+  volatile: neutral
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

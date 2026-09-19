@@ -161,7 +161,7 @@ class ParityTest {
         try (Stream<Path> list = Files.list(Path.of("../strategies"))) {
             files = list.filter(p -> p.toString().endsWith(".yaml")).sorted().toList();
         }
-        assertThat(files).hasSize(8);
+        assertThat(files).hasSize(16);
         int totalTrades = 0;
         StringBuilder report = new StringBuilder();
         for (long seed : new long[]{7, 2026}) {

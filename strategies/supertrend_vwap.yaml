@@ -1,0 +1,47 @@
+# Supertrend flip with VWAP confirmation, long only (docs/strategies/supertrend_vwap.md)
+name: supertrend_vwap
+family: trend
+description: Buy when the close crosses above Supertrend(10, 3) while above VWAP on the NIFTY and BANKNIFTY futures; exit on the flip back.
+
+universe:
+  - NIFTY
+  - BANKNIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - close crosses_above supertrend(10, 3)
+    - close > vwap
+
+exit:
+  any:
+    - close crosses_below supertrend(10, 3)
+
+stop:
+  type: atr_multiple
+  value: 1.5
+
+target:
+  type: none
+
+trade_window:
+  start: "09:30"
+  end: "14:30"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  trending: preferred
+  ranging: avoid
+  volatile: neutral
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

@@ -1,0 +1,45 @@
+# Narrow central pivot range breakout, long only (docs/strategies/cpr_breakout.md)
+name: cpr_breakout
+family: index
+description: Buy the first close above a narrow CPR (under 0.2 % of the pivot) with price above VWAP on the NIFTY and BANKNIFTY futures.
+
+universe:
+  - NIFTY
+  - BANKNIFTY
+
+timeframe: 5m
+direction: long
+
+entry:
+  all:
+    - cpr_width_pct < 0.2
+    - close crosses_above cpr_top
+    - close > vwap
+
+stop:
+  type: atr_multiple
+  value: 1.5
+
+target:
+  type: risk_multiple
+  value: 2
+
+trade_window:
+  start: "09:30"
+  end: "13:00"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+position_sizing:
+  type: risk_based
+  risk_rupees: 2000
+
+regime_preferences:
+  trending: preferred
+  ranging: avoid
+  volatile: neutral
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block
