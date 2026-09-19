@@ -1,0 +1,60 @@
+# NIFTY 9:20 short straddle with wings: a defined-risk iron fly, PAPER-only (docs/strategies/nifty_920_iron_fly.md)
+name: nifty_920_iron_fly
+family: options
+description: At 09:20 buy the calls and puts 200 points out of the money (placed first), then sell the ATM call and put; each short leg has a 30 % premium stop, the position a ₹3,000 combined stop and a 150-point band on the underlying; flat by 15:10.
+
+universe:
+  - NIFTY
+
+timeframe: 5m
+direction: neutral
+
+entry:
+  all:
+    - session_minutes >= 5
+
+stop:
+  type: points
+  value: 150
+
+trade_window:
+  start: "09:20"
+  end: "09:25"
+
+force_exit_time: "15:10"
+max_trades_per_day: 1
+
+legs:
+  - action: buy
+    option: ce
+    strike:
+      offset: 200
+    expiry: nearest
+    lots: 1
+    hedge_first: true
+  - action: buy
+    option: pe
+    strike:
+      offset: 200
+    expiry: nearest
+    lots: 1
+    hedge_first: true
+  - action: sell
+    option: ce
+    strike: atm
+    expiry: nearest
+    lots: 1
+    stop_pct: 30
+  - action: sell
+    option: pe
+    strike: atm
+    expiry: nearest
+    lots: 1
+    stop_pct: 30
+
+combined_exit:
+  stop_rupees: 3000
+
+event_rules:
+  high_risk_event_within_minutes: 15
+  action: block

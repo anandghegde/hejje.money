@@ -53,6 +53,7 @@ public class OptionLegResolver {
         return signalInstrument.symbol();
     }
 
+    /** @param direction the signal's side; null for a neutral strategy, whose legs must name ce or pe */
     public List<ResolvedLeg> resolve(StrategyDefinition definition, Instrument signalInstrument, Side direction) {
         String underlying = optionUnderlying(signalInstrument);
         List<LocalDate> expiries = new ArrayList<>(instruments.weeklyExpiries(underlying));
@@ -70,6 +71,9 @@ public class OptionLegResolver {
             OptionChain chain = cache.computeIfAbsent(expiry, e -> chains.chain(underlying, e));
             if (chain.atmStrike() == null) {
                 throw new IllegalStateException("No futures or index price for " + underlying + ": cannot choose strikes (" + String.join("; ", chain.notes()) + ")");
+            }
+            if (direction == null && (leg.option() == StrategyDefinition.OptionSide.DIRECTIONAL || leg.option() == StrategyDefinition.OptionSide.OPPOSITE)) {
+                throw new IllegalArgumentException("A neutral signal has no side for a " + leg.option().name().toLowerCase() + " leg");
             }
             OptionType type = switch (leg.option()) {
                 case DIRECTIONAL -> direction == Side.BUY ? OptionType.CE : OptionType.PE;

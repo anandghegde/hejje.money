@@ -15,10 +15,13 @@ import money.hejje.common.Side;
  * A multi-leg options position opened from one signal (plan M5.4): the legs are placed as a basket and then managed
  * here against the per-leg stops/targets, the combined P&L exits, the underlying's stop and the force-exit time.
  *
- * @param direction the signal's side on the underlying
+ * @param direction          the signal's side on the underlying; null for a neutral strategy (plan M6.4)
+ * @param underlyingStop     the underlying's stop; for a neutral position the lower edge of its band
+ * @param underlyingStopHigh the upper edge of a neutral position's band (null otherwise): the position closes when the
+ *                           underlying leaves the band either way
  */
 public record OptionsPosition(UUID id, ExecutionMode mode, UUID clientId, ActorType source, String actorId, UUID strategyId, UUID versionId, UUID deploymentId,
-        UUID signalId, String underlying, UUID underlyingInstrumentId, Side direction, BigDecimal underlyingStop, UUID basketId, Status status, List<Leg> legs,
+        UUID signalId, String underlying, UUID underlyingInstrumentId, Side direction, BigDecimal underlyingStop, BigDecimal underlyingStopHigh, UUID basketId, Status status, List<Leg> legs,
         Money combinedStop, Money combinedTarget, LocalTime forceExitTime, Product product, String closeReason, Money realized, String detail, Instant openedAt,
         Instant closedAt, Instant updatedAt) {
 
@@ -27,6 +30,10 @@ public record OptionsPosition(UUID id, ExecutionMode mode, UUID clientId, ActorT
     }
 
     public enum Status { PENDING, OPEN, CLOSING, CLOSED, FAILED }
+
+    public boolean neutral() {
+        return direction == null;
+    }
 
     /** One leg: the order that opened it, and the exit order once closing. */
     public record Leg(int sequence, UUID instrumentId, String symbol, Side side, int quantity, BigDecimal stopPrice, BigDecimal targetPrice, boolean hedgeFirst,
@@ -49,6 +56,6 @@ public record OptionsPosition(UUID id, ExecutionMode mode, UUID clientId, ActorT
 
     public OptionsPosition with(Status status, List<Leg> legs, String closeReason, Money realized, String detail, Instant closedAt, Instant at) {
         return new OptionsPosition(id, mode, clientId, source, actorId, strategyId, versionId, deploymentId, signalId, underlying, underlyingInstrumentId, direction,
-                underlyingStop, basketId, status, legs, combinedStop, combinedTarget, forceExitTime, product, closeReason, realized, detail, openedAt, closedAt, at);
+                underlyingStop, underlyingStopHigh, basketId, status, legs, combinedStop, combinedTarget, forceExitTime, product, closeReason, realized, detail, openedAt, closedAt, at);
     }
 }

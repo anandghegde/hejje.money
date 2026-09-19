@@ -48,7 +48,7 @@ staleness, bootstrap) and the kill switch, and returns the reasons. Exposure-red
    vs `daily_max_trades`, gross realized P&L vs `daily_max_loss_rupees`), the instrument's event risk and the latest
    Hejje Score. The seeded table: daily loss → DENY, deployment budget → DENY, event risk HIGH → approval, version not
    promoted → approval, score below 80 → approval, `auto_strategy` (AUTO_ELIGIBLE: strategy, autonomy ≥ 4, qualified,
-   scored) → ALLOW, otherwise strategy signals → approval. Only AUTO_ELIGIBLE rules may ALLOW; agents never get ALLOW.
+   scored; in PAPER an options strategy needs no score, M6.4) → ALLOW, otherwise strategy signals → approval. Only AUTO_ELIGIBLE rules may ALLOW; agents never get ALLOW.
 4. Autonomy 4 automates the first entry per instrument and day; a re-entry needs a human. Autonomy 5 also re-enters
    within the budget and pauses itself when drift reaches `hejje.auto.self-pause-drift` (DEGRADING). Stops, trailing,
    targets and exits of every executed position are deterministic runner actions at every level (Phase 2).

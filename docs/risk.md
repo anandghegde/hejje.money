@@ -62,7 +62,7 @@ priority, and the first enabled rule whose actions and condition match decides; 
 | 60 | `agent_actions` | actor AGENT | all | REQUIRE_APPROVAL |
 | 70 | `manual_orders` | actor USER | all | REQUIRE_APPROVAL |
 | 80 | `score_below_80` | score < 80 | new orders | REQUIRE_APPROVAL |
-| 85 | `auto_strategy` | AUTO_ELIGIBLE: actor STRATEGY at autonomy ≥ `minLevel` (4), version qualified for automation, score known (M5.2) | new orders | ALLOW |
+| 85 | `auto_strategy` | AUTO_ELIGIBLE: actor STRATEGY at autonomy ≥ `minLevel` (4), version qualified for automation, score known (M5.2) — or, in PAPER only, an options strategy, which can never be scored (M6.4) | new orders | ALLOW |
 | 90 | `strategy_signals` | actor STRATEGY | new orders | REQUIRE_APPROVAL |
 
 ALLOW reaches only the local user and strategy signals of a qualified deployment at autonomy 4-5 (`docs/execution.md`,

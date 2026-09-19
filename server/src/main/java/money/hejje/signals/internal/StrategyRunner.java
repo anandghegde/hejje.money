@@ -94,6 +94,8 @@ public final class StrategyRunner {
         this.port = port;
         this.callbacks = callbacks;
         this.defaultValidityMinutes = defaultValidityMinutes;
+        // a NEUTRAL (options) signal is stored as BUY with its stop at the lower band edge: the side only sizes the dry run,
+        // the options position closes on either edge of the band (plan M6.4)
         this.side = def.direction() == Direction.SHORT ? Side.SELL : Side.BUY;
         this.ctx = new IndicatorContext(def.timeframe(), zone);
         ctx.registerDefinition(def);

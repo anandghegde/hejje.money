@@ -125,7 +125,12 @@ public class OptionsPositionMonitor {
         }
         if (p.underlyingStop() != null) {
             Optional<BigDecimal> u = market.lastPrice(p.underlyingInstrumentId());
-            if (u.isPresent() && (p.direction() == Side.BUY ? u.get().compareTo(p.underlyingStop()) <= 0 : u.get().compareTo(p.underlyingStop()) >= 0)) {
+            if (p.neutral()) {
+                // a neutral position's band: the underlying leaving it either way closes the position (plan M6.4)
+                if (u.isPresent() && (u.get().compareTo(p.underlyingStop()) <= 0 || p.underlyingStopHigh() != null && u.get().compareTo(p.underlyingStopHigh()) >= 0)) {
+                    return "UNDERLYING_BAND";
+                }
+            } else if (u.isPresent() && (p.direction() == Side.BUY ? u.get().compareTo(p.underlyingStop()) <= 0 : u.get().compareTo(p.underlyingStop()) >= 0)) {
                 return "UNDERLYING_STOP";
             }
         }
@@ -233,7 +238,7 @@ public class OptionsPositionMonitor {
         m.put("optionsPositionId", p.id().toString());
         m.put("basketId", p.basketId().toString());
         m.put("underlying", p.underlying());
-        m.put("direction", p.direction().name());
+        m.put("direction", p.neutral() ? "NEUTRAL" : p.direction().name());
         return m;
     }
 }

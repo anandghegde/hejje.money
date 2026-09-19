@@ -120,8 +120,10 @@ public class AutoExecutor {
         EventRisk eventRisk = events.risk(s.instrumentId());
         String eventLevel = eventRisk.available() && eventRisk.level() != null ? eventRisk.level().name() : null;
         Integer score = scoring.latest(version.id(), s.instrumentId()).map(ScoreBreakdown::finalScore).orElse(null);
+        // an options strategy cannot be backtested, so it never has a score; its PAPER rehearsal may still run AUTO (plan M6.4)
+        boolean unscoredPaper = mode == ExecutionMode.PAPER && !version.definition().legs().isEmpty();
         PolicyResult policy = policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.STRATEGY, mode, d.autonomyLevel(), eventLevel, score,
-                newVersion, s.strategyId(), s.instrumentId(), qualified, budgetBreach));
+                newVersion, s.strategyId(), s.instrumentId(), qualified, budgetBreach, unscoredPaper));
         int entriesOnInstrument = signals.entriesSince(d.id(), s.instrumentId(), dayStart);
         if (policy.decision() == PolicyDecision.ALLOW && d.autonomyLevel() == 4 && entriesOnInstrument > 0) {
             policy = new PolicyResult(PolicyDecision.REQUIRE_APPROVAL, policy.rule(), "autonomy 4 automates the first entry per instrument and day; this is entry "

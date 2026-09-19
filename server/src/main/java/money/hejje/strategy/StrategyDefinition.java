@@ -45,7 +45,11 @@ public record StrategyDefinition(
         regimePreferences = Map.copyOf(regimePreferences);
     }
 
-    public enum Direction { LONG, SHORT, BOTH }
+    /**
+     * The side taken on the underlying. {@code NEUTRAL} (options strategies only, plan M6.4) takes none: the legs define the
+     * exposure and the stop becomes a symmetric band around the underlying's price at the signal.
+     */
+    public enum Direction { LONG, SHORT, BOTH, NEUTRAL }
 
     /**
      * One option leg of an options strategy (plan M5.4, docs/strategy-dsl.md "Options legs"): what is traded when the

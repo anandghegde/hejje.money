@@ -49,6 +49,9 @@ public class BacktestEngine {
         if (def.direction() == StrategyDefinition.Direction.BOTH) {
             throw new BacktestException("direction: both is not supported by the backtester yet (one entry block cannot pick a side)");
         }
+        if (def.direction() == StrategyDefinition.Direction.NEUTRAL) {
+            throw new BacktestException("direction: neutral trades option legs, which the backtester does not replay");
+        }
         ZoneId zone = clock.zone();
         SessionSplitter splitter = SessionSplitter.of(spec, sessionsInRange(input, zone), zone);
 

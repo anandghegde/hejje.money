@@ -48,8 +48,9 @@ ALL_OR_NOTHING basket with `CLOSE_FILLED_LEGS` rollback (docs/execution.md), hed
 next, so a short leg is never placed before its protection. The signal is EXECUTED and the runner drops it; the
 `OptionsPositionMonitor` (every `hejje.options.monitor-interval`) moves the position PENDING → OPEN when the basket
 completes (entry premiums from the fills), or FAILED when the basket fails. An OPEN position closes on the first of:
-force-exit time, the underlying crossing the signal's stop, a leg's premium stop or target, the combined P&L stop or
-target. Closing buys back short legs first and sells long legs only once the shorts are flat (market orders, reason
+force-exit time, the underlying crossing the signal's stop (for a `direction: neutral` strategy: the underlying leaving
+the band around its price at the signal either way, `UNDERLYING_BAND`), a leg's premium stop or target (any leg stop
+closes the whole position), the combined P&L stop or target. Closing buys back short legs first and sells long legs only once the shorts are flat (market orders, reason
 STRATEGY_EXIT, exposure-reducing); realized P&L is the sum over legs. `max_trades_per_day` counts options positions.
 Audit: `BASKET_CREATED`/`BASKET_FINISHED` for the legs, `OPTIONS_POSITION_OPENED`/`OPTIONS_POSITION_CLOSED`.
 `GET /options/positions`, `GET /options/positions/{id}`.
@@ -76,4 +77,6 @@ The historical store has no option candles, so options strategies **cannot be ba
 them) and are **PAPER-only until they have paper history**: DRAFT → PAPER directly (no BACKTESTED/VALIDATED), and
 PAPER → LIVE needs `hejje.options.min-paper-trades` (30) closed paper options positions of the version. Backfilling
 option candles (NFO option history from the broker, per strike and expiry) would lift this; it is not planned yet.
-Options strategies have no Hejje Score base (no backtest) and so never auto-execute.
+Options strategies have no Hejje Score base (no backtest), so live AUTO never executes them; a PAPER deployment at
+autonomy 4-5 (a rehearsal with simulated fills) may, because `auto_strategy` waives the score for options strategies
+in PAPER only (plan M6.4), so that forward paper trades collect without a daily confirmation.

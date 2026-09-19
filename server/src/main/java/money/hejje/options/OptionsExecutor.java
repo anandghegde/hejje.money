@@ -50,9 +50,13 @@ public class OptionsExecutor {
         this.properties = properties;
     }
 
-    /** @param underlyingStop the signal's stop on the underlying; crossing it closes the position */
+    /**
+     * @param direction          the signal's side on the underlying; null for a neutral strategy (plan M6.4)
+     * @param underlyingStop     the signal's stop on the underlying (a neutral band's lower edge); crossing it closes the position
+     * @param underlyingStopHigh a neutral band's upper edge, else null
+     */
     public record OpenRequest(UUID clientId, String idempotencyKey, ActorType source, String actorId, UUID strategyId, UUID versionId, UUID deploymentId,
-            UUID signalId, UUID underlyingInstrumentId, Side direction, BigDecimal underlyingStop, StrategyDefinition definition) {}
+            UUID signalId, UUID underlyingInstrumentId, Side direction, BigDecimal underlyingStop, BigDecimal underlyingStopHigh, StrategyDefinition definition) {}
 
     public OptionsPosition open(OpenRequest r) {
         Optional<OptionsPosition> existing = store.findByKey(r.clientId(), r.idempotencyKey());
@@ -78,7 +82,7 @@ public class OptionsExecutor {
                 l.instrument().hejjeSymbol().format(), l.side(), l.quantity(), l.stopPrice(), l.targetPrice(), l.hedgeFirst(), null, null, null, null, 0)).toList();
         boolean failed = basket.status() == Basket.Status.FAILED;
         OptionsPosition position = new OptionsPosition(Ids.newId(), properties.mode(), r.clientId(), r.source(), r.actorId(), r.strategyId(), r.versionId(),
-                r.deploymentId(), r.signalId(), resolver.optionUnderlying(underlying), underlying.id(), r.direction(), r.underlyingStop(), basket.id(),
+                r.deploymentId(), r.signalId(), resolver.optionUnderlying(underlying), underlying.id(), r.direction(), r.underlyingStop(), r.underlyingStopHigh(), basket.id(),
                 failed ? OptionsPosition.Status.FAILED : OptionsPosition.Status.PENDING, positionLegs,
                 def.combinedExit() == null ? null : def.combinedExit().stopRupees(), def.combinedExit() == null ? null : def.combinedExit().targetRupees(),
                 def.forceExitTime(), def.product(), failed ? "BASKET_FAILED" : null, null, failed ? basket.detail() : null, now, failed ? now : null, now);

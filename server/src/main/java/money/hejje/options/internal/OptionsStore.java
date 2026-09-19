@@ -24,6 +24,8 @@ import org.springframework.stereotype.Repository;
 public class OptionsStore {
 
     private static final TypeReference<List<OptionsPosition.Leg>> LEGS = new TypeReference<>() {};
+    /** The direction column of a neutral position (plan M6.4), which has no side on the underlying. */
+    private static final String NEUTRAL = "NEUTRAL";
 
     private final JdbcClient jdbc;
     private final ObjectMapper json;
@@ -36,15 +38,15 @@ public class OptionsStore {
     public void insert(OptionsPosition p, String idempotencyKey) {
         jdbc.sql("""
                 INSERT INTO options_position (id, mode, client_id, idempotency_key, source, actor_id, strategy_id, version_id, deployment_id, signal_id, underlying,
-                    underlying_instrument_id, direction, underlying_stop, basket_id, status, legs, combined_stop_paise, combined_target_paise, force_exit_time, product,
+                    underlying_instrument_id, direction, underlying_stop, underlying_stop_high, basket_id, status, legs, combined_stop_paise, combined_target_paise, force_exit_time, product,
                     close_reason, realized_paise, detail, opened_at, closed_at, updated_at)
-                VALUES (:id, :mode, :client, :key, :source, :actor, :strategy, :version, :deployment, :signal, :underlying, :underlyingId, :direction, :stop, :basket,
+                VALUES (:id, :mode, :client, :key, :source, :actor, :strategy, :version, :deployment, :signal, :underlying, :underlyingId, :direction, :stop, :stopHigh, :basket,
                     :status, CAST(:legs AS jsonb), :cstop, :ctarget, :forceExit, :product, :reason, :realized, :detail, :openedAt, :closedAt, :updatedAt)
                 """)
                 .param("id", p.id()).param("mode", p.mode().name()).param("client", p.clientId()).param("key", idempotencyKey).param("source", p.source().name())
                 .param("actor", p.actorId()).param("strategy", p.strategyId()).param("version", p.versionId()).param("deployment", p.deploymentId())
-                .param("signal", p.signalId()).param("underlying", p.underlying()).param("underlyingId", p.underlyingInstrumentId()).param("direction", p.direction().name())
-                .param("stop", p.underlyingStop()).param("basket", p.basketId()).param("status", p.status().name()).param("legs", write(p.legs()))
+                .param("signal", p.signalId()).param("underlying", p.underlying()).param("underlyingId", p.underlyingInstrumentId()).param("direction", p.neutral() ? NEUTRAL : p.direction().name())
+                .param("stop", p.underlyingStop()).param("stopHigh", p.underlyingStopHigh()).param("basket", p.basketId()).param("status", p.status().name()).param("legs", write(p.legs()))
                 .param("cstop", p.combinedStop() == null ? null : p.combinedStop().paise()).param("ctarget", p.combinedTarget() == null ? null : p.combinedTarget().paise())
                 .param("forceExit", p.forceExitTime().toString()).param("product", p.product().name()).param("reason", p.closeReason())
                 .param("realized", p.realized() == null ? null : p.realized().paise()).param("detail", p.detail()).param("openedAt", ts(p.openedAt()))
@@ -96,7 +98,8 @@ public class OptionsStore {
         return new OptionsPosition(rs.getObject("id", UUID.class), ExecutionMode.valueOf(rs.getString("mode")), rs.getObject("client_id", UUID.class),
                 ActorType.valueOf(rs.getString("source")), rs.getString("actor_id"), rs.getObject("strategy_id", UUID.class), rs.getObject("version_id", UUID.class),
                 rs.getObject("deployment_id", UUID.class), rs.getObject("signal_id", UUID.class), rs.getString("underlying"),
-                rs.getObject("underlying_instrument_id", UUID.class), Side.valueOf(rs.getString("direction")), rs.getBigDecimal("underlying_stop"),
+                rs.getObject("underlying_instrument_id", UUID.class), NEUTRAL.equals(rs.getString("direction")) ? null : Side.valueOf(rs.getString("direction")),
+                rs.getBigDecimal("underlying_stop"), rs.getBigDecimal("underlying_stop_high"),
                 rs.getObject("basket_id", UUID.class), OptionsPosition.Status.valueOf(rs.getString("status")), read(rs.getString("legs")),
                 cstop == null ? null : Money.ofPaise(((Number) cstop).longValue()), ctarget == null ? null : Money.ofPaise(((Number) ctarget).longValue()),
                 LocalTime.parse(rs.getString("force_exit_time")), Product.valueOf(rs.getString("product")), rs.getString("close_reason"),

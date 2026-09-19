@@ -157,6 +157,7 @@ public final class RuleWords {
             case LONG -> "Long";
             case SHORT -> "Short";
             case BOTH -> "Long or short";
+            case NEUTRAL -> "Neutral (no side on the underlying)";
         };
     }
 

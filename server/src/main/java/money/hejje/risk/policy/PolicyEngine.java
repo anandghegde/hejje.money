@@ -137,8 +137,10 @@ public class PolicyEngine {
             }
             case AUTO_ELIGIBLE -> {
                 int min = Math.max(4, intParam(p, "minLevel", 4));
-                yield r.actorType() == ActorType.STRATEGY && r.autonomyLevel() != null && r.autonomyLevel() >= min && r.autoQualified() && r.score() != null
-                        ? "strategy deployment at autonomy " + r.autonomyLevel() + ", qualified for automation, score " + r.score() : null;
+                yield r.actorType() == ActorType.STRATEGY && r.autonomyLevel() != null && r.autonomyLevel() >= min && r.autoQualified()
+                        && (r.score() != null || r.unscoredPaper())
+                        ? "strategy deployment at autonomy " + r.autonomyLevel() + ", qualified for automation, "
+                                + (r.score() != null ? "score " + r.score() : "options paper rehearsal (no score without a backtest)") : null;
             }
             case DEPLOYMENT_BUDGET_EXCEEDED -> r.budgetBreach();
             case DAILY_LOSS_EXCEEDED -> {

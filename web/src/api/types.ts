@@ -301,7 +301,7 @@ export interface OptionChain {
 }
 
 export interface OptionsPosition {
-  id: string; underlying: string; direction: 'BUY' | 'SELL'; underlyingStop?: number; basketId: string;
+  id: string; underlying: string; direction: 'BUY' | 'SELL' | null; underlyingStop?: number; underlyingStopHigh?: number; basketId: string;
   status: 'PENDING' | 'OPEN' | 'CLOSING' | 'CLOSED' | 'FAILED'; closeReason?: string; realized?: Money; detail?: string; openedAt: string;
   legs: { sequence: number; symbol: string; side: 'BUY' | 'SELL'; quantity: number; stopPrice?: number; targetPrice?: number; hedgeFirst: boolean;
     entryPrice?: number; exitPrice?: number }[];

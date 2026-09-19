@@ -150,6 +150,21 @@ class PolicyEngineTest {
     }
 
     @Test
+    void anUnscoredOptionsStrategyAutomatesOnlyItsPaperRehearsal() {
+        PolicyRequest paper = new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.PAPER, 4, "LOW", null, false, null, null, true, null, true);
+        assertThat(decide(paper)).extracting(PolicyResult::decision, PolicyResult::rule).containsExactly(PolicyDecision.ALLOW, "auto_strategy");
+        assertThat(decide(paper).reason()).contains("options paper rehearsal");
+        // live AUTO still needs a score, and the flag never lifts the rows ahead of auto_strategy
+        PolicyRequest live = new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.AUTO, 4, "LOW", null, false, null, null, true, null, true);
+        assertThat(live.unscoredPaper()).isFalse();
+        assertThat(decide(live).rule()).isEqualTo("strategy_signals");
+        assertThat(decide(new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.PAPER, 4, "HIGH", null, false, null, null, true, null, true)).rule())
+                .isEqualTo("event_risk_high");
+        assertThat(decide(new PolicyRequest(ORDER_NEW, ActorType.STRATEGY, ExecutionMode.PAPER, 4, "LOW", null, false, null, null, false, null, true)).rule())
+                .isEqualTo("strategy_signals");
+    }
+
+    @Test
     void agentsNeverExecuteAutomaticallyEvenWhenQualified() {
         PolicyRequest agentAtFive = new PolicyRequest(ORDER_NEW, ActorType.AGENT, ExecutionMode.PAPER, 5, "LOW", 95, false, null, null, true, null);
         assertThat(decide(agentAtFive).rule()).isEqualTo("agent_actions");

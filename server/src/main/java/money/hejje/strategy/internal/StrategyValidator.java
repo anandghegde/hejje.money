@@ -80,7 +80,9 @@ public class StrategyValidator {
         // stop / direction compatibility
         StopType stop = d.stop().type();
         if (stop != null && stop.isDirectional()) {
-            if (d.direction() == Direction.BOTH) {
+            if (d.direction() == Direction.NEUTRAL) {
+                errors.add(new ValidationError("stop.type", stop.name().toLowerCase() + " is one-sided; direction neutral needs points, percent or atr_multiple (a band around the underlying)"));
+            } else if (d.direction() == Direction.BOTH) {
                 errors.add(new ValidationError("stop.type", stop.name().toLowerCase() + " is one-sided; direction both needs atr_multiple, percent or points"));
             } else if (d.direction() == Direction.LONG && !stop.isLongSide()) {
                 errors.add(new ValidationError("stop.type", stop.name().toLowerCase() + " is a short stop but direction is long"));
@@ -117,6 +119,18 @@ public class StrategyValidator {
         }
         if (d.combinedExit() != null && d.legs().isEmpty()) {
             errors.add(new ValidationError("combined_exit", "needs legs"));
+        }
+        // neutral: no side on the underlying (plan M6.4), so only options legs that name their type
+        if (d.direction() == Direction.NEUTRAL) {
+            if (d.family() != money.hejje.strategy.StrategyFamily.OPTIONS) {
+                errors.add(new ValidationError("direction", "neutral is for options strategies (family: options)"));
+            }
+            for (int i = 0; i < d.legs().size(); i++) {
+                StrategyDefinition.OptionSide option = d.legs().get(i).option();
+                if (option == StrategyDefinition.OptionSide.DIRECTIONAL || option == StrategyDefinition.OptionSide.OPPOSITE) {
+                    errors.add(new ValidationError("legs[" + i + "].option", option.name().toLowerCase() + " follows the signal's side, which a neutral strategy does not have; use ce or pe"));
+                }
+            }
         }
 
         // universe aliases must be known

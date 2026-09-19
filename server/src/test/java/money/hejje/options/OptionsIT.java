@@ -74,7 +74,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * Options end to end in PAPER (plan M5.4) on the fixture's NIFTY 2026-09-15 weekly chain, with the Sep future at 25010:
  * chain analytics, leg resolution, the options risk controls, a spread opened as a hedge-first basket and closed on its
- * combined stop, the PAPER-only lifecycle and a signal executed over REST.
+ * combined stop, the PAPER-only lifecycle, a signal executed over REST, and the neutral iron fly (plan M6.4) opened
+ * hedges first and closed when the underlying leaves its band either way.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
 class OptionsIT extends AbstractIntegrationTest {
@@ -255,7 +256,7 @@ class OptionsIT extends AbstractIntegrationTest {
         strategies.changeStatus(v.strategyId(), 1, VersionStatus.PAPER, "options go straight to paper", "admin");
         StrategyDeployment d = strategies.deploy(v.strategyId(), 1, ExecutionMode.PAPER, List.of(), 0, Map.of(), "admin");
         OptionsExecutor.OpenRequest request = new OptionsExecutor.OpenRequest(client, "spread-1", ActorType.USER, "tester", v.strategyId(), v.id(), d.id(), null,
-                future.id(), Side.BUY, new BigDecimal("24950.00"), v.definition());
+                future.id(), Side.BUY, new BigDecimal("24950.00"), null, v.definition());
         OptionsPosition p = executor.open(request);
         assertThat(p.status()).isEqualTo(OptionsPosition.Status.PENDING);
         assertThat(executor.open(request).id()).as("idempotent by key").isEqualTo(p.id());
@@ -329,7 +330,7 @@ class OptionsIT extends AbstractIntegrationTest {
 
         // max_trades_per_day counts options positions
         assertThatThrownBy(() -> executor.open(new OptionsExecutor.OpenRequest(client, "spread-2", ActorType.USER, "tester", v.strategyId(), v.id(), d.id(), null,
-                future.id(), Side.BUY, new BigDecimal("24950.00"), v.definition()))).isInstanceOf(IllegalStateException.class).hasMessageContaining("max_trades_per_day");
+                future.id(), Side.BUY, new BigDecimal("24950.00"), null, v.definition()))).isInstanceOf(IllegalStateException.class).hasMessageContaining("max_trades_per_day");
     }
 
     @Test
@@ -369,5 +370,83 @@ class OptionsIT extends AbstractIntegrationTest {
         assertThat(signals.find(signalId).orElseThrow().status()).isEqualTo(SignalStatus.EXECUTED);
         assertThat(signals.find(signalId).orElseThrow().note()).startsWith("options position ");
         assertThat(rest.exchange("/api/v1/options/positions", HttpMethod.GET, new HttpEntity<>(bearer(key)), List.class).getBody()).hasSize(1);
+    }
+
+    /** Waits for the opening basket, ticks the monitor and returns the OPEN position. */
+    OptionsPosition awaitOpen(OptionsPosition p) throws InterruptedException {
+        Basket basket = await(() -> baskets.find(p.basketId()).filter(b -> b.status() != Basket.Status.PENDING && b.status() != Basket.Status.EXECUTING),
+                "the iron fly basket");
+        assertThat(basket.status()).as("%s", basket.detail()).isEqualTo(Basket.Status.COMPLETED);
+        // both wings (hedge_first) are placed before either short leg
+        int lastHedge = basket.legs().stream().filter(money.hejje.execution.BasketLeg::hedgeFirst).mapToInt(money.hejje.execution.BasketLeg::executionOrder).max().orElseThrow();
+        int firstShort = basket.legs().stream().filter(l -> !l.hedgeFirst()).mapToInt(money.hejje.execution.BasketLeg::executionOrder).min().orElseThrow();
+        assertThat(lastHedge).isLessThan(firstShort);
+        monitor.tick();
+        OptionsPosition open = executor.find(p.id()).orElseThrow();
+        assertThat(open.status()).isEqualTo(OptionsPosition.Status.OPEN);
+        return open;
+    }
+
+    @Test
+    void aNeutralIronFlyOpensHedgesFirstAndClosesWhenTheUnderlyingLeavesTheBandEitherWay() throws Exception {
+        StrategyDefinition fly = strategies.parse(yaml("nifty_920_iron_fly.yaml"));
+        // wings at ±200 resolve to the nearest listed strikes of the fixture chain (24900 / 25100)
+        assertThat(resolver.resolve(fly, future, null)).extracting(l -> l.instrument().id(), OptionLegResolver.ResolvedLeg::side, OptionLegResolver.ResolvedLeg::hedgeFirst)
+                .containsExactly(tuple(opt.get("25100CE").id(), Side.BUY, true), tuple(opt.get("24900PE").id(), Side.BUY, true),
+                        tuple(opt.get("25000CE").id(), Side.SELL, false), tuple(opt.get("25000PE").id(), Side.SELL, false));
+        assertThatThrownBy(() -> resolver.resolve(strategies.parse(yaml("nifty_bull_call_spread.yaml")), future, null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("neutral");
+
+        StrategyVersion v = strategies.create(yaml("nifty_920_iron_fly.yaml"), "test", "admin");
+        strategies.changeStatus(v.strategyId(), 1, VersionStatus.PAPER, "options go straight to paper", "admin");
+        StrategyDeployment d = strategies.deploy(v.strategyId(), 1, ExecutionMode.PAPER, List.of(), 0, Map.of(), "admin");
+        // the runner stores a neutral signal as BUY with its stop 150 points under the reference; execution turns it into a band
+        UUID signalId = UUID.randomUUID();
+        OffsetDateTime now = clock.instant().atOffset(ZoneOffset.UTC);
+        jdbc.update("""
+                INSERT INTO signal (id, version_id, strategy_id, deployment_id, instrument_id, mode, side, reference_price, stop, target, risk_per_unit, bar_time,
+                    valid_until, evidence, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'PAPER', 'BUY', 25010, 24860, NULL, 150, ?, ?, '[]'::jsonb, 'ACTIVE', ?, ?)
+                """, signalId, v.id(), v.strategyId(), d.id(), future.id(), now, now.plusMinutes(10), now, now);
+        HejjePrincipal actor = new HejjePrincipal(UUID.randomUUID(), "admin", HejjePrincipal.Type.USER, ScopeCatalog.ALL);
+        OptionsPosition p = signals.executeOptions(signalId, "fly-1", actor);
+        assertThat(p.direction()).isNull();
+        assertThat(p.underlyingStop()).isEqualByComparingTo("24860.00");
+        assertThat(p.underlyingStopHigh()).isEqualByComparingTo("25160.00");
+        assertThat(p.legs()).hasSize(4);
+        OptionsPosition open = awaitOpen(p);
+        assertThat(open.neutral()).isTrue();
+
+        // inside the band: stays open; at the upper edge: closes on the band
+        quote(future, "25150.00", 0);
+        monitor.tick();
+        assertThat(executor.find(p.id()).orElseThrow().status()).isEqualTo(OptionsPosition.Status.OPEN);
+        quote(future, "25160.00", 0);
+        monitor.tick();
+        assertThat(executor.find(p.id()).orElseThrow().closeReason()).isEqualTo("UNDERLYING_BAND");
+        OptionsPosition closedUp = await(() -> {
+            monitor.tick();
+            return executor.find(p.id()).filter(x -> x.status() == OptionsPosition.Status.CLOSED);
+        }, "the iron fly to close on the upper edge");
+        assertThat(closedUp.legs()).allMatch(l -> l.exitPrice() != null);
+        assertThat(audit.query(new AuditQuery(null, null, AuditEventType.OPTIONS_POSITION_CLOSED, null, 0, 50)).content())
+                .anyMatch(a -> p.id().toString().equals(a.payload().get("optionsPositionId")) && "NEUTRAL".equals(a.payload().get("direction")));
+
+        // a second fly (no deployment, so max_trades_per_day does not apply) closes at the lower edge, after the re-entry cooldown
+        clock.setIst("2026-09-10T10:30:00");
+        quotes();
+        OptionsPosition second = executor.open(new OptionsExecutor.OpenRequest(client, "fly-2", ActorType.USER, "tester", v.strategyId(), v.id(), null, null,
+                future.id(), null, new BigDecimal("24860.00"), new BigDecimal("25160.00"), v.definition()));
+        awaitOpen(second);
+        quote(future, "24870.00", 0);
+        monitor.tick();
+        assertThat(executor.find(second.id()).orElseThrow().status()).isEqualTo(OptionsPosition.Status.OPEN);
+        quote(future, "24860.00", 0);
+        monitor.tick();
+        assertThat(executor.find(second.id()).orElseThrow().closeReason()).isEqualTo("UNDERLYING_BAND");
+        await(() -> {
+            monitor.tick();
+            return executor.find(second.id()).filter(x -> x.status() == OptionsPosition.Status.CLOSED);
+        }, "the iron fly to close on the lower edge");
     }
 }

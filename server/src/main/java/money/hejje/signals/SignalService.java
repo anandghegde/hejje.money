@@ -285,10 +285,14 @@ public class SignalService {
 
     private money.hejje.options.OptionsPosition openOptions(Signal signal, UUID clientId, String key, ActorType source, String actorId) {
         StrategyVersion version = strategies.versionById(signal.versionId()).orElseThrow(() -> new SignalException.NotFound("Version missing"));
+        // a neutral strategy's signal has no side: its stop distance becomes a band around the reference price (plan M6.4)
+        boolean neutral = version.definition().direction() == money.hejje.strategy.StrategyDefinition.Direction.NEUTRAL;
+        BigDecimal bandHigh = neutral ? signal.referencePrice().add(signal.referencePrice().subtract(signal.stop()).abs()) : null;
+        BigDecimal stop = neutral ? signal.referencePrice().subtract(signal.referencePrice().subtract(signal.stop()).abs()) : signal.stop();
         money.hejje.options.OptionsPosition p;
         try {
             p = options.open(new money.hejje.options.OptionsExecutor.OpenRequest(clientId, key, source, actorId, signal.strategyId(), signal.versionId(),
-                    signal.deploymentId(), signal.id(), signal.instrumentId(), signal.side(), signal.stop(), version.definition()));
+                    signal.deploymentId(), signal.id(), signal.instrumentId(), neutral ? null : signal.side(), stop, bandHigh, version.definition()));
         } catch (IllegalStateException | IllegalArgumentException e) {
             throw new SignalException.NotActionable("Options legs cannot be placed: " + e.getMessage());
         }

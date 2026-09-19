@@ -1,7 +1,7 @@
 # Bundled strategies
 
 The bundled definitions live in `strategies/*.yaml` (six from Phase 2, two options strategies from M5.4, eight price/volume
-strategies from Phase 6 M6.3) and are loaded at startup as versions with change note
+strategies from Phase 6 M6.3 and the 9:20 iron fly from M6.4) and are loaded at startup as versions with change note
 `bundled` (see `docs/strategy-dsl.md`). Each page below records the rationale, the rules in words, the parameters,
 the expected regime fit, known weaknesses and the baseline backtest results.
 
@@ -27,6 +27,7 @@ historical dataset is backfilled on the VM (`docs/data.md`); until then every ve
 | [`supertrend_vwap`](supertrend_vwap.md) | trend | NIFTY, BANKNIFTY futures | long |
 | [`nifty_orb_call_buy`](nifty_orb_call_buy.md) | options | NIFTY front-month future → ATM weekly call | long |
 | [`nifty_bull_call_spread`](nifty_bull_call_spread.md) | options | NIFTY front-month future → weekly call spread | long |
+| [`nifty_920_iron_fly`](nifty_920_iron_fly.md) | options | NIFTY → nearest-expiry iron fly (±200 wings) | neutral |
 
 Options strategies trade option legs on each signal (docs/options.md); they cannot be backtested (no option candles) and
 go DRAFT → PAPER directly.

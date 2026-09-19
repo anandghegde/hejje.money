@@ -61,7 +61,7 @@ export function Options() {
         <tbody>
           {(positions ?? []).map((p) => (
             <tr key={p.id}>
-              <td>{new Date(p.openedAt).toLocaleString()}</td><td>{p.underlying} {p.direction}</td>
+              <td>{new Date(p.openedAt).toLocaleString()}</td><td>{p.underlying} {p.direction ?? 'NEUTRAL'}</td>
               <td>{p.legs.map((l) => `${l.side} ${l.quantity} ${l.symbol}${l.entryPrice != null ? ` @${l.entryPrice}` : ''}`).join(' · ')}</td>
               <td>{p.status}</td><td>{p.closeReason ?? ''}</td><td>{p.realized ? formatPaise(p.realized.paise) : ''}</td>
             </tr>

@@ -87,4 +87,27 @@ class OptionLegsTest {
         String options = canonical.writeValueAsString(parser.parse(Files.readString(Path.of("../strategies/nifty_bull_call_spread.yaml"))));
         assertThat(options).contains("\"legs\"").contains("\"combinedExit\"");
     }
+
+    @Test
+    void neutralIsForOptionsLegsThatNameTheirTypeAndABandStop() throws Exception {
+        StrategyDefinition fly = parser.parse(Files.readString(Path.of("../strategies/nifty_920_iron_fly.yaml")));
+        assertThat(fly.direction()).isEqualTo(StrategyDefinition.Direction.NEUTRAL);
+        assertThat(fly.legs()).extracting(StrategyDefinition.OptionLeg::option).containsExactly(StrategyDefinition.OptionSide.CE, StrategyDefinition.OptionSide.PE,
+                StrategyDefinition.OptionSide.CE, StrategyDefinition.OptionSide.PE);
+        assertThat(validator.validate(fly)).isEmpty();
+
+        String neutral = "name: neutral_test\nfamily: %s\nuniverse: [NIFTY]\ntimeframe: 5m\ndirection: neutral\nentry:\n  all:\n    - session_minutes >= 5\n"
+                + "stop:\n  type: %s\n%s";
+        // neutral only with family options
+        StrategyDefinition onTrend = parser.parse(neutral.formatted("trend", "points\n  value: 150", ""));
+        assertThat(validator.validate(onTrend)).extracting(ValidationError::path).contains("direction");
+        // directional and opposite legs follow a side the signal does not have
+        StrategyDefinition directional = parser.parse(neutral.formatted("options", "points\n  value: 150",
+                "legs:\n  - action: buy\n    option: directional\n  - action: sell\n    option: opposite\n  - action: sell\n    option: ce\n"));
+        assertThat(validator.validate(directional)).extracting(ValidationError::path).containsExactly("legs[0].option", "legs[1].option");
+        // a one-sided stop cannot be a band
+        StrategyDefinition oneSided = parser.parse(neutral.formatted("options", "opening_range_low", "legs:\n  - action: buy\n    option: ce\n"));
+        assertThat(validator.validate(oneSided)).extracting(ValidationError::path).containsExactly("stop.type");
+        assertThat(money.hejje.strategy.RuleWords.describe(fly).get(0)).startsWith("Neutral (no side on the underlying) on ");
+    }
 }

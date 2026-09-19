@@ -18,7 +18,7 @@ universe:                       # at least one entry
   - index: NIFTY BANK           # selector: INDEX:<name>
   - symbol: "NFO:NIFTY:FUT:2026-09-24"
 timeframe: 5m                   # 1m | 3m | 5m | 15m | 1h   (1d is rejected: intraday only)
-direction: long                 # long | short | both
+direction: long                 # long | short | both | neutral (options only)
 entry:                          # exactly one of all: / any:
   all:
     - close > opening_range_high
@@ -85,6 +85,13 @@ combined_exit:             # optional: exits on the combined P&L of all legs
   target_rupees: 4000
 ```
 
+`direction: neutral` (plan M6.4) takes no side on the underlying: the legs define the exposure. It is allowed only
+with `family: options`, every leg must name `option: ce` or `pe` (`directional` and `opposite` follow a side the
+signal does not have), and the `stop` must be `points`, `percent` or `atr_multiple`: its distance becomes a symmetric
+band around the underlying's price at the signal, and the position closes (`UNDERLYING_BAND`) when the underlying
+leaves the band either way. A neutral signal is stored with side `BUY` and its stop at the band's lower edge; the side
+only sizes the dry-run shown on Today and never reaches an order. Neutral strategies cannot be backtested.
+
 Validation: `legs` only with `family: options`, and `family: options` needs `legs`; at most four legs; `hedge_first`
 only on buy legs; `combined_exit` needs legs. Options strategies cannot be backtested (no option candles) and go
 DRAFT → PAPER directly; LIVE needs closed paper options positions (docs/options.md).
@@ -146,7 +153,8 @@ Structural (schema) errors and semantic errors are both returned as `{path, mess
   a whole number of bars of the timeframe;
 - `trade_window` inside 09:15–15:30, `start < end`, `end <= force_exit_time`; `force_exit_time` before 15:20 for MIS;
 - directional stops match `direction` (`opening_range_low`, `swing_low`, `prev_day_low` are long stops;
-  `direction: both` needs `atr_multiple`, `percent` or `points`);
+  `direction: both` and `direction: neutral` need `atr_multiple`, `percent` or `points`); `neutral` only with
+  `family: options` and legs of `option: ce | pe`;
 - `stop.value` / `target.value` present exactly when the type needs one, and positive;
 - `target.value` not below `risk_overrides.min_reward_risk` for `risk_multiple` targets;
 - bare universe names must be configured aliases; symbols must be well formed (`docs/symbols.md`);

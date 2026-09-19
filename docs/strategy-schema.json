@@ -98,7 +98,8 @@
       "enum": [
         "long",
         "short",
-        "both"
+        "both",
+        "neutral"
       ]
     },
     "entry": {
