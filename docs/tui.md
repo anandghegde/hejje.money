@@ -55,3 +55,33 @@ checks, then `y` executes (anything else cancels), `[D]` toggles the evidence an
 
 `hejje chain <underlying> [expiry]` prints the option chain: calls on the left, puts on the right, OI, IV, delta and LTP,
 the ATM strike marked `*`, with the forward, put/call ratio (OI) and max pain (`--json` for the raw chain).
+
+## Harness (Phase 7, M7.4)
+
+`hejje harness [session-id] [--bot <id>]` watches a bot trade (docs/bots.md). It takes one snapshot over REST
+(`GET /api/v1/harness/snapshot?bot=&session=`, or `/sim/sessions/{id}/snapshot`) and then follows `/ws/harness`, which
+pushes a new snapshot whenever something changes (at most four a second); after a drop it reconnects with a fresh
+snapshot. The screen redraws at most ten times a second whatever the replay speed. Without `--bot` it shows the
+session's first bot, else the only enabled bot, else every strategy position.
+
+| Area | Content |
+|---|---|
+| Header | bot, mode badge (SIM / PAPER / LIVE), fill source, data health (`HIST OK · N names · M quotes`), bot latency p50/p90, skipped points, clock (IST); capital, bot paused / not connected, kill switch |
+| Replay bar (SIM only) | session date and day, state, progress bar and `step/375`, speed (1× 10× 60× 300× MAX), knowledge-cutoff warnings |
+| Context line | regime, Pulse, time to the next decision point |
+| Stat tiles | day P&L, open P&L, total, capital, in use, free, risk per trade, trades, hit rate, expectancy (R), profit factor, max drawdown, average win/loss, average hold, friction paid, loss halt, LLM tokens and cost (as the bot reports them with its answers, `usage`) |
+| Equity | braille line chart with last, peak and trough |
+| Positions | symbol, side, qty, entry, LTP, stop, stop location (exch / sim / soft), notional, open P&L, R, MFE, MAE and the thesis under each; working orders below |
+| Candidates | the bot's `candidates[]` at its last decision point, ranked per side, the one it sent marked ▶ |
+| Trades | time, leg, symbol, side, qty, entry, exit, P&L (net of costs), hold, exit reason, why (thesis), the deciding decision |
+| Log, Decisions | recent actions and closes; the decisions table (time, stage, symbol, action, scores, confidence, latency, outcome) |
+
+Keys: `space` play/pause, `1`–`5` speed, `s` step, `c` set capital (SIM, before the first step), `p` pause/resume the
+bot, `K` kill switch (asks `y` to confirm), `tab` next panel, `q` quit. The replay keys only act in SIM; in PAPER and
+LIVE the replay bar is hidden. From 160 columns the panels sit side by side (equity | positions, candidates | trades,
+log | decisions); narrower terminals stack them, the focused panel (`tab`) in full and the others as a one-line summary.
+
+Tests: `internal/ui/harness_test.go` renders a fixture stream through teatest at 200×50 and 120×40 against the goldens
+in `testdata/` (`go test ./internal/ui -update` rewrites them), decodes a snapshot the server produced
+(`harness_server.json`, written by `BotProtocolIT` to `server/build/harness-snapshot.json`), and checks the throttle, the
+SIM-only replay keys and the kill confirmation.

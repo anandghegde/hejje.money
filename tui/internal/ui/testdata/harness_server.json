@@ -1,0 +1,903 @@
+{
+  "mode" : "SIM",
+  "clock" : "2026-09-09T10:06:00Z",
+  "session" : {
+    "id" : "991fb66e-7953-494d-921d-600fafca8d14",
+    "state" : "DONE",
+    "speed" : "MAX",
+    "sessionDate" : "2026-09-09",
+    "day" : 1,
+    "days" : 1,
+    "step" : 375,
+    "steps" : 375,
+    "resultHash" : "6f88b35190f8cf1a70455511db3c593dcd636130a92f699e40f9de9d4288874b",
+    "warnings" : [ ]
+  },
+  "header" : {
+    "bot" : "proto333067 v1.0",
+    "botKind" : "EXTERNAL",
+    "botEnabled" : true,
+    "fillSource" : "replay · paper fills",
+    "dataHealth" : "HIST STALE · 1 names · 1 quotes",
+    "latencyP50Ms" : 0,
+    "latencyP90Ms" : 0,
+    "skipped" : 1,
+    "connected" : true,
+    "botId" : "ace6bec0-7ae8-444f-9962-a2047086b55b",
+    "killSwitch" : true
+  },
+  "context" : {
+    "regime" : "UNKNOWN × UNKNOWN · UNKNOWN",
+    "pulse" : "NEUTRAL WEAK (0)",
+    "nextDecisionInSeconds" : 240
+  },
+  "tiles" : {
+    "dayPnl" : -51.61,
+    "openPnl" : 0.00,
+    "totalPnl" : -51.61,
+    "capital" : 1000000.00,
+    "inUse" : 0.00,
+    "free" : 1000000.00,
+    "riskPerTrade" : 2000.00,
+    "trades" : 1,
+    "hitRate" : 0.0,
+    "expectancyR" : -0.036,
+    "profitFactor" : 0.0,
+    "maxDrawdown" : 51.61,
+    "avgLoss" : -51.61,
+    "avgHoldMinutes" : 10,
+    "frictionPaid" : 119.11,
+    "lossHalt" : 50000.00,
+    "llmTokens" : 1380,
+    "llmCostRupees" : 0.35
+  },
+  "equity" : [ {
+    "equity" : 1000000.00,
+    "t" : "2026-09-08T18:30:00Z"
+  }, {
+    "equity" : 999948.39,
+    "t" : "2026-09-09T04:05:00Z"
+  }, {
+    "equity" : 999948.39,
+    "t" : "2026-09-09T10:06:00Z"
+  } ],
+  "positions" : [ ],
+  "workingOrders" : [ ],
+  "candidates" : [ ],
+  "trades" : [ {
+    "time" : "2026-09-09T04:05:00Z",
+    "leg" : "long",
+    "symbol" : "NSE:INFY",
+    "side" : "BUY",
+    "quantity" : 135,
+    "entry" : 1500.75,
+    "exit" : 1501.25,
+    "pnl" : -51.61,
+    "holdMinutes" : 10,
+    "why" : "opening range holds",
+    "exitReason" : "MANUAL",
+    "attribution" : "aedc0829 @ 2026-09-09T03:55:00Z"
+  } ],
+  "decisions" : [ {
+    "time" : "2026-09-09T10:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:10:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T09:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:10:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T08:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:10:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T07:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:10:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T06:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:10:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T05:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:55:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:45:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:40:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:35:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:30:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:25:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:20:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "NONE",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "NOTED"
+  }, {
+    "time" : "2026-09-09T04:15:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "ENTER_LONG",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 4,
+    "outcome" : "REFUSED"
+  }, {
+    "time" : "2026-09-09T04:10:00Z",
+    "symbol" : "*",
+    "action" : "SKIPPED",
+    "latencyMs" : 500,
+    "outcome" : "SKIPPED"
+  }, {
+    "time" : "2026-09-09T04:05:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "EXIT",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "EXITING"
+  }, {
+    "time" : "2026-09-09T04:00:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "MOVE_STOP",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "MOVED"
+  }, {
+    "time" : "2026-09-09T03:55:00Z",
+    "stage" : "breakout",
+    "symbol" : "NSE:INFY",
+    "action" : "ENTER_LONG",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 1,
+    "outcome" : "EXECUTED"
+  }, {
+    "time" : "2026-09-09T03:50:00Z",
+    "stage" : "test",
+    "symbol" : "NSE:INFY",
+    "action" : "ENTER_LONG",
+    "scores" : {
+      "orb" : 1.0
+    },
+    "confidence" : 0.7,
+    "latencyMs" : 0,
+    "outcome" : "REFUSED"
+  } ],
+  "log" : [ "2026-09-09T04:15:00Z ENTER_LONG NSE:INFY → REFUSED: kill switch STOP_NEW_ORDERS is active", "2026-09-09T04:10:00Z SKIPPED * → SKIPPED: no answer within 500 ms", "2026-09-09T04:05:00Z closed NSE:INFY MANUAL net -51.61", "2026-09-09T04:05:00Z EXIT NSE:INFY → EXITING: closing at market", "2026-09-09T04:00:00Z MOVE_STOP NSE:INFY → MOVED: stop moved to 1497.00", "2026-09-09T03:55:00Z ENTER_LONG NSE:INFY → EXECUTED: order 01a0b946-f31d-75ac-ac2b-1910adbe7767 BROKER_ACCEPTED", "2026-09-09T03:50:00Z ENTER_LONG NSE:INFY → REFUSED: an entry needs a stop" ]
+}

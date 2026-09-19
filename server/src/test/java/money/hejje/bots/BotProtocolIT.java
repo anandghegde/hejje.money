@@ -57,6 +57,8 @@ class BotProtocolIT extends AbstractSimIT {
     @Autowired RiskService risk;
     @Autowired InstrumentService instruments;
     @Autowired HistoricalCandleStore history;
+    @Autowired money.hejje.harness.HarnessService harness;
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
 
     UUID infy;
     AutoCloseable connection;
@@ -123,6 +125,7 @@ class BotProtocolIT extends AbstractSimIT {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     void aBotEntersMovesItsStopAndExitsThroughTheRiskPipelineInLockstep() {
         Bot bot = bots.register(new BotService.Registration("proto" + suffix(), "1.0", Bot.Kind.EXTERNAL, null, Set.of(ExecutionMode.SIM), List.of("NSE:INFY"),
                 "5m", null, null), "admin");
@@ -130,7 +133,9 @@ class BotProtocolIT extends AbstractSimIT {
         Map<String, List<BotDecision>> answered = new ConcurrentHashMap<>();
         Map<String, Function<String, BotDecision.Reply>> script = Map.of(
                 at(9, 20), p -> new BotDecision.Reply(p, List.of(input("ENTER_LONG", null, "no stop"))),
-                at(9, 25), p -> new BotDecision.Reply(p, List.of(input("ENTER_LONG", "1490.00", "opening range holds"))),
+                at(9, 25), p -> new BotDecision.Reply(p, List.of(new BotDecision.Input("NSE:INFY", "ENTER_LONG", new BigDecimal("1490.00"), null, 0.7,
+                        "opening range holds", "breakout", Map.of("orb", 1.0), List.of(Map.of("instrument", "NSE:INFY", "side", "long", "score", 0.82),
+                                Map.of("instrument", "NSE:TCS", "side", "long", "score", 0.41)))), new BotDecision.Usage(1200L, 180L, new BigDecimal("0.35"))),
                 at(9, 30), p -> new BotDecision.Reply(p, List.of(input("MOVE_STOP", "1497.00", "lock in"))),
                 at(9, 35), p -> new BotDecision.Reply(p, List.of(input("EXIT", null, "momentum fading"))),
                 at(9, 45), p -> {
@@ -185,6 +190,31 @@ class BotProtocolIT extends AbstractSimIT {
         assertThat(stats.latencyP50Ms()).isNotNull();
         assertThat(stats.latencyP90Ms()).isGreaterThanOrEqualTo(stats.latencyP50Ms());
 
+        // the harness snapshot (plan M7.4) of the finished session; also the TUI's fixture (build/harness-snapshot.json)
+        Map<String, Object> snap = harness.snapshot(bot.id(), done.id());
+        try {
+            json.writerWithDefaultPrettyPrinter().writeValue(new java.io.File("build/harness-snapshot.json"), snap);
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        assertThat(snap).containsEntry("mode", "SIM");
+        assertThat((Map<String, Object>) snap.get("session")).containsEntry("state", "DONE").containsEntry("step", 375);
+        assertThat((Map<String, Object>) snap.get("header")).containsEntry("bot", bot.name() + " v1.0").containsEntry("fillSource", "replay · paper fills")
+                .containsEntry("skipped", 1);
+        Map<String, Object> tiles = (Map<String, Object>) snap.get("tiles");
+        assertThat(tiles).containsEntry("trades", 1).containsEntry("llmTokens", 1380L);
+        assertThat((BigDecimal) tiles.get("capital")).isEqualByComparingTo("1000000");
+        assertThat((BigDecimal) tiles.get("frictionPaid")).isPositive();
+        assertThat((BigDecimal) tiles.get("llmCostRupees")).isEqualByComparingTo("0.35");
+        assertThat((List<Map<String, Object>>) snap.get("trades")).singleElement().satisfies(t -> {
+            assertThat(t).containsEntry("symbol", "NSE:INFY").containsEntry("why", "opening range holds").containsEntry("exitReason", "MANUAL");
+            assertThat((String) t.get("attribution")).startsWith(entry.id().toString().substring(0, 8));
+        });
+        assertThat((List<Map<String, Object>>) snap.get("positions")).isEmpty();
+        assertThat((List<Map<String, Object>>) snap.get("equity")).hasSizeGreaterThanOrEqualTo(3);
+        assertThat((List<Map<String, Object>>) snap.get("decisions")).isNotEmpty();
+        assertThat((List<String>) snap.get("log")).anyMatch(l -> l.contains("ENTER_LONG NSE:INFY → EXECUTED"));
+
         // idempotent per decision point: the same answer again returns the recorded outcome and creates nothing
         List<BotDecision> again = hub.answer(bot.id(), new BotDecision.Reply(at(9, 25), List.of(input("ENTER_LONG", "1490.00", "opening range holds"))));
         assertThat(again).singleElement().extracting(BotDecision::id).isEqualTo(entry.id());
@@ -195,6 +225,19 @@ class BotProtocolIT extends AbstractSimIT {
         assertThat(BotDecisions.route(ExecutionMode.PAPER)).isEqualTo(BotDecisions.Route.EXECUTE);
         assertThat(BotDecisions.route(ExecutionMode.CONFIRM)).isEqualTo(BotDecisions.Route.APPROVAL);
         assertThat(BotDecisions.route(ExecutionMode.AUTO)).isEqualTo(BotDecisions.Route.AUTO);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void capitalChangesOnlyBeforeTheFirstStep() {
+        SimSession s = sessions.create(new SimSessionSpec(List.of(SimReplayIT.DAY), null, null, List.of("NSE:INFY"), null, 1_000_000L, null, null, null,
+                List.of()), "tester");
+        SimSession changed = sessions.control(s.id(), null, null, 250_000L);
+        assertThat(changed.spec().capitalRupees()).isEqualTo(250_000L);
+        assertThat((BigDecimal) ((Map<String, Object>) harness.snapshot(null, s.id()).get("tiles")).get("capital")).isEqualByComparingTo("250000");
+        sessions.control(s.id(), SimSessionService.Action.STEP, null);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sessions.control(s.id(), null, null, 500_000L))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("before the session's first step");
     }
 
     @Test

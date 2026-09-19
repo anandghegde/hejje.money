@@ -44,6 +44,10 @@ public class SimSessionStore {
                 """).params(params(s)).update();
     }
 
+    public void updateSpec(SimSession s) {
+        jdbc.sql("UPDATE sim_session SET spec = CAST(:spec AS jsonb), updated_at = :updatedAt WHERE id = :id").params(params(s)).update();
+    }
+
     public Optional<SimSession> find(UUID id) {
         return jdbc.sql("SELECT * FROM sim_session WHERE id = :id").param("id", id).query(this::map).optional();
     }

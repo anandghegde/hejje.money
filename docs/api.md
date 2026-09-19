@@ -1259,3 +1259,14 @@ See `docs/bots.md`. `POST /api/v1/bots` (`strategies:write`) registers a bot (EX
 `bot` (`market:read strategies:read bot:decide`). SIM sessions accept `"bots": [ { "botId" } ]` and report
 `warnings` (an LLM bot on days before its knowledge cutoff).
 
+## Harness (Phase 7, M7.4)
+
+`GET /api/v1/harness/snapshot?bot=&session=` · `GET /api/v1/sim/sessions/{id}/snapshot?bot=` (`market:read`): one
+snapshot of a bot at work — `mode`, `clock`, `session` (SIM: id, state, speed, day/days, step/steps, resultHash,
+warnings), `header` (bot, fill source, data health, latency p50/p90, skipped, connected, kill switch), `context`
+(regime, pulse, nextDecisionInSeconds), `tiles`, `equity` (`[{t, equity}]`), `positions`, `workingOrders`,
+`candidates`, `trades`, `decisions`, `log`. WebSocket `/ws/harness?token=&bot=&session=` (`market:read`) pushes
+`{"type": "snapshot", …}` on connect and on every change, at most four a second. `POST /sim/sessions/{id}/control`
+also takes `capitalRupees` (only before the first step). Bot replies may carry `usage: {inputTokens, outputTokens,
+costRupees}` (shown as the LLM tile).
+

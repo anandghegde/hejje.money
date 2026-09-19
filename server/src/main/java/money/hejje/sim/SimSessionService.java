@@ -182,9 +182,27 @@ public class SimSessionService {
      * {@code cancel} stops the session. {@code speed} (1, 10, 60, 300, MAX) may accompany any action.
      */
     public SimSession control(UUID id, Action action, String speed) {
+        return control(id, action, speed, null);
+    }
+
+    /**
+     * As {@link #control(UUID, Action, String)}; {@code capitalRupees} (plan M7.4, the harness {@code c} key) resets the
+     * simulated account to that capital, only before the first step of the session.
+     */
+    public SimSession control(UUID id, Action action, String speed, Long capitalRupees) {
         Run run = current;
         if (run == null || !run.session.id().equals(id)) {
             throw new IllegalStateException("Session " + id + " is not the active replay");
+        }
+        if (capitalRupees != null) {
+            if (run.session.dayIndex() != 0 || run.session.step() != 0 || run.session.state() != SimSession.State.PAUSED) {
+                throw new IllegalStateException("capital can only change before the session's first step");
+            }
+            if (capitalRupees <= 0) {
+                throw new IllegalArgumentException("capitalRupees must be positive");
+            }
+            broker.reset(Money.ofRupees(capitalRupees));
+            run.withCapital(capitalRupees);
         }
         if (speed != null && !speed.isBlank()) {
             run.update(run.session.state(), SimSession.Speed.of(speed));
@@ -512,6 +530,16 @@ public class SimSessionService {
             session = new SimSession(s.id(), s.spec(), state, speed, s.dayIndex(), s.days(), s.sessionDate(), s.step(), s.fills(), s.friction(), s.netPnl(),
                     s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant(), s.warnings());
             store.update(session);
+        }
+
+        synchronized void withCapital(long rupees) {
+            SimSession s = session;
+            SimSessionSpec p = s.spec();
+            SimSessionSpec spec = new SimSessionSpec(p.dates(), p.from(), p.to(), p.instruments(), p.universe(), rupees, p.riskPerTradeRupees(),
+                    p.lossHaltRupees(), p.maxPositions(), p.bots());
+            session = new SimSession(s.id(), spec, s.state(), s.speed(), s.dayIndex(), s.days(), s.sessionDate(), s.step(), s.fills(), s.friction(), s.netPnl(),
+                    s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant(), s.warnings());
+            store.updateSpec(session);
         }
 
         synchronized void progress(int dayIndex, LocalDate day, int step) {

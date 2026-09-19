@@ -34,7 +34,7 @@ class SimController {
         this.sessions = sessions;
     }
 
-    record ControlRequest(String action, String speed) {}
+    record ControlRequest(String action, String speed, Long capitalRupees) {}
 
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_sim:run')")
@@ -65,7 +65,7 @@ class SimController {
         SimSessionService.Action action = body.action() == null || body.action().isBlank() ? null
                 : SimSessionService.Action.valueOf(body.action().trim().toUpperCase());
         try {
-            return view(sessions.control(id, action, body.speed()));
+            return view(sessions.control(id, action, body.speed(), body.capitalRupees()));
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }

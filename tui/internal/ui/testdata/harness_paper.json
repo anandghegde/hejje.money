@@ -1,0 +1,173 @@
+{
+ "mode": "PAPER",
+ "clock": "2026-09-09T04:42:00Z",
+ "session": null,
+ "header": {
+  "bot": "opus_trader v1.0",
+  "botId": "b0004618-38ec-4760-a03f-ba935aa6a5e3",
+  "botKind": "LLM",
+  "botEnabled": true,
+  "fillSource": "paper \u00b7 live quotes",
+  "dataHealth": "LIVE OK \u00b7 2 names \u00b7 2 quotes",
+  "latencyP50Ms": 850,
+  "latencyP90Ms": 2100,
+  "skipped": 1,
+  "connected": true,
+  "killSwitch": false
+ },
+ "context": {
+  "regime": "UP \u00d7 NORMAL \u00b7 GAP_UP",
+  "pulse": "BULLISH MODERATE (62)",
+  "nextDecisionInSeconds": 180
+ },
+ "tiles": {
+  "dayPnl": 1520.4,
+  "openPnl": 1640.0,
+  "totalPnl": 1520.4,
+  "capital": 1000000.0,
+  "inUse": 300150.0,
+  "free": 699850.0,
+  "riskPerTrade": 2000.0,
+  "trades": 1,
+  "hitRate": 0.0,
+  "expectancyR": -0.06,
+  "profitFactor": 0.0,
+  "maxDrawdown": 119.6,
+  "avgWin": null,
+  "avgLoss": -119.6,
+  "avgHoldMinutes": 10,
+  "frictionPaid": 119.6,
+  "lossHalt": 5000.0,
+  "llmTokens": 41200,
+  "llmCostRupees": 12.35
+ },
+ "equity": [
+  {
+   "t": "2026-09-08T18:30:00Z",
+   "equity": 1000000.0
+  },
+  {
+   "t": "2026-09-09T04:05:00Z",
+   "equity": 999880.4
+  },
+  {
+   "t": "2026-09-09T04:20:00Z",
+   "equity": 1000320.4
+  },
+  {
+   "t": "2026-09-09T04:30:00Z",
+   "equity": 1000910.4
+  },
+  {
+   "t": "2026-09-09T04:42:00Z",
+   "equity": 1001520.4
+  }
+ ],
+ "positions": [
+  {
+   "symbol": "NSE:INFY",
+   "side": "BUY",
+   "quantity": 200,
+   "entry": 1500.75,
+   "ltp": 1508.95,
+   "stop": 1497.0,
+   "stopLocation": "simulated",
+   "notional": 300150.0,
+   "openPnl": 1640.0,
+   "r": 0.76,
+   "thesis": "opening range holds above VWAP",
+   "mfe": 9.25,
+   "mae": -1.1
+  }
+ ],
+ "workingOrders": [
+  {
+   "symbol": "NSE:INFY",
+   "side": "SELL",
+   "type": "SL_M",
+   "quantity": 200,
+   "trigger": 1497.0,
+   "limit": 0.0,
+   "state": "TRIGGER_PENDING",
+   "role": "STOP"
+  }
+ ],
+ "candidates": [
+  {
+   "instrument": "NSE:INFY",
+   "side": "long",
+   "score": 0.82,
+   "sent": true
+  },
+  {
+   "instrument": "NSE:TCS",
+   "side": "long",
+   "score": 0.41,
+   "sent": false
+  },
+  {
+   "instrument": "NSE:SBIN",
+   "side": "short",
+   "score": 0.33,
+   "sent": false
+  }
+ ],
+ "trades": [
+  {
+   "time": "2026-09-09T04:05:00Z",
+   "leg": "long",
+   "symbol": "NSE:TCS",
+   "side": "BUY",
+   "quantity": 40,
+   "entry": 4101.5,
+   "exit": 4100.0,
+   "pnl": -119.6,
+   "holdMinutes": 10,
+   "why": "gap fill failed",
+   "exitReason": "MANUAL",
+   "attribution": "2c9e41aa @ 2026-09-09T03:55:00Z"
+  }
+ ],
+ "decisions": [
+  {
+   "time": "2026-09-09T04:40:00Z",
+   "stage": "manage",
+   "symbol": "NSE:INFY",
+   "action": "MOVE_STOP",
+   "scores": {
+    "orb": 1.0
+   },
+   "confidence": 0.7,
+   "latencyMs": 910,
+   "outcome": "MOVED"
+  },
+  {
+   "time": "2026-09-09T04:35:00Z",
+   "stage": "manage",
+   "symbol": "NSE:INFY",
+   "action": "HOLD",
+   "scores": null,
+   "confidence": null,
+   "latencyMs": null,
+   "outcome": "SKIPPED"
+  },
+  {
+   "time": "2026-09-09T04:25:00Z",
+   "stage": "breakout",
+   "symbol": "NSE:INFY",
+   "action": "ENTER_LONG",
+   "scores": {
+    "orb": 1.0,
+    "vwap": 0.6
+   },
+   "confidence": 0.7,
+   "latencyMs": 2100,
+   "outcome": "EXECUTED"
+  }
+ ],
+ "log": [
+  "2026-09-09T04:40:00Z MOVE_STOP NSE:INFY \u2192 MOVED: stop moved to 1497.00",
+  "2026-09-09T04:25:00Z ENTER_LONG NSE:INFY \u2192 EXECUTED: order 01a0 BROKER_ACCEPTED",
+  "2026-09-09T04:15:00Z closed NSE:TCS MANUAL net -119.60"
+ ]
+}

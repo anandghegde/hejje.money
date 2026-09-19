@@ -68,7 +68,8 @@ public class BotHub implements Drainable {
     }
 
     /** A bot's decision-point statistics. */
-    public record Stats(int points, int answered, int skipped, Long latencyP50Ms, Long latencyP90Ms, boolean connected) {}
+    public record Stats(int points, int answered, int skipped, Long latencyP50Ms, Long latencyP90Ms, boolean connected, long llmTokens,
+            java.math.BigDecimal llmCostRupees) {}
 
     private record Point(Bot bot, String pointId, Map<String, Object> message) {}
 
@@ -95,6 +96,8 @@ public class BotHub implements Drainable {
     private final Map<UUID, Map<String, Outstanding>> outstanding = new ConcurrentHashMap<>();
     private final Map<UUID, Deque<Long>> latencies = new ConcurrentHashMap<>();
     private final Map<UUID, int[]> counts = new ConcurrentHashMap<>(); // points, answered, skipped
+    private final Map<UUID, long[]> tokens = new ConcurrentHashMap<>();
+    private final Map<UUID, java.math.BigDecimal> llmCost = new ConcurrentHashMap<>();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "bot-hub");
         t.setDaemon(true);
@@ -345,6 +348,13 @@ public class BotHub implements Drainable {
         Long latency = o == null ? null : TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - o.sentNanos());
         try {
             List<BotDecision> out = decisions.apply(bot, reply, latency);
+            if (reply.usage() != null) {
+                BotDecision.Usage u = reply.usage();
+                tokens.computeIfAbsent(botId, k -> new long[1])[0] += (u.inputTokens() == null ? 0 : u.inputTokens()) + (u.outputTokens() == null ? 0 : u.outputTokens());
+                if (u.costRupees() != null) {
+                    llmCost.merge(botId, u.costRupees(), java.math.BigDecimal::add);
+                }
+            }
             if (latency != null) {
                 Deque<Long> window = latencies.computeIfAbsent(botId, k -> new ArrayDeque<>());
                 synchronized (window) {
@@ -370,7 +380,8 @@ public class BotHub implements Drainable {
         synchronized (window) {
             sorted = window.stream().sorted().toList();
         }
-        return new Stats(c[0], c[1], c[2], percentile(sorted, 0.5), percentile(sorted, 0.9), connected(botId));
+        return new Stats(c[0], c[1], c[2], percentile(sorted, 0.5), percentile(sorted, 0.9), connected(botId), tokens.getOrDefault(botId, new long[1])[0],
+                llmCost.getOrDefault(botId, java.math.BigDecimal.ZERO));
     }
 
     static Long percentile(List<Long> sorted, double q) {

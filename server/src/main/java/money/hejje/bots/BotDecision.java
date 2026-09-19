@@ -25,11 +25,21 @@ public record BotDecision(UUID id, UUID botId, String pointId, String instrument
     public record Input(String instrument, String action, BigDecimal stop, BigDecimal target, Double confidence, String thesis, String stage,
             Map<String, Object> scores, List<Object> candidates) {}
 
-    /** A bot's answer to one decision point (WebSocket reply or {@code POST /bots/{id}/decisions}). */
-    public record Reply(String pointId, List<Input> decisions) {
+    /**
+     * A bot's answer to one decision point (WebSocket reply or {@code POST /bots/{id}/decisions}); {@code usage} is what an
+     * LLM bot spent on it (optional, shown in the harness, plan M7.4).
+     */
+    public record Reply(String pointId, List<Input> decisions, Usage usage) {
 
         public Reply {
             decisions = decisions == null ? List.of() : List.copyOf(decisions);
         }
+
+        public Reply(String pointId, List<Input> decisions) {
+            this(pointId, decisions, null);
+        }
     }
+
+    /** Tokens and cost an LLM bot reports for one answer. */
+    public record Usage(Long inputTokens, Long outputTokens, BigDecimal costRupees) {}
 }
