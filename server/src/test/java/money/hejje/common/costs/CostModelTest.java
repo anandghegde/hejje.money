@@ -51,5 +51,6 @@ class CostModelTest {
         assertThat(fut.stt().toRupeesString()).isEqualTo("374.70"); // 0.02% of 1,873,500
         CostBreakdown opt = model.compute(new CostFill(InstrumentType.OPT, Product.NRML, Side.SELL, 75, new BigDecimal("200.00")));
         assertThat(opt.stt().toRupeesString()).isEqualTo("15.00"); // 0.1% of premium 15,000
+        assertThat(opt.brokerage().toRupeesString()).isEqualTo("20.00"); // flat per executed order, not min(0.03% = 4.50, 20)
     }
 }

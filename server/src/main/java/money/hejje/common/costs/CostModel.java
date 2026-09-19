@@ -21,7 +21,9 @@ public class CostModel {
         CostProperties.Segments rates = properties.forSegment(segment);
         BigDecimal turnover = fill.turnover();
 
+        // Zerodha: options pay the flat fee per executed order; other segments the lower of the flat fee and the percentage
         BigDecimal brokerage = rates.brokerageFree() ? BigDecimal.ZERO
+                : segment == Segment.OPTIONS ? properties.brokerageFlat()
                 : properties.brokerageFlat().min(turnover.multiply(properties.brokeragePct()));
 
         boolean chargeStt = rates.sttOnSellOnly() ? fill.side() == Side.SELL : true;

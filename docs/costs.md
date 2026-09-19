@@ -4,7 +4,12 @@
 
 CostModel.compute(CostFill) returns an itemized CostBreakdown (brokerage, STT, exchange txn, GST, SEBI, stamp duty,
 total), all in paise. Rates live in config/costs.yaml (imported into hejje.costs.*; a classpath copy provides defaults)
-and are marked verify: true until confirmed against the current Zerodha/NSE charge sheets. Segments: equity intraday,
+and were verified on 2026-09-19 (plan M6.1) against zerodha.com/charges and NSE circular FATAX/73524 (`verify: false`):
+NSE transaction charges 0.00307 % (equity), 0.00183 % (futures), 0.03553 % (options premium); STT 0.025 % equity
+intraday sell, 0.05 % futures sell and 0.15 % options premium sell from 1 April 2026 (Finance Act 2026; previously
+0.02 % and 0.1 %). Options pay the flat ₹20 per executed order; other segments pay the lower of ₹20 and 0.03 %. The
+model has one rate set, so backtests apply today's rates to all history (conservative for F&O before April 2026).
+Segments: equity intraday,
 equity delivery (no brokerage, STT both sides), futures, options (STT on premium). The model is shared by the paper fills
 and, later, the backtester.
 
