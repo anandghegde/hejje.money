@@ -180,7 +180,7 @@ public class SignalEngine {
         }
         Instrument i = instrument.get();
         InstrumentMeta meta = new InstrumentMeta(i.id(), i.hejjeSymbol().format(), i.type(), i.lotSize(), i.tickSize());
-        StrategyRunner runner = new StrategyRunner(d, version.get(), meta, clock.zone(), livePort, new EngineCallbacks(), signalProperties.defaultValidityMinutes(),
+        StrategyRunner runner = new StrategyRunner(d, version.get(), meta, clock, livePort, new EngineCallbacks(), signalProperties.defaultValidityMinutes(),
                 riskPerTrade(d, version.get()));
         Instant now = clock.now();
         List<Candle> history = market.candles(instrumentId, version.get().definition().timeframe(), now.minus(java.time.Duration.ofDays(signalProperties.warmupDays())), now);

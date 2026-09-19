@@ -213,6 +213,32 @@ hejje:
       enabled: false
 
 ---
+# A SIM instance (plan M7.1, docs/simulation.md): historical replay on a simulation clock with simulated fills, its own
+# database, never a real broker. Scheduled jobs run on simulation time (SimScheduler), so nothing here polls the network.
+spring:
+  config:
+    activate:
+      on-profile: sim
+hejje:
+  mode: ${HEJJE_MODE:SIM}
+  broker:
+    adapter: fake
+  instruments:
+    sync-on-startup: true
+  market:
+    stream-on-startup: false
+    record: false                      # the history is mounted read-only
+  news:
+    enabled: false
+  regime:
+    label-on-startup: false
+  system:
+    egress:
+      enabled: false
+    clock:
+      enabled: false
+
+---
 spring:
   config:
     activate:

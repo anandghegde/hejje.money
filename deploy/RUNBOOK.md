@@ -136,3 +136,15 @@ routing reads to both is safe.
 (≤ 40 s). A partitioned former active cannot send orders even if it still believes it is active: every broker order
 call re-checks the lease epoch in the database first.
 
+## 10. SIM instance (Phase 7)
+
+A replay instance runs next to the live one and never replaces it: own container `hejje-sim`, own Postgres
+(`postgres-sim`, database `hejje_sim`), port 127.0.0.1:8091, the live Parquet history mounted read-only, the fake broker
+only (it refuses to start otherwise). On the VM with the host nginx, add the host override as for the live service:
+
+```bash
+docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.host.yml -f deploy/docker-compose.sim.yml up -d hejje-sim
+```
+
+Stopping or wiping it never touches the live database. See `docs/simulation.md`.
+

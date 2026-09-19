@@ -33,10 +33,12 @@ public class ReplayMarketDataSource {
 
     private final Path root;
     private final MarketPipeline pipeline;
+    private final java.time.ZoneId zone;
 
     ReplayMarketDataSource(HejjeProperties properties, MarketProperties market, MarketPipeline pipeline) {
         this.root = properties.dataDir().resolve("ticks");
         this.pipeline = pipeline;
+        this.zone = properties.timezone();
     }
 
     /** Replays a recorded day into the pipeline. {@code speed} > 1 is faster than real time; 0 means as fast as possible. */
@@ -61,7 +63,9 @@ public class ReplayMarketDataSource {
             pipeline.onTick(tick);
             previous = tick.ts();
         }
-        pipeline.closeCandlesAsOf(ticks.isEmpty() ? java.time.Instant.now() : ticks.get(ticks.size() - 1).ts().plusSeconds(120));
+        // an empty day closes as of its session close (never the wall clock: replays must not depend on when they run)
+        pipeline.closeCandlesAsOf(ticks.isEmpty() ? day.atTime(money.hejje.common.time.HejjeClock.SESSION_CLOSE).atZone(zone).toInstant().plusSeconds(120)
+                : ticks.get(ticks.size() - 1).ts().plusSeconds(120));
     }
 
     static List<MarketTick> readFile(Path file) {

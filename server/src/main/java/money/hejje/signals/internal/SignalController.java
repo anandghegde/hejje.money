@@ -31,10 +31,12 @@ class SignalController {
 
     private final SignalService signals;
     private final SignalMetrics metrics;
+    private final money.hejje.common.time.HejjeClock clock;
 
-    SignalController(SignalService signals, SignalMetrics metrics) {
+    SignalController(SignalService signals, SignalMetrics metrics, money.hejje.common.time.HejjeClock clock) {
         this.signals = signals;
         this.metrics = metrics;
+        this.clock = clock;
     }
 
     record SkipRequest(String reason) {}
@@ -83,7 +85,7 @@ class SignalController {
             return signals.executeOptions(id, idempotencyKey, principal); // options legs (M5.4): the options position
         }
         HejjeOrder order = signals.execute(id, idempotencyKey, principal);
-        metrics.executed(order.id(), order.placedAt() == null ? Instant.now() : order.placedAt());
+        metrics.executed(order.id(), order.placedAt() == null ? clock.now() : order.placedAt());
         return order;
     }
 

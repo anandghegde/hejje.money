@@ -50,8 +50,8 @@ class TelegramSender implements money.hejje.notify.Channels.Sender {
     }
 
     @Override
-    public void sendDigest(java.util.List<Notification> held) throws Exception {
-        send(Digest.of(held));
+    public void sendDigest(java.util.List<Notification> held, java.time.Instant at) throws Exception {
+        send(Digest.of(held, at));
     }
 
     @Override

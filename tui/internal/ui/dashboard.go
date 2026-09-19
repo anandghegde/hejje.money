@@ -224,6 +224,8 @@ func (m model) View() string {
 		banner = liveStyle.Render("● LIVE " + mode)
 	} else if mode == "AUTO" {
 		banner = liveStyle.Render("● LIVE · AUTO")
+	} else if mode == "SIM" {
+		banner = paperStyle.Render("● SIM · historical replay")
 	}
 	b.WriteString(banner + "\n")
 	b.WriteString(dim.Render("HEJJE") + "\n\n")

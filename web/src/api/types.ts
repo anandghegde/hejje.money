@@ -1,4 +1,4 @@
-export type ExecutionMode = 'PAPER' | 'CONFIRM' | 'AUTO';
+export type ExecutionMode = 'PAPER' | 'CONFIRM' | 'AUTO' | 'SIM';
 
 export interface Health {
   status: string;

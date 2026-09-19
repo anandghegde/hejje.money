@@ -9,9 +9,17 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 class ClockConfig {
 
+    /**
+     * The system clock, or in SIM mode (plan M7.1) a {@link SimClock} starting at {@code hejje.sim.start} (default: now)
+     * that only the replay moves.
+     */
     @Bean
     @ConditionalOnMissingBean
-    Clock systemClock() {
+    Clock systemClock(HejjeProperties properties, org.springframework.core.env.Environment environment) {
+        if (properties.mode() == money.hejje.common.ExecutionMode.SIM) {
+            String start = environment.getProperty("hejje.sim.start");
+            return new SimClock(start == null || start.isBlank() ? java.time.Instant.now() : java.time.Instant.parse(start), properties.timezone());
+        }
         return Clock.systemUTC();
     }
 

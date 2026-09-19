@@ -5,7 +5,8 @@ Secrets are environment variables only.
 
 | Key | Env var | Default | Description |
 |---|---|---|---|
-| `hejje.mode` | `HEJJE_MODE` | `PAPER` | Global execution mode: `PAPER`, `CONFIRM`, `AUTO`. `CONFIRM`/`AUTO` refuse to start unless the `prod` profile is active. |
+| `hejje.mode` | `HEJJE_MODE` | `PAPER` | Global execution mode: `PAPER`, `CONFIRM`, `AUTO`, `SIM`. `CONFIRM`/`AUTO` refuse to start unless the `prod` profile is active; `SIM` needs the `sim` or `dev` profile (never `prod`) and `hejje.broker.adapter=fake` (docs/simulation.md). |
+| `hejje.sim.start` | `HEJJE_SIM_START` | now | SIM only: the instant the simulation clock starts at (ISO-8601, e.g. `2026-09-08T03:45:00Z` = 09:15 IST). |
 | `hejje.timezone` | — | `Asia/Kolkata` | Business time zone for session logic. |
 | `hejje.data-dir` | `HEJJE_DATA_DIR` | `./data` | Directory for server-owned files (parquet, backups). |
 | `spring.datasource.url` | `HEJJE_DB_URL` | `jdbc:postgresql://localhost:5432/hejje` | PostgreSQL JDBC URL. |

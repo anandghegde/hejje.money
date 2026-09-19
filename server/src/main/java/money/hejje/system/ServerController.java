@@ -27,9 +27,11 @@ class ServerController {
     private final ClockDriftChecker clockDrift;
     private final DatabaseCheck database;
     private final ExecutionReadiness readiness;
+    private final money.hejje.common.time.HejjeClock clock;
 
     ServerController(HejjeProperties properties, Optional<BuildProperties> buildProperties, EgressIpVerifier egress,
-            ClockDriftChecker clockDrift, DatabaseCheck database, ExecutionReadiness readiness) {
+            ClockDriftChecker clockDrift, DatabaseCheck database, ExecutionReadiness readiness, money.hejje.common.time.HejjeClock clock) {
+        this.clock = clock;
         this.properties = properties;
         this.version = buildProperties.map(BuildProperties::getVersion).orElse("unknown");
         this.egress = egress;
@@ -80,7 +82,7 @@ class ServerController {
     /** Public liveness probe; reveals nothing about configuration. */
     @GetMapping("/ping")
     Ping ping() {
-        return new Ping("UP", Instant.now());
+        return new Ping("UP", clock.now());
     }
 
     @GetMapping("/health")
@@ -94,7 +96,7 @@ class ServerController {
                 dbUp ? "UP" : "DEGRADED",
                 properties.mode(),
                 version,
-                Instant.now(),
+                this.clock.now(),
                 readiness.isExecutionEnabled(),
                 readiness.reasons(),
                 new Check("HEALTHY", "mode " + properties.mode()),

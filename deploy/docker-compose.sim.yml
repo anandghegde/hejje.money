@@ -1,0 +1,50 @@
+# SIM instance (plan M7.1, docs/simulation.md): historical replay on a simulation clock with simulated fills. A second
+# service next to the live one, with its own database and port, reading the live instance's Parquet history read-only.
+# The live instance is never switched to SIM (one mode per process).
+# Usage (from the repo root; add the host override on the VM):
+#   docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.sim.yml up -d hejje-sim
+services:
+  hejje-sim:
+    image: hejje:latest
+    container_name: hejje-sim
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: sim
+      HEJJE_MODE: SIM
+      HEJJE_BROKER_ADAPTER: fake
+      HEJJE_DB_URL: jdbc:postgresql://postgres-sim:5432/hejje_sim
+      HEJJE_DB_USER: hejje
+      HEJJE_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      HEJJE_DATA_DIR: /data
+      HEJJE_KITE_API_KEY: ""
+      HEJJE_KITE_API_SECRET: ""
+    volumes:
+      - hejje-sim-data:/data
+      - ../data/candles:/data/candles:ro
+      - ../data/ticks:/data/ticks:ro
+    ports:
+      - "127.0.0.1:8091:8080"
+    depends_on:
+      postgres-sim:
+        condition: service_healthy
+
+  postgres-sim:
+    image: postgres:16-alpine
+    container_name: hejje-postgres-sim
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hejje_sim
+      POSTGRES_USER: hejje
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - hejje-sim-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hejje -d hejje_sim"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hejje-sim-data:
+  hejje-sim-pgdata:

@@ -104,7 +104,7 @@ class ChannelSendersTest {
         assertThat(sent.getValue().getSubject()).isEqualTo("[Hejje CRITICAL] Kill switch activated (PAPER)");
 
         Channels.Sender asSender = sender;
-        asSender.sendDigest(List.of(note("one"), note("two")));
+        asSender.sendDigest(List.of(note("one"), note("two")), java.time.Instant.parse("2026-09-10T05:00:00Z"));
         verify(mail, org.mockito.Mockito.times(2)).send(sent.capture());
         assertThat(sent.getValue().getSubject()).contains("2 notification(s) held by the rate limit");
         assertThat(sent.getValue().getText()).contains("• [CRITICAL] one").contains("• [CRITICAL] two");

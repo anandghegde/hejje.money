@@ -102,7 +102,11 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     private final Map<String, List<BrokerCandle>> history = new ConcurrentHashMap<>();
     private final List<FakeStream> streams = new CopyOnWriteArrayList<>();
     private final Deque<BrokerException.Kind> failNext = new ArrayDeque<>();
-    /** Seeded per process from the time of day so ids never collide with rows a previous run left in the database. */
+    /**
+     * Seeded per process from the wall-clock time of day so ids never collide with rows a previous run left in the database.
+     * Deliberately not the Hejje clock: a SIM instance restarts at the same simulated times, and broker order ids are an id
+     * namespace, never part of a result (plan M7.1 keeps them out of the determinism hash).
+     */
     private final AtomicLong sequence = new AtomicLong((System.currentTimeMillis() / 1000 % 86400) * 100000 + 1);
     private final AtomicBoolean dropAck = new AtomicBoolean();
     private volatile long delayNextMs;

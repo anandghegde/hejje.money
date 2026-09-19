@@ -51,7 +51,7 @@ public class OrderValidator {
         if ((intent.orderType() == OrderType.SL || intent.orderType() == OrderType.SL_M) && intent.triggerPrice() == null) {
             errors.add(intent.orderType() + " orders need a trigger price");
         }
-        boolean paperOffSession = properties.allowOffSessionPaper() && intent.mode() == money.hejje.common.ExecutionMode.PAPER;
+        boolean paperOffSession = properties.allowOffSessionPaper() && intent.mode() != null && intent.mode().simulated();
         if (!intent.isExposureReducing() && !clock.isSessionOpen() && !paperOffSession) {
             errors.add("Market is closed (no AMO support yet); only closes are allowed outside the session");
         }

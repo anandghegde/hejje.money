@@ -17,6 +17,7 @@ import java.util.UUID;
 import money.hejje.backtest.InstrumentMeta;
 import money.hejje.backtest.Levels;
 import money.hejje.common.Side;
+import money.hejje.common.time.HejjeClock;
 import money.hejje.market.Candle;
 import money.hejje.market.indicators.Bar;
 import money.hejje.market.indicators.IndicatorContext;
@@ -67,6 +68,7 @@ public final class StrategyRunner {
     private final StrategyDefinition def;
     private final InstrumentMeta meta;
     private final ZoneId zone;
+    private final HejjeClock clock;
     private final ExecutionPort port;
     private final Callbacks callbacks;
     private final int defaultValidityMinutes;
@@ -83,14 +85,15 @@ public final class StrategyRunner {
     private boolean stopReplaced;
     private Bar lastBar;
 
-    public StrategyRunner(StrategyDeployment deployment, StrategyVersion version, InstrumentMeta meta, ZoneId zone, ExecutionPort port, Callbacks callbacks,
+    public StrategyRunner(StrategyDeployment deployment, StrategyVersion version, InstrumentMeta meta, HejjeClock clock, ExecutionPort port, Callbacks callbacks,
             int defaultValidityMinutes, money.hejje.common.Money riskPerTrade) {
         this.riskPerTrade = riskPerTrade;
         this.deployment = deployment;
         this.version = version;
         this.def = version.definition();
         this.meta = meta;
-        this.zone = zone;
+        this.clock = clock;
+        this.zone = clock.zone();
         this.port = port;
         this.callbacks = callbacks;
         this.defaultValidityMinutes = defaultValidityMinutes;
@@ -399,7 +402,7 @@ public final class StrategyRunner {
         }
         BigDecimal riskPerUnit = averagePrice.subtract(position.initialStop()).abs();
         BigDecimal target = Levels.target(def, side, averagePrice, riskPerUnit, ctx, meta.tickSize());
-        Instant openedAt = lastBar == null ? Instant.now() : lastBar.closeTime();
+        Instant openedAt = lastBar == null ? clock.now() : lastBar.closeTime();
         position = new StrategyPosition(position.id(), position.signalId(), position.deploymentId(), position.versionId(), position.strategyId(),
                 position.instrumentId(), position.mode(), side, qty, averagePrice, position.initialStop(), position.stop(), target, position.entryOrderId(), null,
                 null, PositionStatus.OPEN, null, null, openedAt, null, openedAt);
@@ -496,7 +499,7 @@ public final class StrategyRunner {
         UUID stopOrderId = position.stopOrderId();
         position = new StrategyPosition(position.id(), position.signalId(), position.deploymentId(), position.versionId(), position.strategyId(),
                 position.instrumentId(), position.mode(), position.side(), position.quantity(), position.entryPrice(), position.initialStop(), position.stop(),
-                position.target(), position.entryOrderId(), stopOrderId, null, PositionStatus.EXITING, reason, null, position.openedAt(), null, Instant.now());
+                position.target(), position.entryOrderId(), stopOrderId, null, PositionStatus.EXITING, reason, null, position.openedAt(), null, clock.now());
         callbacks.positionUpdated(position);
         if (stopOrderId != null) {
             port.cancelOrder(stopOrderId);
@@ -504,7 +507,7 @@ public final class StrategyRunner {
         Optional<UUID> exitId = port.exitMarket(position, reason.name());
         position = new StrategyPosition(position.id(), position.signalId(), position.deploymentId(), position.versionId(), position.strategyId(),
                 position.instrumentId(), position.mode(), position.side(), position.quantity(), position.entryPrice(), position.initialStop(), position.stop(),
-                position.target(), position.entryOrderId(), null, exitId.orElse(null), PositionStatus.EXITING, reason, null, position.openedAt(), null, Instant.now());
+                position.target(), position.entryOrderId(), null, exitId.orElse(null), PositionStatus.EXITING, reason, null, position.openedAt(), null, clock.now());
         callbacks.positionUpdated(position);
         callbacks.exitTriggered(position, reason, exitId.orElse(null));
     }
@@ -517,16 +520,16 @@ public final class StrategyRunner {
         callbacks.positionClosed(p, reason, price);
     }
 
-    private static StrategyPosition withStop(StrategyPosition p, BigDecimal stop, UUID stopOrderId) {
+    private StrategyPosition withStop(StrategyPosition p, BigDecimal stop, UUID stopOrderId) {
         return new StrategyPosition(p.id(), p.signalId(), p.deploymentId(), p.versionId(), p.strategyId(), p.instrumentId(), p.mode(), p.side(), p.quantity(),
                 p.entryPrice(), p.initialStop(), stop, p.target(), p.entryOrderId(), stopOrderId, p.exitOrderId(), p.status(), p.closeReason(), p.exitPrice(),
-                p.openedAt(), p.closedAt(), Instant.now());
+                p.openedAt(), p.closedAt(), clock.now());
     }
 
-    private static StrategyPosition withTarget(StrategyPosition p, BigDecimal target) {
+    private StrategyPosition withTarget(StrategyPosition p, BigDecimal target) {
         return new StrategyPosition(p.id(), p.signalId(), p.deploymentId(), p.versionId(), p.strategyId(), p.instrumentId(), p.mode(), p.side(), p.quantity(),
                 p.entryPrice(), p.initialStop(), p.stop(), target, p.entryOrderId(), p.stopOrderId(), p.exitOrderId(), p.status(), p.closeReason(), p.exitPrice(),
-                p.openedAt(), p.closedAt(), Instant.now());
+                p.openedAt(), p.closedAt(), clock.now());
     }
 
     /** Evidence as stored on the signal. */

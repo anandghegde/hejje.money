@@ -110,9 +110,9 @@ public class AutoExecutor {
 
         StrategyVersion version = strategies.versionById(s.versionId()).orElseThrow();
         // "promoted for the mode": paper rehearsal needs a PAPER or LIVE version, live AUTO a LIVE one (and paper history)
-        boolean newVersion = mode == ExecutionMode.PAPER ? version.status() != VersionStatus.PAPER && version.status() != VersionStatus.LIVE
+        boolean newVersion = mode.simulated() ? version.status() != VersionStatus.PAPER && version.status() != VersionStatus.LIVE
                 : version.status() != VersionStatus.LIVE;
-        Integer paperTrades = mode == ExecutionMode.PAPER ? null : signals.closedPaperTrades(version.id());
+        Integer paperTrades = mode.simulated() ? null : signals.closedPaperTrades(version.id());
         boolean qualified = !newVersion && (paperTrades == null || paperTrades >= properties.minPaperTrades());
         Instant dayStart = clock.today().atStartOfDay(clock.zone()).toInstant();
         SignalService.DeploymentDay day = signals.deploymentDay(d.id(), dayStart);
@@ -121,7 +121,7 @@ public class AutoExecutor {
         String eventLevel = eventRisk.available() && eventRisk.level() != null ? eventRisk.level().name() : null;
         Integer score = scoring.latest(version.id(), s.instrumentId()).map(ScoreBreakdown::finalScore).orElse(null);
         // an options strategy cannot be backtested, so it never has a score; its PAPER rehearsal may still run AUTO (plan M6.4)
-        boolean unscoredPaper = mode == ExecutionMode.PAPER && !version.definition().legs().isEmpty();
+        boolean unscoredPaper = mode.simulated() && !version.definition().legs().isEmpty();
         PolicyResult policy = policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.STRATEGY, mode, d.autonomyLevel(), eventLevel, score,
                 newVersion, s.strategyId(), s.instrumentId(), qualified, budgetBreach, unscoredPaper));
         int entriesOnInstrument = signals.entriesSince(d.id(), s.instrumentId(), dayStart);

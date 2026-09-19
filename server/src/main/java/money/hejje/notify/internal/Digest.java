@@ -15,11 +15,11 @@ final class Digest {
     private Digest() {
     }
 
-    static Notification of(List<Notification> held) {
+    static Notification of(List<Notification> held, Instant at) {
         NotificationType.Severity worst = held.stream().map(Notification::severity).max(Comparator.naturalOrder()).orElse(NotificationType.Severity.INFO);
         String body = held.stream().sorted(Comparator.comparing(Notification::createdAt)).map(n -> "• [" + n.severity() + "] " + n.title())
                 .collect(Collectors.joining("\n"));
         return new Notification(UUID.randomUUID(), NotificationType.TEST, worst, "Hejje: " + held.size() + " notification(s) held by the rate limit", body,
-                Map.of("count", held.size()), null, Instant.now(), null);
+                Map.of("count", held.size()), null, at, null);
     }
 }

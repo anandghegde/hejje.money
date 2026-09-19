@@ -178,7 +178,7 @@ class ParityTest {
 
                 // live runner: warm up on the earlier sessions, then replay the recorded ones bar by bar
                 Recording recording = new Recording();
-                StrategyRunner runner = new StrategyRunner(deployment, version, META, IST, new SimulatedExecutionPort(), recording, 0, RISK);
+                StrategyRunner runner = new StrategyRunner(deployment, version, META, clock, new SimulatedExecutionPort(), recording, 0, RISK);
                 List<Candle> warm = candles.stream().filter(c -> c.openTime().atZone(IST).toLocalDate().isBefore(RECORDED.get(0))).toList();
                 runner.warmUp(warm);
                 for (Candle c : candles) {

@@ -68,7 +68,7 @@ class NotificationIT extends AbstractIntegrationTest {
         }
 
         @Override
-        public void sendDigest(List<Notification> held) {
+        public void sendDigest(List<Notification> held, java.time.Instant at) {
             digests.add(new ArrayList<>(held));
         }
     }

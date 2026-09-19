@@ -258,8 +258,8 @@ public class DriftService {
                 return "REDUCE_SIZE " + current.sizeMultiplier().toPlainString() + " -> " + target.setScale(2).toPlainString();
             }
             case MOVE_TO_PAPER -> {
-                if (d.mode() == ExecutionMode.PAPER) {
-                    return "MOVE_TO_PAPER skipped: already PAPER";
+                if (d.mode().simulated()) {
+                    return "MOVE_TO_PAPER skipped: already " + d.mode();
                 }
                 StrategyDeployment paper = strategies.moveToPaper(d.id(), reason, SYSTEM);
                 recordPause(d, report, reason);

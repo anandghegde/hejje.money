@@ -277,12 +277,12 @@ public class StrategyService {
         if (mode == null) {
             throw new IllegalArgumentException("Deployment mode is required");
         }
-        boolean allowed = mode == ExecutionMode.PAPER
+        boolean allowed = mode.simulated()
                 ? version.status() == VersionStatus.PAPER || version.status() == VersionStatus.LIVE
                 : version.status() == VersionStatus.LIVE;
         if (!allowed) {
             throw new StrategyException.Conflict("Version " + number + " is " + version.status() + "; a " + mode + " deployment needs "
-                    + (mode == ExecutionMode.PAPER ? "PAPER or LIVE" : "LIVE"));
+                    + (mode.simulated() ? "PAPER or LIVE" : "LIVE"));
         }
         if (autonomyLevel < 0 || autonomyLevel > 5) {
             throw new IllegalArgumentException("Autonomy level must be between 0 and 5");
@@ -373,8 +373,8 @@ public class StrategyService {
     @Transactional
     public StrategyDeployment moveToPaper(UUID id, String reason, String by) {
         StrategyDeployment d = store.findDeployment(id).orElseThrow(() -> new StrategyException.NotFound("Deployment " + id + " not found"));
-        if (d.mode() == ExecutionMode.PAPER) {
-            throw new StrategyException.Conflict("Deployment " + id + " is already PAPER");
+        if (d.mode().simulated()) {
+            throw new StrategyException.Conflict("Deployment " + id + " is already " + d.mode());
         }
         if (d.enabled()) {
             pauseDeployment(d, reason, by);

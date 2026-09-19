@@ -122,7 +122,7 @@ public class NotificationService {
             String status;
             String detail = null;
             try {
-                sender.sendDigest(held.stream().map(Map.Entry::getValue).toList());
+                sender.sendDigest(held.stream().map(Map.Entry::getValue).toList(), clock.now());
                 status = "DIGEST_SENT";
             } catch (Exception e) {
                 status = "FAILED";

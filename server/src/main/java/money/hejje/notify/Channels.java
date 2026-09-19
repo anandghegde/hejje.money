@@ -20,7 +20,8 @@ public interface Channels {
 
         void send(Notification n) throws Exception;
 
-        void sendDigest(List<Notification> held) throws Exception;
+        /** @param at the digest's creation time (the Hejje clock, simulation time in SIM) */
+        void sendDigest(List<Notification> held, java.time.Instant at) throws Exception;
     }
 
     enum Decision { SEND, DIGEST, SKIP }

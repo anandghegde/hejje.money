@@ -18,7 +18,7 @@ public record PolicyRequest(PolicyAction action, ActorType actorType, ExecutionM
         boolean newStrategyVersion, UUID strategyId, UUID instrumentId, boolean autoQualified, String budgetBreach, boolean unscoredPaper) {
 
     public PolicyRequest {
-        unscoredPaper = unscoredPaper && mode == ExecutionMode.PAPER;
+        unscoredPaper = unscoredPaper && mode != null && mode.simulated();
     }
 
     public PolicyRequest(PolicyAction action, ActorType actorType, ExecutionMode mode, Integer autonomyLevel, String eventRisk, Integer score,
