@@ -14,6 +14,8 @@ Files:
 | `phase-3-context.md` | Regime, Pulse, events, news bias, context engine, decision states |
 | `phase-4-agent.md` | LLM providers, tool surface, Hejje AI, confirmed execution, NL builder, experiments |
 | `phase-5-automation.md` | Drift, AUTO mode, smart/basket/split orders, options, notifications, webhooks, HA |
+| `phase-6-strategy-research.md` | Data audit and baselines, new price/volume indicators and strategies, 9:20 iron fly, strategy bake-off |
+| `phase-7-bot-harness.md` | SIM mode and clock, historical session replay, bot protocol, harness TUI screen, leaderboard |
 
 ---
 
