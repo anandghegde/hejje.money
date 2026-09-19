@@ -208,3 +208,23 @@ func TestServerSnapshotDecodesAndRenders(t *testing.T) {
 		}
 	}
 }
+
+func TestAStoredReportOpensReadOnly(t *testing.T) {
+	lipgloss.SetColorProfile(termenv.Ascii)
+	var m tea.Model = NewHarnessReport(fixture(t, "harness_server.json"))
+	m, _ = m.Update(tea.WindowSizeMsg{Width: 200, Height: 50})
+	out := m.View()
+	if !strings.Contains(out, "HEJJE REPORT (read-only)") || strings.Contains(out, "[space]") || strings.Contains(out, "[K]") {
+		t.Fatalf("a report shows no controls:\n%s", out)
+	}
+	for _, k := range []string{" ", "K", "p", "c", "s"} {
+		var cmd tea.Cmd
+		m, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(k)})
+		if cmd != nil {
+			t.Fatalf("key %q acted on a read-only report", k)
+		}
+	}
+	if strings.Contains(m.View(), "Kill switch: stop all new orders?") {
+		t.Fatal("no kill prompt on a report")
+	}
+}

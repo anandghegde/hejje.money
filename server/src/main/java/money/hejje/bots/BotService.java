@@ -91,6 +91,11 @@ public class BotService {
         return store.find(id);
     }
 
+    /** The bot trading through a strategy (its backing strategy, or the strategy a STRATEGY bot runs). */
+    public Optional<Bot> byStrategy(UUID strategyId) {
+        return store.all().stream().filter(b -> b.strategyId().equals(strategyId)).findFirst();
+    }
+
     public List<Bot> list() {
         return store.all();
     }

@@ -336,6 +336,7 @@ public class HarnessService {
             row.put("entry", p.entryPrice());
             row.put("exit", p.exitPrice());
             row.put("pnl", money(c.net()));
+            row.put("r", round(c.r(), 3));
             row.put("holdMinutes", p.closedAt() == null ? null : Duration.between(p.openedAt(), p.closedAt()).toMinutes());
             row.put("why", thesis(p));
             row.put("exitReason", p.closeReason() == null ? null : p.closeReason().name());

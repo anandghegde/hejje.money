@@ -26,7 +26,6 @@ import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
 import money.hejje.market.Candle;
 import money.hejje.market.CandleClosedEvent;
-import money.hejje.strategy.StrategyDeployment;
 import money.hejje.strategy.StrategyService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,12 +58,14 @@ class BotWebSocketIT extends AbstractIntegrationTest {
         instruments.sync();
         Bot bot = bots.register(new BotService.Registration("wsbot" + (System.nanoTime() % 100000), "1", Bot.Kind.LLM, java.time.LocalDate.of(2026, 1, 1),
                 Set.of(ExecutionMode.PAPER), List.of("NSE:INFY"), "5m", null, null), "admin");
-        StrategyDeployment d = strategies.deploy(bot.strategyId(), 1, ExecutionMode.PAPER, List.of(), 0, Map.of(), "admin");
+        // a new bot has no SIM record, so PAPER is refused (plan M7.5); decision points and HOLD need no deployment
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> strategies.deploy(bot.strategyId(), 1, ExecutionMode.PAPER, List.of(), 0, Map.of(), "admin"))
+                .isInstanceOf(money.hejje.strategy.StrategyException.Conflict.class).hasMessageContaining("0 of the 20 SIM sessions");
         UUID infy = instruments.resolve("NSE:INFY").map(Instrument::id).orElseThrow();
         HejjePrincipal admin = new HejjePrincipal(UUID.randomUUID(), "admin", HejjePrincipal.Type.USER, ScopeCatalog.ALL);
         String key = clients.create("bot-" + bot.name(), AgentPresets.scopes(AgentPresets.BOT), null, admin).key();
         assertThat(AgentPresets.scopes(AgentPresets.BOT)).containsExactlyInAnyOrder("market:read", "strategies:read", "bot:decide");
-        try {
+        {
             // a key without bot:decide is refused
             String research = clients.create("research-" + bot.name(), AgentPresets.scopes(AgentPresets.RESEARCH), null, admin).key();
             BlockingQueue<CloseStatus> refused = new LinkedBlockingQueue<>();
@@ -114,8 +115,6 @@ class BotWebSocketIT extends AbstractIntegrationTest {
             assertThat(view.getBody()).containsEntry("kind", "LLM").containsEntry("knowledgeCutoff", "2026-01-01");
             assertThat((Map<String, Object>) view.getBody().get("stats")).containsEntry("connected", true).containsEntry("answered", 1);
             session.close();
-        } finally {
-            strategies.updateDeployment(d.id(), false, "end of test", "admin");
         }
     }
 }

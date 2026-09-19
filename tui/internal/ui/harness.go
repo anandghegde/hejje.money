@@ -57,11 +57,18 @@ type Harness struct {
 	status         string
 	streamErr      string
 	frames         int
+	// readOnly shows a stored session report (plan M7.5): no stream, no controls
+	readOnly bool
 }
 
 // NewHarness builds the model; the stream feeds it SnapshotMsg.
 func NewHarness(a HarnessAPI) Harness {
 	return Harness{api: a, width: 200, height: 50}
+}
+
+// NewHarnessReport shows a stored session report read-only.
+func NewHarnessReport(s api.HarnessSnapshot) Harness {
+	return Harness{snap: &s, readOnly: true, width: 200, height: 50}
 }
 
 func (m Harness) Init() tea.Cmd {
@@ -153,6 +160,11 @@ func (m Harness) key(k tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "tab":
 		m.focus = (m.focus + 1) % len(panelNames)
+	}
+	if m.readOnly {
+		return m, nil
+	}
+	switch key {
 	case "K":
 		m.confirmKill = true
 	case "p":
@@ -356,7 +368,11 @@ func (m Harness) header(w int) string {
 	if h.KillSwitch {
 		kill = "  " + hWarn.Render("KILL SWITCH ON")
 	}
-	line1 := fmt.Sprintf("%s %s  %s  fill: %s  %s  latency %s  skipped %d  %s", hTitle.Render("HEJJE HARNESS"), badge, hTitle.Render(bot),
+	title := "HEJJE HARNESS"
+	if m.readOnly {
+		title = "HEJJE REPORT (read-only)"
+	}
+	line1 := fmt.Sprintf("%s %s  %s  fill: %s  %s  latency %s  skipped %d  %s", hTitle.Render(title), badge, hTitle.Render(bot),
 		h.FillSource, h.DataHealth, lat, h.Skipped, istClock(s.Clock))
 	line2 := hDim.Render(fmt.Sprintf("capital ₹%s", hMoney(s.Tiles.Capital))) + kill
 	return truncate(line1, w) + "\n" + line2
@@ -383,8 +399,12 @@ func (m Harness) replayBar(w int) string {
 		}
 		sp = append(sp, label)
 	}
-	line := fmt.Sprintf("REPLAY %s day %d/%d  %s  %s  %d/%d  speed %s  [space] play/pause [s] step [c] capital", ss.SessionDate, ss.Day, ss.Days, state,
-		bar, ss.Step, steps, strings.Join(sp, " "))
+	controls := "  [space] play/pause [s] step [c] capital"
+	if m.readOnly {
+		controls = ""
+	}
+	line := fmt.Sprintf("REPLAY %s day %d/%d  %s  %s  %d/%d  speed %s%s", ss.SessionDate, ss.Day, ss.Days, state,
+		bar, ss.Step, steps, strings.Join(sp, " "), controls)
 	if len(ss.Warnings) > 0 {
 		line += "\n" + hWarn.Render("⚠ "+strings.Join(ss.Warnings, "; "))
 	}
@@ -552,7 +572,9 @@ func (m Harness) footer() string {
 		parts = append(parts, hWarn.Render("capital (₹, before the first step): "+m.capital+"▏ [enter] set [esc] cancel"))
 	}
 	keys := "[tab] panel  [p] pause bot  [K] kill  [q] quit"
-	if m.sim() {
+	if m.readOnly {
+		keys = "[tab] panel  [q] quit"
+	} else if m.sim() {
 		keys = "[space] play/pause  [1-5] speed  [s] step  [c] capital  " + keys
 	}
 	status := ""
@@ -727,6 +749,12 @@ func istClock(t string) string {
 		return t
 	}
 	return ts.In(time.FixedZone("IST", 5*3600+1800)).Format("15:04:05")
+}
+
+// RunReport opens a stored session report read-only (plan M7.5).
+func RunReport(s api.HarnessSnapshot) error {
+	_, err := tea.NewProgram(NewHarnessReport(s), tea.WithAltScreen()).Run()
+	return err
 }
 
 // RunHarness runs the harness screen against a server: the first snapshot over REST, then the /ws/harness stream,

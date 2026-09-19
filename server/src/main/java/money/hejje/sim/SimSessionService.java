@@ -77,6 +77,7 @@ public class SimSessionService {
     private final SimSessionStore store;
     private final HejjeClock clock;
     private final money.hejje.bots.BotService bots;
+    private final org.springframework.context.ApplicationEventPublisher events;
     /** Session bookkeeping (created, finished) is wall time; everything the replay does runs on simulation time. */
     private final Clock wall = Clock.systemUTC();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
@@ -89,8 +90,9 @@ public class SimSessionService {
 
     SimSessionService(SimTime time, SessionReplay replay, BrokerSimulation broker, InstrumentService instruments, OrderService orders, RiskService risk,
             SignalEngine engine, List<Drainable> drainables, ObjectProvider<EventPublicationRegistry> publications, JdbcClient jdbc, SimSessionStore store,
-            HejjeClock clock, money.hejje.bots.BotService bots) {
+            HejjeClock clock, money.hejje.bots.BotService bots, org.springframework.context.ApplicationEventPublisher events) {
         this.bots = bots;
+        this.events = events;
         this.time = time;
         this.replay = replay;
         this.broker = broker;
@@ -561,6 +563,11 @@ public class SimSessionService {
             store.update(session);
             log.info("SIM session {} {}: {} fill(s), friction {}, net {}, hash {}", s.id(), state, r.fills(), r.friction().toRupeesString(),
                     r.netPnl().toRupeesString(), r.hash());
+            try {
+                events.publishEvent(new SimSessionFinished(s.id(), state)); // reports (M7.5) read the ledger now, before the next session clears it
+            } catch (RuntimeException e) {
+                log.warn("Reporting SIM session {} failed", s.id(), e);
+            }
         }
     }
 }

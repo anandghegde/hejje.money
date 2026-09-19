@@ -51,6 +51,7 @@ public class StrategyService {
     private final ApplicationEventPublisher events;
     private final HejjeClock clock;
     private final org.springframework.beans.factory.ObjectProvider<PaperTradeEvidence> paperTrades;
+    private final org.springframework.beans.factory.ObjectProvider<BotPromotionEvidence> botRecords;
     private final money.hejje.common.config.AutoProperties auto;
     private final JsonMapper canonical = JsonMapper.builder()
             .addModule(new JavaTimeModule())
@@ -61,8 +62,10 @@ public class StrategyService {
 
     StrategyService(StrategyStore store, DefinitionParser parser, StrategyValidator validator, StrategyLifecycle lifecycle,
             InstrumentService instruments, StrategyProperties properties, AuditService audit, ApplicationEventPublisher events,
-            HejjeClock clock, org.springframework.beans.factory.ObjectProvider<PaperTradeEvidence> paperTrades, money.hejje.common.config.AutoProperties auto) {
+            HejjeClock clock, org.springframework.beans.factory.ObjectProvider<PaperTradeEvidence> paperTrades, money.hejje.common.config.AutoProperties auto,
+            org.springframework.beans.factory.ObjectProvider<BotPromotionEvidence> botRecords) {
         this.paperTrades = paperTrades;
+        this.botRecords = botRecords;
         this.auto = auto;
         this.store = store;
         this.parser = parser;
@@ -283,6 +286,14 @@ public class StrategyService {
         if (!allowed) {
             throw new StrategyException.Conflict("Version " + number + " is " + version.status() + "; a " + mode + " deployment needs "
                     + (mode.simulated() ? "PAPER or LIVE" : "LIVE"));
+        }
+        if (mode == ExecutionMode.PAPER && version.definition().family() == StrategyFamily.BOT) {
+            // a bot earns PAPER in simulation first (plan M7.5)
+            BotPromotionEvidence records = botRecords.getIfAvailable();
+            String refusal = records == null ? null : records.refusePaper(version);
+            if (refusal != null) {
+                throw new StrategyException.Conflict(refusal);
+            }
         }
         if (autonomyLevel < 0 || autonomyLevel > 5) {
             throw new IllegalArgumentException("Autonomy level must be between 0 and 5");

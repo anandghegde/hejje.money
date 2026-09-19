@@ -213,3 +213,75 @@ func StreamHarness(ctx context.Context, c *Client, botID, sessionID string, onSn
 		}
 	}
 }
+
+// SimReport is one bot's result in one finished SIM session (plan M7.5); Snapshot is the harness view at the end.
+type SimReport struct {
+	ID               string          `json:"id"`
+	SessionID        string          `json:"sessionId"`
+	BotName          string          `json:"botName"`
+	BotVersion       string          `json:"botVersion"`
+	BotKind          string          `json:"botKind"`
+	SessionDates     []string        `json:"sessionDates"`
+	CapitalPaise     int64           `json:"capitalPaise"`
+	Trades           int             `json:"trades"`
+	Wins             int             `json:"wins"`
+	ExpectancyR      *float64        `json:"expectancyR"`
+	ProfitFactor     *float64        `json:"profitFactor"`
+	MaxDrawdownPaise int64           `json:"maxDrawdownPaise"`
+	NetPnlPaise      int64           `json:"netPnlPaise"`
+	FrictionPaise    int64           `json:"frictionPaise"`
+	DecisionsHash    string          `json:"decisionsHash"`
+	ResultHash       string          `json:"resultHash"`
+	Snapshot         HarnessSnapshot `json:"snapshot"`
+	CreatedAt        string          `json:"createdAt"`
+}
+
+// LeaderboardRow is one bot version's aggregate over its session reports.
+type LeaderboardRow struct {
+	Rank             int      `json:"rank"`
+	Bot              string   `json:"bot"`
+	Version          string   `json:"version"`
+	Kind             string   `json:"kind"`
+	Sessions         int      `json:"sessions"`
+	Trades           int      `json:"trades"`
+	WinRate          *float64 `json:"winRate"`
+	ExpectancyR      *float64 `json:"expectancyR"`
+	ProfitFactor     *float64 `json:"profitFactor"`
+	MaxDrawdownPaise int64    `json:"maxDrawdownPaise"`
+	NetPnlPaise      int64    `json:"netPnlPaise"`
+	FrictionPaise    int64    `json:"frictionPaise"`
+}
+
+type Leaderboard struct {
+	From           string           `json:"from"`
+	To             string           `json:"to"`
+	Common         bool             `json:"common"`
+	MinSimSessions int              `json:"minSimSessions"`
+	Rows           []LeaderboardRow `json:"rows"`
+}
+
+func (c *Client) SimReports(bot string, limit int) ([]SimReport, error) {
+	var out []SimReport
+	q := url.Values{"limit": {fmt.Sprint(limit)}}
+	if bot != "" {
+		q.Set("bot", bot)
+	}
+	return out, c.do(http.MethodGet, "/sim/reports?"+q.Encode(), nil, false, &out)
+}
+
+func (c *Client) SimReport(id string) (SimReport, error) {
+	var r SimReport
+	return r, c.do(http.MethodGet, "/sim/reports/"+id, nil, false, &r)
+}
+
+func (c *Client) Leaderboard(from, to string, common bool) (Leaderboard, error) {
+	var l Leaderboard
+	q := url.Values{"common": {fmt.Sprint(common)}}
+	if from != "" {
+		q.Set("from", from)
+	}
+	if to != "" {
+		q.Set("to", to)
+	}
+	return l, c.do(http.MethodGet, "/sim/leaderboard?"+q.Encode(), nil, false, &l)
+}

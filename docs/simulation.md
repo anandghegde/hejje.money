@@ -105,6 +105,7 @@ so bots trade the replay exactly as a strategy would. A session's `bots` are val
 LLM bot on days before its knowledge cutoff adds a `warning`. Authentication runs on wall time in SIM. See
 `docs/bots.md`.
 
-## Not yet
+## Harness, reports and leaderboard (M7.4, M7.5)
 
-The TUI harness (M7.4) and the leaderboard (M7.5) follow.
+`hejje harness` watches a session live (docs/tui.md). Every finished session leaves a report per bot; the leaderboard
+ranks bots over them and a bot reaches PAPER only with enough positive SIM sessions (docs/bots.md).

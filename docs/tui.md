@@ -85,3 +85,8 @@ Tests: `internal/ui/harness_test.go` renders a fixture stream through teatest at
 in `testdata/` (`go test ./internal/ui -update` rewrites them), decodes a snapshot the server produced
 (`harness_server.json`, written by `BotProtocolIT` to `server/build/harness-snapshot.json`), and checks the throttle, the
 SIM-only replay keys and the kill confirmation.
+
+`hejje harness sessions [--bot <name>]` lists SIM session reports; `hejje harness sessions <report-id>` opens one in the
+same screen read-only (no stream, no controls). `hejje harness leaderboard [--from --to --common]` prints the leaderboard
+(docs/bots.md). Both accept `--json`.
+

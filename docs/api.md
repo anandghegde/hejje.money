@@ -1270,3 +1270,14 @@ warnings), `header` (bot, fill source, data health, latency p50/p90, skipped, co
 also takes `capitalRupees` (only before the first step). Bot replies may carry `usage: {inputTokens, outputTokens,
 costRupees}` (shown as the LLM tile).
 
+## Session reports and leaderboard (Phase 7, M7.5)
+
+See `docs/bots.md`. `GET /api/v1/sim/reports?bot=&version=&limit=` · `GET /api/v1/sim/reports/{id}` (`market:read`):
+`{ id, sessionId, botName, botVersion, botKind, sessionDates, capitalPaise, trades, wins, expectancyR, profitFactor,
+maxDrawdownPaise, netPnlPaise, winPaise, lossPaise, frictionPaise, tradeRs, decisionsHash, resultHash, snapshot,
+createdAt }`. `POST /api/v1/sim/reports/import` (`admin`, body: a list of reports) → `{ received, imported }`.
+`GET /api/v1/sim/leaderboard?from=&to=&common=` (`market:read`) → `{ from, to, common, minSimSessions, rows: [ { rank,
+bot, version, kind, sessions, trades, winRate, expectancyR, profitFactor, maxDrawdownPaise, netPnlPaise, frictionPaise
+} ] }`. Deploying a bot's backing strategy in PAPER is refused (409) until the bot version has
+`hejje.bots.min-sim-sessions` reports with positive expectancy.
+

@@ -86,3 +86,26 @@ a 2R target, and the stop goes to break-even after 1R.
 export HEJJE_URL=http://localhost:8080 HEJJE_API_KEY=hejje_…   # preset "bot"
 python3 research/bots/example_bot.py <bot-id>
 ```
+
+## Session reports, leaderboard and promotion (M7.5)
+
+When a SIM session finishes (`DONE`), every bot listed in its `bots` gets a **report**: trades, wins, expectancy (R net
+of costs), profit factor, max drawdown, net P&L, friction, every trade's R, the session's result hash, a SHA-256 over the
+bot's decisions in it, and the harness snapshot at the end (equity curve, trades, decisions). Reports outlive the next
+session (which clears the simulated ledger) and are keyed by the bot's **name and version**.
+
+- `GET /api/v1/sim/reports?bot=&version=&limit=` and `GET /api/v1/sim/reports/{id}` (`market:read`);
+  `hejje harness sessions` lists them, `hejje harness sessions <report-id>` opens one read-only in the harness screen.
+- **Leaderboard**: `GET /api/v1/sim/leaderboard?from=&to=&common=` ranks bot versions (EXTERNAL, LLM and STRATEGY bots
+  alike) by expectancy net of costs over their reports whose sessions fall in the range, with sessions, trades, win
+  rate, profit factor, max drawdown (the worst session), net P&L and friction alongside. `common=true` keeps only the
+  session day sets every ranked bot played, so all rows compare the same sessions (give every bot the same capital).
+  `hejje harness leaderboard [--from --to --common]`.
+- **Promotion**: a bot's backing strategy may be deployed in **PAPER** only after `hejje.bots.min-sim-sessions` (20)
+  reports of that bot version with **positive expectancy over all their trades**; otherwise the deployment is refused
+  with the count or the expectancy. PAPER → LIVE follows the existing paper track-record and drift rules. STRATEGY bots
+  run ordinary strategies, which keep their own backtest-based lifecycle.
+- SIM runs in its own database, so reports are **exported and imported** where the bot is promoted: take
+  `GET /sim/reports?bot=<name>&version=<v>&limit=1000` from the SIM instance and `POST /api/v1/sim/reports/import` (admin)
+  the list on the live instance (idempotent per session and bot).
+
