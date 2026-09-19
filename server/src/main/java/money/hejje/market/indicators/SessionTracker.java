@@ -1,6 +1,8 @@
 package money.hejje.market.indicators;
 
 import java.time.LocalDate;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * Tracks the current session's open/high/low/close and rolls them into "previous day" values when the session date
@@ -17,6 +19,10 @@ public final class SessionTracker {
     private double prevHigh = Double.NaN;
     private double prevLow = Double.NaN;
     private double prevClose = Double.NaN;
+    /** Ranges (high − low) of completed sessions, most recent first; capped at {@link #RANGE_HISTORY}. */
+    private final Deque<Double> ranges = new ArrayDeque<>();
+
+    static final int RANGE_HISTORY = 64;
 
     /** Seeds the previous day's values from a daily candle (used when warm-up history starts mid-way). */
     public void seedPreviousDay(LocalDate day, double high, double low, double close) {
@@ -33,6 +39,10 @@ public final class SessionTracker {
                 prevHigh = high;
                 prevLow = low;
                 prevClose = close;
+                ranges.addFirst(high - low);
+                if (ranges.size() > RANGE_HISTORY) {
+                    ranges.removeLast();
+                }
             }
             session = bar.session();
             open = bar.open();
@@ -47,6 +57,38 @@ public final class SessionTracker {
 
     public double sessionOpen() {
         return open;
+    }
+
+    public double sessionHigh() {
+        return high;
+    }
+
+    public double sessionLow() {
+        return low;
+    }
+
+    /**
+     * 1 when the previous session's range is the smallest (ties included) of the last {@code n} completed sessions'
+     * ranges, 0 when it is not, NaN while fewer than {@code n} sessions have completed.
+     */
+    public double prevDayNarrowestRange(int n) {
+        if (ranges.size() < n || Double.isNaN(ranges.peekFirst())) {
+            return Double.NaN;
+        }
+        double previous = ranges.peekFirst();
+        int i = 0;
+        for (double range : ranges) {
+            if (i++ >= n) {
+                break;
+            }
+            if (Double.isNaN(range)) {
+                return Double.NaN;
+            }
+            if (range < previous) {
+                return 0;
+            }
+        }
+        return 1;
     }
 
     public double prevDayHigh() {

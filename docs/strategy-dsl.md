@@ -121,6 +121,11 @@ args      := arg (',' arg)*       arg := number | duration        duration := <i
 | `prev_day_high`, `prev_day_low`, `prev_day_close` | — | from daily candles |
 | `gap_pct` | — | (today's open − previous close) / previous close × 100 |
 | `session_minutes` | — | minutes since 09:15 at the bar close |
+| `session_open`, `session_high`, `session_low` | — | today's first-bar open; running high / low of today's bars so far |
+| `pivot`, `cpr_top`, `cpr_bottom`, `cpr_width_pct` | — | central pivot range from the previous session's H, L, C (docs/indicators.md) |
+| `supertrend(n, k)` | ATR period, band multiple | Supertrend line (Wilder ATR), continuous across sessions |
+| `prev_day_nr(n)` | sessions | 1 when yesterday had the narrowest range of the last n sessions (NR7 = `prev_day_nr(7) == 1`), else 0 |
+| `opening_return(d)` | duration (required) | % return from the previous close to the close of the bar ending at 09:15 + d; NOT_READY before it |
 | `highest(n)`, `lowest(n)` | period | highest high / lowest low of the last n bars |
 
 Implementations arrive in `market.indicators` (M2.2). Until an indicator is warmed up it is *not ready* and every

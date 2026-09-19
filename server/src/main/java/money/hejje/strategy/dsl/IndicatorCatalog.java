@@ -52,6 +52,16 @@ public final class IndicatorCatalog {
         add("prev_day_close", List.of(), List.of());
         add("gap_pct", List.of(), List.of());
         add("session_minutes", List.of(), List.of());
+        add("session_open", List.of(), List.of());
+        add("session_high", List.of(), List.of());
+        add("session_low", List.of(), List.of());
+        add("pivot", List.of(), List.of());
+        add("cpr_top", List.of(), List.of());
+        add("cpr_bottom", List.of(), List.of());
+        add("cpr_width_pct", List.of(), List.of());
+        add("supertrend", List.of(ArgKind.INT, ArgKind.NUMBER), List.of());
+        add("prev_day_nr", List.of(ArgKind.INT), List.of());
+        add("opening_return", List.of(ArgKind.DURATION), List.of());
     }
 
     private IndicatorCatalog() {

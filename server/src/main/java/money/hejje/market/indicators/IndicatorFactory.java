@@ -31,6 +31,16 @@ final class IndicatorFactory {
             case "prev_day_close" -> SessionIndicators.prevDayClose(session);
             case "gap_pct" -> SessionIndicators.gapPct(session);
             case "session_minutes" -> SessionIndicators.sessionMinutes();
+            case "session_open" -> SessionIndicators.sessionOpen(session);
+            case "session_high" -> SessionIndicators.sessionHigh(session);
+            case "session_low" -> SessionIndicators.sessionLow(session);
+            case "pivot" -> SessionIndicators.pivot(session);
+            case "cpr_top" -> SessionIndicators.cprTop(session);
+            case "cpr_bottom" -> SessionIndicators.cprBottom(session);
+            case "cpr_width_pct" -> SessionIndicators.cprWidthPct(session);
+            case "supertrend" -> new Supertrend(intArg(args, 0), numArg(args, 1));
+            case "prev_day_nr" -> SessionIndicators.prevDayNr(session, intArg(args, 0));
+            case "opening_return" -> new OpeningReturn(durationArg(args, 0), session);
             default -> throw new IllegalArgumentException("Unknown indicator '" + name + "'");
         };
     }

@@ -38,12 +38,23 @@ class IndicatorGoldenTest {
             Map.entry("prev_day_low", "prev_day_low"),
             Map.entry("prev_day_close", "prev_day_close"),
             Map.entry("gap_pct", "gap_pct"),
-            Map.entry("session_minutes", "session_minutes"));
+            Map.entry("session_minutes", "session_minutes"),
+            Map.entry("session_open", "session_open"),
+            Map.entry("session_high", "session_high"),
+            Map.entry("session_low", "session_low"),
+            Map.entry("pivot", "pivot"),
+            Map.entry("cpr_top", "cpr_top"),
+            Map.entry("cpr_bottom", "cpr_bottom"),
+            Map.entry("cpr_width_pct", "cpr_width_pct"),
+            Map.entry("supertrend_10_3", "supertrend(10, 3)"),
+            Map.entry("prev_day_nr_4", "prev_day_nr(4)"),
+            Map.entry("prev_day_nr_7", "prev_day_nr(7)"),
+            Map.entry("opening_return_30", "opening_return(30m)"));
 
     @Test
     void everyIndicatorMatchesTheReference() {
         List<Fixtures.Row> rows = Fixtures.golden();
-        assertThat(rows).hasSize(450);
+        assertThat(rows).hasSize(900);
         IndicatorContext ctx = new IndicatorContext(Timeframe.M5, Fixtures.IST);
         for (String call : COLUMNS.values()) {
             Expr.IndicatorCall parsed = (Expr.IndicatorCall) ConditionParser.parseExpr(call);

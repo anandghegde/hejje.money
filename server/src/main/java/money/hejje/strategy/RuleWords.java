@@ -124,6 +124,16 @@ public final class RuleWords {
             case "prev_day_close" -> "the previous day's close";
             case "gap_pct" -> "the opening gap %";
             case "session_minutes" -> "minutes since the open";
+            case "session_open" -> "today's open";
+            case "session_high" -> "today's high so far";
+            case "session_low" -> "today's low so far";
+            case "pivot" -> "the pivot";
+            case "cpr_top" -> "the top of the central pivot range";
+            case "cpr_bottom" -> "the bottom of the central pivot range";
+            case "cpr_width_pct" -> "the CPR width %";
+            case "supertrend" -> "Supertrend(" + a0 + ", " + a1 + ")";
+            case "prev_day_nr" -> "the previous day's NR" + a0 + " flag (1 when it had the narrowest range of the last " + a0 + " sessions)";
+            case "opening_return" -> "the % return from the previous close to the close " + a0.replace("-", " ") + "s after the open";
             case "highest" -> "the highest high of the last " + a0 + " bars";
             case "lowest" -> "the lowest low of the last " + a0 + " bars";
             default -> c.text();

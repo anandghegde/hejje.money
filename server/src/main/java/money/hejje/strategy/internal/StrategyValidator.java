@@ -143,7 +143,7 @@ public class StrategyValidator {
     private void walk(Expr expr, String path, Timeframe tf, List<ValidationError> errors) {
         switch (expr) {
             case Expr.IndicatorCall call -> {
-                if (call.name().startsWith("opening_range_")) {
+                if (call.name().startsWith("opening_range_") || call.name().equals("opening_return")) {
                     Duration range = ((Arg.DurationArg) call.args().get(0)).value();
                     checkOpeningRange(path, range, tf, errors);
                 }

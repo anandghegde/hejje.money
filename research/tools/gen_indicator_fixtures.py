@@ -14,10 +14,12 @@ import pandas as pd
 import talib
 
 OUT = Path(__file__).resolve().parents[2] / "server/src/test/resources/indicators/golden.csv"
-SESSIONS = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-07", "2026-09-08"]
+SESSIONS = ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-07", "2026-09-08",
+            "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15", "2026-09-16"]
 BARS_PER_SESSION = 75  # 09:15 .. 15:25 at 5 minutes
 OPENING_RANGE_MINUTES = 15
 RELVOL_SESSIONS = 20
+OPENING_RETURN_MINUTES = 30
 
 
 def synthetic_bars() -> pd.DataFrame:
@@ -83,8 +85,55 @@ def session_indicators(df: pd.DataFrame) -> pd.DataFrame:
     df["prev_day_low"] = df["date"].map(prev["day_low"])
     df["prev_day_close"] = df["date"].map(prev["day_close"])
     df["gap_pct"] = (df["date"].map(daily["day_open"]) - df["prev_day_close"]) / df["prev_day_close"] * 100
+    df["session_open"] = df["date"].map(daily["day_open"])
+    df["session_high"] = df.groupby("date")["high"].cummax()
+    df["session_low"] = df.groupby("date")["low"].cummin()
+
+    # central pivot range from the previous session
+    p = (prev["day_high"] + prev["day_low"] + prev["day_close"]) / 3
+    bc = (prev["day_high"] + prev["day_low"]) / 2
+    tc = 2 * p - bc
+    top, bottom = np.maximum(tc, bc), np.minimum(tc, bc)
+    df["pivot"] = df["date"].map(p)
+    df["cpr_top"] = df["date"].map(top)
+    df["cpr_bottom"] = df["date"].map(bottom)
+    df["cpr_width_pct"] = df["date"].map((top - bottom) / p * 100)
+
+    # NR(n): previous session's range is the smallest of the last n completed sessions (ties count)
+    rng = daily["day_high"] - daily["day_low"]
+    for n in (4, 7):
+        nr = (rng <= rng.rolling(n).min()).astype(float).where(rng.rolling(n).count() == n)
+        df[f"prev_day_nr_{n}"] = df["date"].map(nr.shift(1))
+
+    # opening return: close of the bar ending at 09:15 + d vs the previous close, constant after it
+    end_ts = df["ts"].dt.normalize() + pd.Timedelta(hours=9, minutes=15 + OPENING_RETURN_MINUTES)
+    anchor = df[(df["ts"] + pd.Timedelta(minutes=5)) == end_ts].set_index("date")["close"]
+    ret = (df["date"].map(anchor) - df["prev_day_close"]) / df["prev_day_close"] * 100
+    df[f"opening_return_{OPENING_RETURN_MINUTES}"] = np.where((df["ts"] + pd.Timedelta(minutes=5)) >= end_ts, ret, np.nan)
+
     df["session_minutes"] = ((df["ts"] + pd.Timedelta(minutes=5)) - df["ts"].dt.normalize() - pd.Timedelta(hours=9, minutes=15)).dt.total_seconds() / 60
     return df.drop(columns=["date", "tod", "close_tod"])
+
+
+def supertrend(h: np.ndarray, l: np.ndarray, c: np.ndarray, n: int, k: float) -> np.ndarray:
+    """Textbook Supertrend: final-band recursion on hl2 ± k·ATR(n) (Wilder, TA-Lib), starting in an uptrend."""
+    atr = talib.ATR(h, l, c, n)
+    hl2 = (h + l) / 2
+    out = np.full(len(c), np.nan)
+    upper = lower = np.nan
+    trend_up = True
+    for i in range(len(c)):
+        if np.isnan(atr[i]):
+            continue
+        bu, bl = hl2[i] + k * atr[i], hl2[i] - k * atr[i]
+        if np.isnan(upper):
+            upper, lower, trend_up = bu, bl, True
+        else:
+            upper = bu if (bu < upper or c[i - 1] > upper) else upper
+            lower = bl if (bl > lower or c[i - 1] < lower) else lower
+            trend_up = c[i] >= lower if trend_up else c[i] > upper
+        out[i] = lower if trend_up else upper
+    return out
 
 
 def main() -> None:
@@ -100,6 +149,7 @@ def main() -> None:
     df["adx_14"] = talib.ADX(h, l, c, 14)
     df["highest_20"] = talib.MAX(h, 20)
     df["lowest_20"] = talib.MIN(l, 20)
+    df["supertrend_10_3"] = supertrend(h, l, c, 10, 3.0)
     df = session_indicators(df)
     df["ts"] = df["ts"].dt.strftime("%Y-%m-%dT%H:%M")
     OUT.parent.mkdir(parents=True, exist_ok=True)

@@ -18,6 +18,11 @@ class RuleWordsTest {
         assertThat(RuleWords.condition(ConditionParser.parse("ema(9) crosses_above ema(21)"))).isEqualTo("the 9-bar EMA crosses above the 21-bar EMA");
         assertThat(RuleWords.condition(ConditionParser.parse("relative_volume(20) >= 1.5"))).isEqualTo("relative volume (20 sessions) is at or above 1.5");
         assertThat(RuleWords.condition(ConditionParser.parse("rsi(14) <= 30"))).isEqualTo("RSI(14) is at or below 30");
+        assertThat(RuleWords.condition(ConditionParser.parse("session_low == session_open"))).isEqualTo("today's low so far equals today's open");
+        assertThat(RuleWords.condition(ConditionParser.parse("close crosses_above cpr_top"))).isEqualTo("the close crosses above the top of the central pivot range");
+        assertThat(RuleWords.condition(ConditionParser.parse("close crosses_below supertrend(10, 3)"))).isEqualTo("the close crosses below Supertrend(10, 3)");
+        assertThat(RuleWords.condition(ConditionParser.parse("opening_return(30m) > 0")))
+                .isEqualTo("the % return from the previous close to the close 30 minutes after the open is above 0");
     }
 
     @Test

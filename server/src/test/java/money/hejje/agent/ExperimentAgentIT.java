@@ -27,7 +27,7 @@ class ExperimentAgentIT extends AbstractIntegrationTest {
             {"variants": [
               {"name": "vwap_filter", "rationale": "Breakouts below VWAP fail more often", "delta": {"entry_add": ["close > vwap"]}},
               {"name": "wider_target", "rationale": "Winners run further in trending sessions", "delta": {"target": {"value": 3}}},
-              {"name": "made_up", "rationale": "An indicator Hejje does not have", "delta": {"entry_add": ["supertrend(10, 3) > close"]}}
+              {"name": "made_up", "rationale": "An indicator Hejje does not have", "delta": {"entry_add": ["ichimoku_base(26) > close"]}}
             ]}""";
 
     @Autowired LlmService llm;
@@ -63,7 +63,7 @@ class ExperimentAgentIT extends AbstractIntegrationTest {
                 .containsExactly(org.assertj.core.groups.Tuple.tuple("vwap_filter", true), org.assertj.core.groups.Tuple.tuple("wider_target", true),
                         org.assertj.core.groups.Tuple.tuple("made_up", false));
         assertThat((List<String>) variants.get(0).get("entryConditions")).contains("close > vwap");
-        assertThat((List<String>) variants.get(2).get("errors")).anyMatch(e -> e.contains("supertrend"));
+        assertThat((List<String>) variants.get(2).get("errors")).anyMatch(e -> e.contains("ichimoku_base"));
 
         LlmRequest request = fixture.requests().get(0);
         assertThat(request.profile()).isEqualTo("research");

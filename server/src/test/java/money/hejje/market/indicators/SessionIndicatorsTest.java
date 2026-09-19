@@ -148,4 +148,68 @@ class SessionIndicatorsTest {
         ctx.registerDefinition(def);
         assertThat(ctx.registered()).containsExactly("atr(14)", "opening_range_high(15m)", "rsi(14)", "vwap");
     }
+
+    @Test
+    void sessionLevelsCprNarrowRangeAndOpeningReturn() {
+        IndicatorContext ctx = context();
+        List<Arg> thirty = List.of(new Arg.DurationArg(Duration.ofMinutes(30)));
+        List<Arg> nr3 = List.of(new Arg.Number(3));
+        for (String name : List.of("session_open", "session_high", "session_low", "pivot", "cpr_top", "cpr_bottom", "cpr_width_pct")) {
+            ctx.register(name, List.of());
+        }
+        ctx.register("prev_day_nr", nr3);
+        ctx.register("opening_return", thirty);
+        // three sessions with ranges 10, 8, 6: the third is the narrowest of three
+        ctx.onCandleClosed(Fixtures.candle("2026-09-07T09:15", "100", "110", "100", "105", 10));
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:15", "105", "112", "104", "110", 10));
+        assertThat(ctx.indicator("prev_day_nr", nr3, 0)).isEmpty();
+        ctx.onCandleClosed(Fixtures.candle("2026-09-09T09:15", "110", "114", "108", "112", 10));
+        assertThat(ctx.indicator("prev_day_nr", nr3, 0)).isEmpty();
+        // session 4: previous day H 114, L 108, C 112 → P 111.333, BC 111, TC 111.667
+        ctx.onCandleClosed(Fixtures.candle("2026-09-10T09:15", "113", "113", "111", "112", 10));
+        assertThat(ctx.indicator("prev_day_nr", nr3, 0).getAsDouble()).isEqualTo(1.0);
+        assertThat(ctx.indicator("pivot", List.of(), 0).getAsDouble()).isEqualTo(334.0 / 3, withPrecision(1e-9));
+        assertThat(ctx.indicator("cpr_bottom", List.of(), 0).getAsDouble()).isEqualTo(111.0, withPrecision(1e-9));
+        assertThat(ctx.indicator("cpr_top", List.of(), 0).getAsDouble()).isEqualTo(335.0 / 3, withPrecision(1e-9));
+        assertThat(ctx.indicator("cpr_width_pct", List.of(), 0).getAsDouble()).isEqualTo((2.0 / 3) / (334.0 / 3) * 100, withPrecision(1e-9));
+        assertThat(ctx.indicator("session_open", List.of(), 0).getAsDouble()).isEqualTo(113.0);
+        assertThat(ConditionEvaluator.evaluate(ConditionParser.parse("session_high == session_open"), ctx).status()).isEqualTo(EvalStatus.PASSED);
+        assertThat(ctx.indicator("opening_return", thirty, 0)).isEmpty();
+        ctx.onCandleClosed(Fixtures.candle("2026-09-10T09:20", "112", "116", "112", "115", 10));
+        assertThat(ctx.indicator("session_high", List.of(), 0).getAsDouble()).isEqualTo(116.0);
+        assertThat(ctx.indicator("session_low", List.of(), 0).getAsDouble()).isEqualTo(111.0);
+        // the 09:40 bar closes at 09:45 = 09:15 + 30m: (116.48 − 112) / 112 = +4%
+        ctx.onCandleClosed(Fixtures.candle("2026-09-10T09:35", "115", "115", "114", "114.5", 10));
+        assertThat(ctx.indicator("opening_return", thirty, 0)).isEmpty();
+        ctx.onCandleClosed(Fixtures.candle("2026-09-10T09:40", "114.5", "117", "114", "116.48", 10));
+        assertThat(ctx.indicator("opening_return", thirty, 0).getAsDouble()).isEqualTo(4.0, withPrecision(1e-9));
+        ctx.onCandleClosed(Fixtures.candle("2026-09-10T15:25", "116", "130", "100", "101", 10));
+        assertThat(ctx.indicator("opening_return", thirty, 0).getAsDouble()).isEqualTo(4.0, withPrecision(1e-9));
+        // session 5: previous range 30 is not the narrowest of (30, 6, 8)
+        ctx.onCandleClosed(Fixtures.candle("2026-09-11T09:15", "101", "102", "100", "101", 10));
+        assertThat(ctx.indicator("prev_day_nr", nr3, 0).getAsDouble()).isEqualTo(0.0);
+        assertThat(ctx.indicator("opening_return", thirty, 0)).isEmpty();
+    }
+
+    @Test
+    void supertrendFlipsOnACloseThroughTheBand() {
+        IndicatorContext ctx = context();
+        List<Arg> args = List.of(new Arg.Number(2), new Arg.Number(1));
+        ctx.register("supertrend", args);
+        // flat bars with range 2 → ATR(2) = 2 from bar 3; bands hl2 ± 2
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:15", "100", "101", "99", "100", 1));
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:20", "100", "101", "99", "100", 1));
+        assertThat(ctx.indicator("supertrend", args, 0)).isEmpty();
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:25", "100", "101", "99", "100", 1));
+        assertThat(ctx.indicator("supertrend", args, 0).getAsDouble()).isEqualTo(98.0, withPrecision(1e-9)); // starts up: lower band
+        // a close below the lower band flips it down onto the upper band
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:30", "100", "100", "94", "95", 1));
+        double down = ctx.indicator("supertrend", args, 0).getAsDouble();
+        assertThat(down).isGreaterThan(95.0);
+        assertThat(ConditionEvaluator.evaluate(ConditionParser.parse("close crosses_below supertrend(2, 1)"), ctx).status()).isEqualTo(EvalStatus.PASSED);
+        // a close far above flips it back up
+        ctx.onCandleClosed(Fixtures.candle("2026-09-08T09:35", "95", "110", "95", "109", 1));
+        assertThat(ConditionEvaluator.evaluate(ConditionParser.parse("close crosses_above supertrend(2, 1)"), ctx).status()).isEqualTo(EvalStatus.PASSED);
+        assertThat(ctx.indicator("supertrend", args, 0).getAsDouble()).isLessThan(109.0);
+    }
 }
