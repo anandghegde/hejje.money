@@ -86,6 +86,7 @@ class SimController {
         m.put("netPnl", s.netPnl());
         m.put("resultHash", s.resultHash());
         m.put("error", s.error());
+        m.put("warnings", s.warnings());
         m.put("spec", s.spec());
         m.put("createdBy", s.createdBy());
         m.put("createdAt", s.createdAt());

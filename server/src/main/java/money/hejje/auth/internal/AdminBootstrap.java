@@ -3,7 +3,6 @@ package money.hejje.auth.internal;
 import java.util.Arrays;
 import money.hejje.auth.AuthProperties;
 import money.hejje.common.Ids;
-import money.hejje.common.time.HejjeClock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -25,10 +24,10 @@ class AdminBootstrap implements ApplicationRunner {
     private final UserStore users;
     private final AuthProperties properties;
     private final PasswordEncoder encoder;
-    private final HejjeClock clock;
+    private final AuthTime clock;
     private final Environment environment;
 
-    AdminBootstrap(UserStore users, AuthProperties properties, PasswordEncoder encoder, HejjeClock clock, Environment environment) {
+    AdminBootstrap(UserStore users, AuthProperties properties, PasswordEncoder encoder, AuthTime clock, Environment environment) {
         this.users = users;
         this.properties = properties;
         this.encoder = encoder;

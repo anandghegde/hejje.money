@@ -42,8 +42,8 @@ public class TokenService {
     private final Clock clock;
     private final Duration accessTtl;
 
-    TokenService(AuthProperties properties, Environment environment, Clock clock) {
-        this.clock = clock;
+    TokenService(AuthProperties properties, Environment environment, AuthTime time) {
+        this.clock = time.clock();
         this.accessTtl = properties.accessTokenTtl();
         SecretKey key = new SecretKeySpec(resolveSecret(properties, environment), "HmacSHA256");
         this.encoder = new NimbusJwtEncoder(new com.nimbusds.jose.jwk.source.ImmutableSecret<>(key));

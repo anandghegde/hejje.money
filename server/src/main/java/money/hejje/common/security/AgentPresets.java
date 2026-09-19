@@ -14,19 +14,22 @@ public final class AgentPresets {
 
     public static final String RESEARCH = "research";
     public static final String EXECUTION = "execution";
+    /** A bot's client credential (plan M7.3): reads market and strategy state, sends decisions, never orders. */
+    public static final String BOT = "bot";
 
     public static final Set<String> NEVER_IN_A_PRESET = Set.of(ScopeCatalog.ORDERS_EXECUTE, ScopeCatalog.ORDERS_CANCEL, ScopeCatalog.POSITIONS_CLOSE,
             ScopeCatalog.RISK_WRITE, ScopeCatalog.ADMIN);
 
     private static final Map<String, List<String>> PRESETS = Map.of(
             RESEARCH, List.of(ScopeCatalog.MARKET_READ, ScopeCatalog.STRATEGIES_READ),
-            EXECUTION, List.of(ScopeCatalog.MARKET_READ, ScopeCatalog.STRATEGIES_READ, ScopeCatalog.ORDERS_PREPARE));
+            EXECUTION, List.of(ScopeCatalog.MARKET_READ, ScopeCatalog.STRATEGIES_READ, ScopeCatalog.ORDERS_PREPARE),
+            BOT, List.of(ScopeCatalog.MARKET_READ, ScopeCatalog.STRATEGIES_READ, ScopeCatalog.BOT_DECIDE));
 
     private AgentPresets() {
     }
 
     public static List<String> names() {
-        return List.of(RESEARCH, EXECUTION);
+        return List.of(RESEARCH, EXECUTION, BOT);
     }
 
     public static Set<String> scopes(String preset) {

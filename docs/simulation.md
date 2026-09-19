@@ -97,6 +97,14 @@ instance writes its master with `POST /api/v1/instruments/export` to `<data-dir>
 compose file mounts that directory read-only, and the SIM instance imports it at startup keeping the ids and mapping
 every instrument to the fake broker (its own instrument sync is off in the `sim` profile).
 
+## Bots (M7.3)
+
+Connected bots get a decision point at every closed bar of their timeframe; in SIM the replay delivers the points when
+it settles a step and waits for each answer up to `hejje.sim.decision-timeout` (lockstep; a missed answer is SKIPPED),
+so bots trade the replay exactly as a strategy would. A session's `bots` are validated (enabled, allowed in SIM) and an
+LLM bot on days before its knowledge cutoff adds a `warning`. Authentication runs on wall time in SIM. See
+`docs/bots.md`.
+
 ## Not yet
 
-The bot protocol (M7.3), the TUI harness (M7.4) and the leaderboard (M7.5) follow.
+The TUI harness (M7.4) and the leaderboard (M7.5) follow.

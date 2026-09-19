@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.util.Optional;
 import money.hejje.common.security.HejjePrincipal;
 import money.hejje.common.security.ScopeCatalog;
-import money.hejje.common.time.HejjeClock;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,10 +28,10 @@ public class BearerAuthenticationFilter extends OncePerRequestFilter {
 
     private final TokenService tokens;
     private final ClientCredentialStore clients;
-    private final HejjeClock clock;
+    private final AuthTime clock;
     private final ProblemAuthHandlers problems;
 
-    BearerAuthenticationFilter(TokenService tokens, ClientCredentialStore clients, HejjeClock clock, ProblemAuthHandlers problems) {
+    BearerAuthenticationFilter(TokenService tokens, ClientCredentialStore clients, AuthTime clock, ProblemAuthHandlers problems) {
         this.tokens = tokens;
         this.clients = clients;
         this.clock = clock;

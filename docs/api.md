@@ -65,7 +65,8 @@ Scope: `admin`. `from`/`to` are ISO-8601 instants (`to` exclusive),
 
 Send `Authorization: Bearer <token>` where the token is either a JWT access token (user login) or a client
 credential key `hejje_<prefix>_<secret>`. Scopes: `market:read strategies:read strategies:write orders:prepare
-orders:execute orders:cancel positions:close risk:read risk:write admin sim:run` (`sim:run`: SIM replay sessions, Phase 7).
+orders:execute orders:cancel positions:close risk:read risk:write admin sim:run bot:decide` (`sim:run`: SIM replay
+sessions, `bot:decide`: a bot's decisions; Phase 7).
 Users hold every scope; clients
 hold the scopes they were created with. Missing token: 401. Missing scope: 403. Both are problem+json.
 
@@ -1246,4 +1247,15 @@ has finished. 409 when the session is not active or (for `step`) is playing.
 
 `fills`, `frictionPaid` (transaction costs), `netPnl` and `resultHash` (SHA-256 over the fills) are set when the session
 finishes (`DONE`, `CANCELLED` or `FAILED`).
+
+## Bots (Phase 7, M7.3)
+
+See `docs/bots.md`. `POST /api/v1/bots` (`strategies:write`) registers a bot (EXTERNAL/LLM: generated backing strategy
+`bot_<name>`; STRATEGY: an existing `strategyId`); `GET /api/v1/bots` · `GET /api/v1/bots/{id}` (with `stats`)
+(`strategies:read`); `POST /api/v1/bots/{id}/enabled`; `POST /api/v1/bots/{id}/decisions` (`bot:decide`, body
+`{ "pointId", "decisions": [ { "instrument", "action", "stop", "target", "confidence", "thesis", "stage", "scores",
+"candidates" } ] }`, returns the recorded decisions); `GET /api/v1/bots/{id}/decisions?limit=`. WebSocket
+`/ws/bot?token=&bot=` (`bot:decide`): decision points out, replies in. `POST /api/v1/auth/clients` accepts preset
+`bot` (`market:read strategies:read bot:decide`). SIM sessions accept `"bots": [ { "botId" } ]` and report
+`warnings` (an LLM bot on days before its knowledge cutoff).
 

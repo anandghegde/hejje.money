@@ -12,7 +12,11 @@ import money.hejje.common.Money;
  */
 public record SimSession(UUID id, SimSessionSpec spec, State state, Speed speed, int dayIndex, int days, LocalDate sessionDate, int step,
         int fills, Money friction, Money netPnl, String resultHash, String error, String createdBy, Instant createdAt, Instant finishedAt,
-        Instant updatedAt) {
+        Instant updatedAt, java.util.List<String> warnings) {
+
+    public SimSession {
+        warnings = warnings == null ? java.util.List.of() : java.util.List.copyOf(warnings);
+    }
 
     public static final int STEPS_PER_DAY = 375;
 

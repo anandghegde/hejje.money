@@ -11,7 +11,6 @@ import money.hejje.common.ActorType;
 import money.hejje.common.Ids;
 import money.hejje.common.security.HejjePrincipal;
 import money.hejje.common.security.ScopeCatalog;
-import money.hejje.common.time.HejjeClock;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +27,11 @@ public class AuthService {
     private final TokenService tokens;
     private final PasswordEncoder encoder;
     private final AuditService audit;
-    private final HejjeClock clock;
+    private final AuthTime clock;
     private final AuthProperties properties;
 
     AuthService(UserStore users, RefreshTokenStore refreshTokens, TokenService tokens, PasswordEncoder encoder,
-            AuditService audit, HejjeClock clock, AuthProperties properties) {
+            AuditService audit, AuthTime clock, AuthProperties properties) {
         this.users = users;
         this.refreshTokens = refreshTokens;
         this.tokens = tokens;

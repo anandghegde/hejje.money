@@ -50,10 +50,10 @@ import org.springframework.beans.factory.annotation.Autowired;
  * scripted MARKET entry filling on the next tick with the paper slippage, a stop filling when crossed, no candle or
  * quote past the simulation clock, the same result at 60× and MAX, and a strategy's force exit at simulated 15:10.
  */
-class SimReplayIT extends AbstractSimIT {
+public class SimReplayIT extends AbstractSimIT {
 
     static final ZoneId IST = ZoneId.of("Asia/Kolkata");
-    static final LocalDate DAY = LocalDate.of(2026, 9, 9);
+    public static final LocalDate DAY = LocalDate.of(2026, 9, 9);
     static final HejjePrincipal ADMIN = new HejjePrincipal(UUID.randomUUID(), "admin", HejjePrincipal.Type.USER, ScopeCatalog.ALL);
 
     @Autowired SimSessionService sessions;
@@ -73,7 +73,7 @@ class SimReplayIT extends AbstractSimIT {
      * ±0.5 wicks; the 09:35 bar drops from 1502 through 1490. Up bars replay open, low, high, close; the 09:35 bar
      * (down) open, high, low, close. 4,000 shares a minute.
      */
-    static List<Candle> fixtureDay(UUID id) {
+    public static List<Candle> fixtureDay(UUID id) {
         List<Candle> out = new ArrayList<>();
         for (int i = 0; i < SimSession.STEPS_PER_DAY; i++) {
             Instant t = DAY.atTime(LocalTime.of(9, 15).plusMinutes(i)).atZone(IST).toInstant();

@@ -18,17 +18,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
         "hejje.sim.start=2026-09-08T03:45:00Z",
         "hejje.instruments.sync-on-startup=true",          // the fake broker's fixture master (no exported live master here)
         "hejje.strategy.allow-forced-status=true",
+        "hejje.sim.decision-timeout=PT0.5S",                // a bot's unanswered decision point is SKIPPED quickly
         "hejje.auth.admin-password=sim-admin-password",
         "hejje.auth.jwt-secret=sim-secret-sim-secret-sim-secret-sim-secret",
         "hejje.security.encryption-key=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 })
 @ActiveProfiles("sim")
-abstract class AbstractSimIT {
+public abstract class AbstractSimIT {
 
     @ServiceConnection
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
 
-    static final Path DATA_DIR;
+    public static final Path DATA_DIR;
 
     static {
         POSTGRES.start();

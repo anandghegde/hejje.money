@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import money.hejje.common.security.HejjePrincipal;
-import money.hejje.common.time.HejjeClock;
 import money.hejje.common.web.ApiExceptionHandler;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -37,9 +36,9 @@ class AuthController {
     record Me(UUID id, String name, HejjePrincipal.Type type, Set<String> scopes) {}
 
     private final AuthService auth;
-    private final HejjeClock clock;
+    private final AuthTime clock;
 
-    AuthController(AuthService auth, HejjeClock clock) {
+    AuthController(AuthService auth, AuthTime clock) {
         this.auth = auth;
         this.clock = clock;
     }

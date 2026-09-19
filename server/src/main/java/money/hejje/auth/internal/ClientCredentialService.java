@@ -12,7 +12,6 @@ import money.hejje.common.ActorType;
 import money.hejje.common.Ids;
 import money.hejje.common.security.HejjePrincipal;
 import money.hejje.common.security.ScopeCatalog;
-import money.hejje.common.time.HejjeClock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,9 +26,9 @@ public class ClientCredentialService {
 
     private final ClientCredentialStore store;
     private final AuditService audit;
-    private final HejjeClock clock;
+    private final AuthTime clock;
 
-    ClientCredentialService(ClientCredentialStore store, AuditService audit, HejjeClock clock) {
+    ClientCredentialService(ClientCredentialStore store, AuditService audit, AuthTime clock) {
         this.store = store;
         this.audit = audit;
         this.clock = clock;

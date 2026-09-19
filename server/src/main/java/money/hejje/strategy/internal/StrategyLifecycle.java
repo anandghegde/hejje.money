@@ -49,6 +49,18 @@ public class StrategyLifecycle {
      */
     public String reject(money.hejje.strategy.StrategyVersion version, VersionStatus to) {
         VersionStatus from = version.status();
+        if (version.definition().family() == money.hejje.strategy.StrategyFamily.BOT) {
+            // a bot's backing strategy has no rules to backtest (plan M7.3): DRAFT → PAPER directly; its record comes from
+            // simulation sessions and paper trades
+            if (from == to) {
+                return "version is already " + to;
+            }
+            if (to == VersionStatus.BACKTESTED || to == VersionStatus.VALIDATED) {
+                return "a bot's strategy cannot be backtested (its entries are the bot's decisions); move it from DRAFT to PAPER";
+            }
+            return from == VersionStatus.DRAFT && to == VersionStatus.PAPER ? null
+                    : isTransitionAllowed(from, to) ? null : "transition " + from + " -> " + to + " is not allowed";
+        }
         if (version.definition().legs().isEmpty()) {
             return reject(version.id(), from, to);
         }

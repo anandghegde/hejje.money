@@ -8,7 +8,7 @@ below. Definitions are deterministic and executable without an LLM. The parser l
 
 ```yaml
 name: nifty_orb_vwap            # ^[a-z][a-z0-9_]{2,63}$ ; also the strategy slug
-family: index                   # trend | mean_reversion | index | options   (default: trend)
+family: index                   # trend | mean_reversion | index | options | bot   (default: trend; bot: a bot's backing strategy, docs/bots.md)
 description: Opening range breakout confirmed by VWAP
 universe:                       # at least one entry
   - NIFTY                       # bare name = alias (hejje.strategy.aliases), e.g. NIFTY -> nearest_future: NIFTY

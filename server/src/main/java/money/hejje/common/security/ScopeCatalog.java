@@ -18,9 +18,11 @@ public final class ScopeCatalog {
     public static final String ADMIN = "admin";
     /** Create and control replay sessions of a SIM instance (plan M7.2). */
     public static final String SIM_RUN = "sim:run";
+    /** Send a bot's decisions (plan M7.3); a bot never holds an order scope. */
+    public static final String BOT_DECIDE = "bot:decide";
 
     public static final Set<String> ALL = Set.of(MARKET_READ, STRATEGIES_READ, STRATEGIES_WRITE, ORDERS_PREPARE,
-            ORDERS_EXECUTE, ORDERS_CANCEL, POSITIONS_CLOSE, RISK_READ, RISK_WRITE, ADMIN, SIM_RUN);
+            ORDERS_EXECUTE, ORDERS_CANCEL, POSITIONS_CLOSE, RISK_READ, RISK_WRITE, ADMIN, SIM_RUN, BOT_DECIDE);
 
     public static final String AUTHORITY_PREFIX = "SCOPE_";
 

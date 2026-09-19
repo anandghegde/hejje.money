@@ -28,7 +28,8 @@
         "trend",
         "mean_reversion",
         "index",
-        "options"
+        "options",
+        "bot"
       ],
       "default": "trend"
     },

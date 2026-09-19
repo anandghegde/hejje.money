@@ -11,4 +11,7 @@ Python tooling that supports the Java core without being a source of truth.
   strategy's series and ranges, `run` starts the protocol backtests and writes the results table, `holdout` runs the
   passing strategies once on the 6-month holdout (pass `--latest` from the protocol run).
 
+- `bots/example_bot.py`: the reference bot (plan M7.3, `docs/bots.md`): standard library only, a minimal WebSocket
+  client and an opening-range rule; `HEJJE_URL`, `HEJJE_API_KEY` (preset `bot`), the bot id as argument.
+
 The optional research worker (plan M2.9) lives here later.

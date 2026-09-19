@@ -76,6 +76,7 @@ public class SimSessionService {
     private final JdbcClient jdbc;
     private final SimSessionStore store;
     private final HejjeClock clock;
+    private final money.hejje.bots.BotService bots;
     /** Session bookkeeping (created, finished) is wall time; everything the replay does runs on simulation time. */
     private final Clock wall = Clock.systemUTC();
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
@@ -88,7 +89,8 @@ public class SimSessionService {
 
     SimSessionService(SimTime time, SessionReplay replay, BrokerSimulation broker, InstrumentService instruments, OrderService orders, RiskService risk,
             SignalEngine engine, List<Drainable> drainables, ObjectProvider<EventPublicationRegistry> publications, JdbcClient jdbc, SimSessionStore store,
-            HejjeClock clock) {
+            HejjeClock clock, money.hejje.bots.BotService bots) {
+        this.bots = bots;
         this.time = time;
         this.replay = replay;
         this.broker = broker;
@@ -135,10 +137,8 @@ public class SimSessionService {
         if (running != null && !running.session.state().finished()) {
             throw new IllegalStateException("Session " + running.session.id() + " is " + running.session.state() + "; one replay at a time");
         }
-        if (!spec.bots().isEmpty()) {
-            throw new IllegalArgumentException("bots arrive with the bot protocol (plan M7.3); leave bots empty");
-        }
         List<LocalDate> days = days(spec);
+        List<String> warnings = bots(spec, days);
         List<Instrument> resolved = instruments(spec);
         List<UUID> ids = resolved.stream().map(Instrument::id).toList();
         List<String> missing = new ArrayList<>();
@@ -167,7 +167,7 @@ public class SimSessionService {
 
         Instant now = wall.instant();
         SimSession session = new SimSession(UUID.randomUUID(), spec, SimSession.State.PAUSED, SimSession.Speed.MAX, 0, days.size(), days.get(0), 0, 0,
-                Money.ZERO, Money.ZERO, null, null, actor, now, null, now);
+                Money.ZERO, Money.ZERO, null, null, actor, now, null, now, warnings);
         store.insert(session);
         current = new Run(session, days, ids);
         log.info("SIM session {} created: {} day(s) from {}, {} instrument(s)", session.id(), days.size(), days.get(0), ids.size());
@@ -368,6 +368,34 @@ public class SimSessionService {
         }
     }
 
+    /**
+     * The session's bots (plan M7.3): each must exist, be enabled and allowed in SIM. An LLM bot on a day before its
+     * knowledge cutoff is flagged: the model may already know what happened that day.
+     */
+    private List<String> bots(SimSessionSpec spec, List<LocalDate> days) {
+        List<String> warnings = new ArrayList<>();
+        for (Map<String, Object> entry : spec.bots()) {
+            Object id = entry.get("botId");
+            money.hejje.bots.Bot bot;
+            try {
+                bot = bots.find(UUID.fromString(String.valueOf(id))).orElseThrow(() -> new IllegalArgumentException("unknown bot " + id));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(e.getMessage() == null || !e.getMessage().startsWith("unknown bot") ? "bots[].botId must be a bot id" : e.getMessage());
+            }
+            if (!bot.enabled() || !bot.allowedModes().contains(ExecutionMode.SIM)) {
+                throw new IllegalArgumentException("bot " + bot.name() + " is disabled or not allowed in SIM");
+            }
+            if (bot.knowledgeCutoff() != null) {
+                List<LocalDate> known = days.stream().filter(d -> d.isBefore(bot.knowledgeCutoff())).toList();
+                if (!known.isEmpty()) {
+                    warnings.add("bot " + bot.name() + " (knowledge cutoff " + bot.knowledgeCutoff() + ") may already know " + known.size()
+                            + " of the session's days (" + known.get(0) + (known.size() > 1 ? " … " + known.get(known.size() - 1) : "") + ")");
+                }
+            }
+        }
+        return warnings;
+    }
+
     private List<LocalDate> days(SimSessionSpec spec) {
         List<LocalDate> days = new ArrayList<>();
         if (!spec.dates().isEmpty()) {
@@ -482,14 +510,14 @@ public class SimSessionService {
             }
             SimSession s = session;
             session = new SimSession(s.id(), s.spec(), state, speed, s.dayIndex(), s.days(), s.sessionDate(), s.step(), s.fills(), s.friction(), s.netPnl(),
-                    s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant());
+                    s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant(), s.warnings());
             store.update(session);
         }
 
         synchronized void progress(int dayIndex, LocalDate day, int step) {
             SimSession s = session;
             session = new SimSession(s.id(), s.spec(), s.state(), s.speed(), dayIndex, s.days(), day, step, s.fills(), s.friction(), s.netPnl(),
-                    s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant());
+                    s.resultHash(), s.error(), s.createdBy(), s.createdAt(), s.finishedAt(), wall.instant(), s.warnings());
             store.update(session);
         }
 
@@ -501,7 +529,7 @@ public class SimSessionService {
             SimSession s = session;
             Instant now = wall.instant();
             session = new SimSession(s.id(), s.spec(), state, s.speed(), s.dayIndex(), s.days(), s.sessionDate(), s.step(), r.fills(), r.friction(), r.netPnl(),
-                    r.hash(), error, s.createdBy(), s.createdAt(), now, now);
+                    r.hash(), error, s.createdBy(), s.createdAt(), now, now, s.warnings());
             store.update(session);
             log.info("SIM session {} {}: {} fill(s), friction {}, net {}, hash {}", s.id(), state, r.fills(), r.friction().toRupeesString(),
                     r.netPnl().toRupeesString(), r.hash());

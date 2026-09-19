@@ -343,6 +343,39 @@ public class SignalEngine implements money.hejje.common.Drainable {
         return List.copyOf(runners.values());
     }
 
+    /** The open (or pending) position of a deployment on an instrument, as its runner holds it (plan M7.3). */
+    public Optional<StrategyPosition> position(UUID deploymentId, UUID instrumentId) {
+        Optional<StrategyPosition>[] out = new Optional[]{Optional.empty()};
+        run(() -> {
+            StrategyRunner runner = runners.get(key(deploymentId, instrumentId));
+            out[0] = runner == null ? Optional.empty() : runner.position();
+        });
+        return out[0];
+    }
+
+    /** A bot's EXIT or TAKE_PROFIT (plan M7.3): flattens the deployment's open position at market; false when there is none. */
+    public boolean exitPosition(UUID deploymentId, UUID instrumentId, CloseReason reason) {
+        boolean[] out = new boolean[1];
+        run(() -> {
+            StrategyRunner runner = runners.get(key(deploymentId, instrumentId));
+            if (runner != null && runner.position().filter(p -> p.status() == PositionStatus.OPEN).isPresent()) {
+                runner.exitNow(reason);
+                out[0] = true;
+            }
+        });
+        return out[0];
+    }
+
+    /** A bot's MOVE_STOP (plan M7.3): tightens the deployment's stop; false when there is no open position or it would loosen. */
+    public boolean tightenStop(UUID deploymentId, UUID instrumentId, BigDecimal stop) {
+        boolean[] out = new boolean[1];
+        run(() -> {
+            StrategyRunner runner = runners.get(key(deploymentId, instrumentId));
+            out[0] = runner != null && runner.tightenStop(stop);
+        });
+        return out[0];
+    }
+
     /** Waits for the engine thread to finish everything submitted so far (SIM replay, plan M7.2). */
     @Override
     public void drain() {

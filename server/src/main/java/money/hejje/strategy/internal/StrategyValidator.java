@@ -120,6 +120,9 @@ public class StrategyValidator {
         if (d.combinedExit() != null && d.legs().isEmpty()) {
             errors.add(new ValidationError("combined_exit", "needs legs"));
         }
+        if (d.family() == money.hejje.strategy.StrategyFamily.BOT && !d.legs().isEmpty()) {
+            errors.add(new ValidationError("legs", "a bot's strategy trades the instrument itself (plan M7.3)"));
+        }
         // neutral: no side on the underlying (plan M6.4), so only options legs that name their type
         if (d.direction() == Direction.NEUTRAL) {
             if (d.family() != money.hejje.strategy.StrategyFamily.OPTIONS) {

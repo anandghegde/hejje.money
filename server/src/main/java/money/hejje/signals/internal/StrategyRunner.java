@@ -75,6 +75,8 @@ public final class StrategyRunner {
     private volatile money.hejje.common.Money riskPerTrade;
     private final IndicatorContext ctx;
     private final Side side;
+    /** A bot's backing strategy (family bot, plan M7.3): the runner manages positions but never enters by itself. */
+    private final boolean bot;
 
     private boolean paused;
     private LocalDate session;
@@ -100,6 +102,7 @@ public final class StrategyRunner {
         // a NEUTRAL (options) signal is stored as BUY with its stop at the lower band edge: the side only sizes the dry run,
         // the options position closes on either edge of the band (plan M6.4)
         this.side = def.direction() == Direction.SHORT ? Side.SELL : Side.BUY;
+        this.bot = def.family() == money.hejje.strategy.StrategyFamily.BOT;
         this.ctx = new IndicatorContext(def.timeframe(), zone);
         ctx.registerDefinition(def);
         Levels.registerStopIndicators(ctx, def);
@@ -209,8 +212,8 @@ public final class StrategyRunner {
         if (position != null && position.status() == PositionStatus.OPEN) {
             manageAtClose(bar);
         }
-        if (position == null && activeSignal == null && !paused) {
-            evaluateEntry(bar);
+        if (position == null && activeSignal == null && !paused && !bot) {
+            evaluateEntry(bar); // a bot's runner never enters by itself: its entries are the bot's decisions (plan M7.3)
         }
     }
 
@@ -235,11 +238,11 @@ public final class StrategyRunner {
         boolean targetHit = position.target() != null && touchedTarget(bar.low(), bar.high());
         if (stopHit && position.stopOrderId() == null) {
             callbacks.stopMissing(position, "bar crossed the stop with no live stop order");
-            exit(CloseReason.SOFTWARE_STOP, BigDecimal.valueOf(side == Side.BUY ? Math.min(bar.open(), position.stop().doubleValue())
+            exit(CloseReason.SOFTWARE_STOP, BigDecimal.valueOf(position.side() == Side.BUY ? Math.min(bar.open(), position.stop().doubleValue())
                     : Math.max(bar.open(), position.stop().doubleValue())));
         } else if (stopHit && port.isSimulated()) {
             // simulated broker: the resting stop fills at its level (or the open when gapped through), stop wins over target
-            BigDecimal fill = BigDecimal.valueOf(side == Side.BUY ? Math.min(bar.open(), position.stop().doubleValue()) : Math.max(bar.open(), position.stop().doubleValue()));
+            BigDecimal fill = BigDecimal.valueOf(position.side() == Side.BUY ? Math.min(bar.open(), position.stop().doubleValue()) : Math.max(bar.open(), position.stop().doubleValue()));
             close(position.stop().compareTo(position.initialStop()) != 0 ? CloseReason.TRAILING_STOP : CloseReason.STOP, Levels.roundTarget(fill.doubleValue(), meta.tickSize()));
         } else if (targetHit && !stopHit) {
             exit(CloseReason.TARGET, position.target());
@@ -248,12 +251,12 @@ public final class StrategyRunner {
 
     private boolean touchedStop(double low, double high) {
         double stop = position.stop().doubleValue();
-        return side == Side.BUY ? low <= stop : high >= stop;
+        return position.side() == Side.BUY ? low <= stop : high >= stop;
     }
 
     private boolean touchedTarget(double low, double high) {
         double target = position.target().doubleValue();
-        return side == Side.BUY ? high >= target : low <= target;
+        return position.side() == Side.BUY ? high >= target : low <= target;
     }
 
     private void manageAtClose(Bar bar) {
@@ -401,10 +404,11 @@ public final class StrategyRunner {
             return;
         }
         BigDecimal riskPerUnit = averagePrice.subtract(position.initialStop()).abs();
-        BigDecimal target = Levels.target(def, side, averagePrice, riskPerUnit, ctx, meta.tickSize());
+        // a bot's target is its decision's (plan M7.3); a strategy's comes from its definition at the fill
+        BigDecimal target = bot ? position.target() : Levels.target(def, side, averagePrice, riskPerUnit, ctx, meta.tickSize());
         Instant openedAt = lastBar == null ? clock.now() : lastBar.closeTime();
         position = new StrategyPosition(position.id(), position.signalId(), position.deploymentId(), position.versionId(), position.strategyId(),
-                position.instrumentId(), position.mode(), side, qty, averagePrice, position.initialStop(), position.stop(), target, position.entryOrderId(), null,
+                position.instrumentId(), position.mode(), position.side(), qty, averagePrice, position.initialStop(), position.stop(), target, position.entryOrderId(), null,
                 null, PositionStatus.OPEN, null, null, openedAt, null, openedAt);
         callbacks.positionUpdated(position);
         Optional<UUID> stopId = port.placeStop(position, position.stop());
@@ -477,6 +481,23 @@ public final class StrategyRunner {
         replaced.ifPresent(id -> callbacks.stopPlaced(position, id));
     }
 
+    /**
+     * A bot's MOVE_STOP (plan M7.3): moves the protective stop to {@code stop} (rounded to the tick) only when that
+     * tightens it. Returns false when there is no open position or the stop would loosen.
+     */
+    public synchronized boolean tightenStop(BigDecimal stop) {
+        if (position == null || position.status() != PositionStatus.OPEN || stop == null) {
+            return false;
+        }
+        BigDecimal candidate = Levels.roundStop(stop.doubleValue(), position.side(), meta.tickSize());
+        boolean tighter = position.side() == Side.BUY ? candidate.compareTo(position.stop()) > 0 : candidate.compareTo(position.stop()) < 0;
+        if (!tighter) {
+            return false;
+        }
+        moveStop(candidate);
+        return true;
+    }
+
     /** External request (deployment stopped, manual): flatten at market. */
     public synchronized void exitNow(CloseReason reason) {
         if (position != null && position.status() == PositionStatus.OPEN) {
@@ -491,7 +512,7 @@ public final class StrategyRunner {
             return;
         }
         pendingClose = reason;
-        Optional<BigDecimal> simulated = port.simulatedFill(side == Side.BUY ? Side.SELL : Side.BUY, referencePrice);
+        Optional<BigDecimal> simulated = port.simulatedFill(position.side() == Side.BUY ? Side.SELL : Side.BUY, referencePrice);
         if (simulated.isPresent()) {
             close(reason, simulated.get());
             return;

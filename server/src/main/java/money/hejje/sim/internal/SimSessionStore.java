@@ -30,9 +30,9 @@ public class SimSessionStore {
     public void insert(SimSession s) {
         jdbc.sql("""
                 INSERT INTO sim_session (id, spec, state, speed, day_index, days, session_date, step, fills, friction_paise, net_pnl_paise, result_hash, error,
-                    created_by, created_at, finished_at, updated_at)
+                    created_by, created_at, finished_at, updated_at, warnings)
                 VALUES (:id, CAST(:spec AS jsonb), :state, :speed, :dayIndex, :days, :date, :step, :fills, :friction, :net, :hash, :error, :by, :createdAt,
-                    :finishedAt, :updatedAt)
+                    :finishedAt, :updatedAt, CAST(:warnings AS jsonb))
                 """).params(params(s)).update();
     }
 
@@ -81,6 +81,11 @@ public class SimSessionStore {
         p.put("createdAt", ts(s.createdAt()));
         p.put("finishedAt", s.finishedAt() == null ? null : ts(s.finishedAt()));
         p.put("updatedAt", ts(s.updatedAt()));
+        try {
+            p.put("warnings", json.writeValueAsString(s.warnings()));
+        } catch (Exception e) {
+            throw new IllegalArgumentException(e);
+        }
         return p;
     }
 
@@ -95,7 +100,15 @@ public class SimSessionStore {
         return new SimSession(rs.getObject("id", UUID.class), spec, SimSession.State.valueOf(rs.getString("state")), SimSession.Speed.of(rs.getString("speed")),
                 rs.getInt("day_index"), rs.getInt("days"), date, rs.getInt("step"), rs.getInt("fills"), Money.ofPaise(rs.getLong("friction_paise")),
                 Money.ofPaise(rs.getLong("net_pnl_paise")), rs.getString("result_hash"), rs.getString("error"), rs.getString("created_by"),
-                instant(rs, "created_at"), instant(rs, "finished_at"), instant(rs, "updated_at"));
+                instant(rs, "created_at"), instant(rs, "finished_at"), instant(rs, "updated_at"), warnings(rs.getString("warnings")));
+    }
+
+    private List<String> warnings(String text) {
+        try {
+            return text == null ? List.of() : json.readValue(text, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static Instant instant(ResultSet rs, String c) throws SQLException {
