@@ -10,7 +10,7 @@ Backfill runs on the VM against a live Kite session (tests never touch the broke
 | `INDEX:NIFTY 50`, `INDEX:NIFTY BANK`, `INDEX:INDIA VIX` | M1, M5, D1 | Kite historical API on the index token |
 | NIFTY and BANKNIFTY futures, per contract | M1, M5, D1 | Kite historical API per contract instrument |
 | `NFO:NIFTY:FUT:CONT`, `NFO:BANKNIFTY:FUT:CONT` continuous series | M1, M5, D1 | stitched from the contracts (below) |
-| NIFTY 50 constituents (`config/universe/nifty50.yaml`) | M5, D1 | Kite historical API per stock |
+| NIFTY 50 constituents (`config/universe/nifty50.yaml`) | M1, M5, D1 | Kite historical API per stock (M1 for SIM replays, plan M7.2) |
 
 ## Continuous futures
 
@@ -41,7 +41,7 @@ for s in "INDEX:NIFTY 50" "INDEX:NIFTY BANK" "INDEX:INDIA VIX"; do
       -d "{\"instrumentId\":\"$id\",\"timeframe\":\"$tf\",\"from\":\"2023-01-01T00:00:00Z\",\"to\":\"2026-09-09T00:00:00Z\"}"
   done
 done
-# 3. NIFTY 50 constituents (M5, D1) from config/universe/nifty50.yaml — same loop over the symbols list
+# 3. NIFTY 50 constituents (M1, M5, D1) from config/universe/nifty50.yaml — same loop over the symbols list (M1 feeds SIM replays)
 # 4. futures: every NIFTY/BANKNIFTY contract in the master, then stitch
 curl -s -X POST -H "$T" -H 'Content-Type: application/json' $H/market/history/continuous -d '{"underlying":"NIFTY","timeframe":"M5"}'
 ```

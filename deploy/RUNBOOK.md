@@ -143,6 +143,8 @@ A replay instance runs next to the live one and never replaces it: own container
 only (it refuses to start otherwise). On the VM with the host nginx, add the host override as for the live service:
 
 ```bash
+# once, and after every instrument sync that should reach the simulations: the live master with its ids
+curl -s -X POST -H "Authorization: Bearer $HEJJE_API_KEY" https://hejje.malgudi.app/api/v1/instruments/export
 docker compose -f deploy/docker-compose.prod.yml -f deploy/docker-compose.host.yml -f deploy/docker-compose.sim.yml up -d hejje-sim
 ```
 

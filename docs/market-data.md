@@ -22,7 +22,12 @@ Every tick (live from the broker stream, or replayed) flows through one MarketPi
 A scheduled tick (1 s) closes minutes whose boundary has passed so empty minutes still produce synthetic candles.
 
 Candle volume: broker ticks carry cumulative day volume, so a candle's volume is the last tick's cumulative volume minus
-the cumulative volume at the candle's open; derived candles sum their minute volumes.
+the cumulative volume at the candle's open; derived candles sum their minute volumes. The baseline restarts at zero on
+an instrument's first tick of a new IST day (before M7.2 the day's first minute measured against yesterday's cumulative
+and came out as zero volume).
+
+A derived candle (M3/M5/M15/H1) closes as soon as its last minute closes, at its own close time: the 09:25 M5 bar is
+published at 09:30:00 (before M7.2 it waited for the next period's first minute, a minute late).
 
 ## Streaming
 

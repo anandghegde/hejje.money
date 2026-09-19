@@ -194,6 +194,6 @@ class AuthIT extends AbstractIntegrationTest {
     @Test
     void scopeCatalogMatchesPrd() {
         assertThat(ScopeCatalog.ALL).isEqualTo(Set.of("market:read", "strategies:read", "strategies:write", "orders:prepare",
-                "orders:execute", "orders:cancel", "positions:close", "risk:read", "risk:write", "admin"));
+                "orders:execute", "orders:cancel", "positions:close", "risk:read", "risk:write", "admin", "sim:run")); // sim:run: plan M7.2
     }
 }

@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
 /**
  * In-process, non-durable fan-out for {@link MarketEvent}s. Producers call {@link #publish} from any thread; a single
  * dispatcher thread delivers to listeners so ordering is total and listeners never race. The queue is bounded and drops
- * the oldest event on overflow, incrementing {@code hejje_tick_bus_dropped_total}.
+ * the oldest event on overflow, incrementing {@code hejje_tick_bus_dropped_total}. In SIM (plan M7.2) events are
+ * dispatched inline on the publishing thread instead, so a replay step has finished its listeners when publish returns.
  */
 @Component
 public class InProcessTickBus implements TickBus, AutoCloseable {
@@ -32,20 +33,28 @@ public class InProcessTickBus implements TickBus, AutoCloseable {
     private final Counter published;
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final Thread dispatcher;
+    private final boolean inline;
 
-    public InProcessTickBus(MarketProperties properties, MeterRegistry meters) {
+    public InProcessTickBus(MarketProperties properties, MeterRegistry meters, money.hejje.common.config.HejjeProperties hejje) {
+        this.inline = hejje.mode() == money.hejje.common.ExecutionMode.SIM;
         this.queue = new ArrayBlockingQueue<>(Math.max(1024, properties.tickQueue()));
         this.dropped = Counter.builder("hejje_tick_bus_dropped_total").description("market events dropped on tick-bus overflow").register(meters);
         this.published = Counter.builder("hejje_tick_bus_published_total").description("market events published to the tick bus").register(meters);
         meters.gauge("hejje_tick_bus_queue_depth", queue, java.util.Queue::size);
         this.dispatcher = new Thread(this::run, "tick-bus");
         this.dispatcher.setDaemon(true);
-        this.dispatcher.start();
+        if (!inline) {
+            this.dispatcher.start();
+        }
     }
 
     @Override
     public void publish(MarketEvent event) {
         published.increment();
+        if (inline) {
+            dispatchInline(event);
+            return;
+        }
         while (!queue.offer(event)) {
             if (queue.poll() != null) {
                 dropped.increment();
@@ -76,6 +85,16 @@ public class InProcessTickBus implements TickBus, AutoCloseable {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
+            }
+        }
+    }
+
+    private synchronized void dispatchInline(MarketEvent event) {
+        for (Consumer<? super MarketEvent> listener : listeners) {
+            try {
+                listener.accept(event);
+            } catch (RuntimeException e) {
+                log.warn("Tick bus listener failed", e);
             }
         }
     }

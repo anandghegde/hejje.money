@@ -224,10 +224,12 @@ hejje:
   broker:
     adapter: fake
   instruments:
-    sync-on-startup: true
+    sync-on-startup: false             # the live master is imported from <data-dir>/instruments/master.json (ids match the history)
   market:
     stream-on-startup: false
     record: false                      # the history is mounted read-only
+  signals:
+    inline-dispatch: true              # candle events reach the runners on the replay thread (deterministic steps)
   news:
     enabled: false
   regime:

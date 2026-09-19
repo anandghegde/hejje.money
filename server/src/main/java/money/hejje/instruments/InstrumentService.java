@@ -95,6 +95,22 @@ public class InstrumentService {
     }
 
     /** Runs the instrument master sync now (also scheduled daily). */
+    /** Writes every instrument, with its id, to {@code file} as JSON (plan M7.2: the master a SIM instance imports). */
+    public int exportMaster(java.nio.file.Path file, com.fasterxml.jackson.databind.ObjectMapper json) throws java.io.IOException {
+        List<Instrument> all = store.all();
+        java.nio.file.Files.createDirectories(file.getParent());
+        java.nio.file.Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+        json.writeValue(tmp.toFile(), all);
+        java.nio.file.Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+        return all.size();
+    }
+
+    /** Imports an exported master keeping the ids, mapped to {@code broker} (a SIM instance's fake broker). */
+    public int importMaster(java.nio.file.Path file, String broker, com.fasterxml.jackson.databind.ObjectMapper json) throws java.io.IOException {
+        List<Instrument> rows = json.readValue(file.toFile(), new com.fasterxml.jackson.core.type.TypeReference<List<Instrument>>() {});
+        return store.importWithIds(rows, broker, clock.now());
+    }
+
     public InstrumentSyncResult sync() {
         return sync.run();
     }

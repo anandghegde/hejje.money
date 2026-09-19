@@ -19,7 +19,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * no longer actionable, so a signal is never entered twice.
  */
 @Component
-class AutoSignalListener {
+class AutoSignalListener implements money.hejje.common.Drainable {
 
     private static final Logger log = LoggerFactory.getLogger(AutoSignalListener.class);
 
@@ -32,6 +32,15 @@ class AutoSignalListener {
 
     AutoSignalListener(AutoExecutor auto) {
         this.auto = auto;
+    }
+
+    @Override
+    public void drain() {
+        try {
+            worker.submit(() -> { }).get(30, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new IllegalStateException("AUTO worker did not drain", e);
+        }
     }
 
     @TransactionalEventListener(fallbackExecution = true)

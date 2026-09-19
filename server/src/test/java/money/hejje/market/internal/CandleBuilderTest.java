@@ -114,4 +114,19 @@ class CandleBuilderTest {
         assertThat(CandleBuilder.floorTo(t, Timeframe.M15).atZone(IST).toLocalTime().toString()).isEqualTo("09:15");
         assertThat(CandleBuilder.floorTo(t, Timeframe.H1).atZone(IST).toLocalTime().toString()).isEqualTo("09:00");
     }
+
+    @Test
+    void theFirstMinuteOfANewDayCountsItsOwnVolume() {
+        CandleBuilder builder = new CandleBuilder();
+        List<Candle> closed = new ArrayList<>();
+        java.util.function.BiFunction<String, Long, MarketTick> tick = (ist, cumulative) -> new MarketTick(INSTR, LocalDateTime.parse(ist).atZone(IST).toInstant(),
+                new java.math.BigDecimal("100.00"), null, null, cumulative, 0, MarketTick.Mode.FULL);
+        closed.addAll(builder.onTick(tick.apply("2026-09-08T15:29:10", 900_000L)));
+        closed.addAll(builder.onTick(tick.apply("2026-09-08T15:29:50", 950_000L)));
+        // next morning the exchange's cumulative day volume starts again from zero
+        closed.addAll(builder.onTick(tick.apply("2026-09-09T09:15:05", 1_200L)));
+        closed.addAll(builder.onTick(tick.apply("2026-09-09T09:15:40", 3_000L)));
+        closed.addAll(builder.onClock(LocalDateTime.parse("2026-09-09T09:16:00").atZone(IST).toInstant()));
+        assertThat(at(closed, Timeframe.M1, "2026-09-09T09:15:00").volume()).as("not max(0, 3000 − 950000)").isEqualTo(3_000);
+    }
 }

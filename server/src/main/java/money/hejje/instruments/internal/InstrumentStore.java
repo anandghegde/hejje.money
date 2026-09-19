@@ -91,6 +91,41 @@ public class InstrumentStore {
                 .update();
     }
 
+    /** Every instrument, active or not (the master a SIM instance imports, plan M7.2). */
+    public List<Instrument> all() {
+        return jdbc.sql("SELECT * FROM instrument ORDER BY id").query(this::map).list();
+    }
+
+    /**
+     * Imports instruments keeping their ids (so the Parquet history, keyed by instrument id, applies) and maps each to
+     * {@code broker} with the id as its token. Rows already present by id are left alone.
+     */
+    public int importWithIds(List<Instrument> rows, String broker, Instant now) {
+        int written = 0;
+        for (int start = 0; start < rows.size(); start += BATCH) {
+            List<Instrument> chunk = rows.subList(start, Math.min(rows.size(), start + BATCH));
+            SqlParameterSource[] params = chunk.stream().map(i -> new MapSqlParameterSource()
+                    .addValue("id", i.id()).addValue("symbol", i.symbol()).addValue("name", i.name()).addValue("exchange", i.exchange().name())
+                    .addValue("type", i.type().name()).addValue("underlying", i.underlying()).addValue("expiry", i.expiry(), Types.DATE)
+                    .addValue("strike", i.strike(), Types.NUMERIC).addValue("optionType", i.optionType() == null ? null : i.optionType().name(), Types.VARCHAR)
+                    .addValue("lotSize", i.lotSize()).addValue("tickSize", i.tickSize()).addValue("isin", i.isin(), Types.VARCHAR)
+                    .addValue("active", i.active()).addValue("now", ts(now)).addValue("mappingId", Ids.newId()).addValue("broker", broker)
+                    .addValue("token", i.id().toString())).toArray(SqlParameterSource[]::new);
+            named.batchUpdate("""
+                    INSERT INTO instrument (id, symbol, name, exchange, type, underlying, expiry, strike, option_type, lot_size, tick_size, isin, active, updated_at)
+                    VALUES (:id, :symbol, :name, :exchange, :type, :underlying, :expiry, :strike, :optionType, :lotSize, :tickSize, :isin, :active, :now)
+                    ON CONFLICT (id) DO NOTHING
+                    """, params);
+            named.batchUpdate("""
+                    INSERT INTO broker_instrument_mapping (id, instrument_id, broker, broker_token, trading_symbol, exchange_segment, raw, synced_at)
+                    VALUES (:mappingId, :id, :broker, :token, :symbol, :exchange, CAST('{}' AS jsonb), :now)
+                    ON CONFLICT (broker, broker_token) DO NOTHING
+                    """, params);
+            written += chunk.size();
+        }
+        return written;
+    }
+
     public long countActive() {
         return jdbc.sql("SELECT count(*) FROM instrument WHERE active").query(Long.class).single();
     }

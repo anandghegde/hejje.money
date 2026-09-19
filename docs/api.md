@@ -65,7 +65,8 @@ Scope: `admin`. `from`/`to` are ISO-8601 instants (`to` exclusive),
 
 Send `Authorization: Bearer <token>` where the token is either a JWT access token (user login) or a client
 credential key `hejje_<prefix>_<secret>`. Scopes: `market:read strategies:read strategies:write orders:prepare
-orders:execute orders:cancel positions:close risk:read risk:write admin`. Users hold every scope; clients
+orders:execute orders:cancel positions:close risk:read risk:write admin sim:run` (`sim:run`: SIM replay sessions, Phase 7).
+Users hold every scope; clients
 hold the scopes they were created with. Missing token: 401. Missing scope: 403. Both are problem+json.
 
 WebSocket handshakes (`/ws/*`) pass the token as `?token=`. API keys are accepted there only with `market:read`.
@@ -149,6 +150,12 @@ Resolves a canonical symbol (or `EXCHANGE:TRADINGSYMBOL`). 400 when the symbol i
 ### `POST /api/v1/instruments/sync`
 
 Scope: `admin`. Runs the instrument master sync now.
+
+### `POST /api/v1/instruments/export` (Phase 7, M7.2)
+
+Scope: `admin`. Writes every instrument with its id to `<data-dir>/instruments/master.json` and returns
+`{ "instruments": 76012, "file": "/data/instruments/master.json" }`. A SIM instance imports it at startup (the Parquet
+history is keyed by instrument id); see `docs/simulation.md`.
 
 ```json
 { "broker": "fake", "received": 32, "upserted": 32, "deactivated": 0, "activeAfter": 32, "syncedAt": "2026-09-08T02:30:00Z" }
@@ -1208,4 +1215,35 @@ the answer carries a `note` that a restart with that adapter is needed. Logins r
   `POST /api/v1/broker/login?request_token=` also accepts a Dhan access token (`docs/broker-dhan.md`).
 - `GET /api/v1/server/latency` rows carry `broker` (the broker timers are tagged with it).
 - Reconciliation issues carry `broker`.
+
+## Simulation (Phase 7, M7.2)
+
+SIM instances only (`hejje.mode=SIM`, `docs/simulation.md`); scope `sim:run` (users hold every scope). One session at a
+time.
+
+### `POST /api/v1/sim/sessions`
+
+Body: `{ "dates": ["2026-09-08"] | "from": "2026-08-03", "to": "2026-08-07", "instruments": ["NSE:INFY"] | "universe":
+"nifty50", "capitalRupees": 1000000, "riskPerTradeRupees": 2000, "lossHaltRupees": 5000, "maxPositions": 5, "bots": [] }`.
+Validates the days (trading days) and that every instrument has M1 candles or recorded ticks for each; resets the
+simulated ledger, the paper broker (capital), the market pipeline and the strategy runners; applies the risk settings to
+the SIM limits; starts simulation time at the first day's 09:15. 201 with the session (`PAUSED`, step 0). 400 on a bad
+spec or missing data; 409 while another session is active. `bots` must be empty until M7.3.
+
+### `POST /api/v1/sim/sessions/{id}/control`
+
+Body `{ "action": "play" | "pause" | "step" | "cancel", "speed": "1" | "10" | "60" | "300" | "MAX" }` (either may be
+omitted). `step` replays one minute of a paused session and returns after it; `pause` returns once the step in progress
+has finished. 409 when the session is not active or (for `step`) is playing.
+
+### `GET /api/v1/sim/sessions/{id}` · `GET /api/v1/sim/sessions?limit=20`
+
+```json
+{ "id": "…", "state": "PLAYING", "speed": "60", "day": 1, "days": 3, "sessionDate": "2026-09-08", "step": 42, "progress": "42/375",
+  "fills": 0, "frictionPaid": { "paise": 0 }, "netPnl": { "paise": 0 }, "resultHash": null, "error": null, "spec": { "…": "…" },
+  "createdBy": "admin", "createdAt": "…", "finishedAt": null }
+```
+
+`fills`, `frictionPaid` (transaction costs), `netPnl` and `resultHash` (SHA-256 over the fills) are set when the session
+finishes (`DONE`, `CANCELLED` or `FAILED`).
 

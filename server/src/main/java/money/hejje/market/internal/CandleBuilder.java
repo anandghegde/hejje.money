@@ -49,6 +49,8 @@ public class CandleBuilder {
     private final Map<String, Bar> derivedBars = new ConcurrentHashMap<>();
     private final Map<UUID, BigDecimal> lastClose = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastCumulativeVolume = new ConcurrentHashMap<>();
+    /** IST date of each instrument's last tick: the cumulative day volume restarts from zero on a new day. */
+    private final Map<UUID, java.time.LocalDate> lastTickDay = new ConcurrentHashMap<>();
 
     static Instant floorTo(Instant ts, Timeframe tf) {
         ZonedDateTime ist = ts.atZone(IST);
@@ -70,6 +72,10 @@ public class CandleBuilder {
         if (bar != null && minuteStart.isAfter(bar.openTime)) {
             closed.addAll(closeMinute(id, bar, minuteStart));
             bar = null;
+        }
+        java.time.LocalDate day = tick.ts().atZone(IST).toLocalDate();
+        if (!day.equals(lastTickDay.put(id, day))) {
+            lastCumulativeVolume.remove(id); // yesterday's cumulative is no baseline for today's first minute
         }
         if (bar == null) {
             bar = newBar(minuteStart, tick.lastPrice(), volumeBaseline(id));
@@ -141,6 +147,11 @@ public class CandleBuilder {
             if (!minute.synthetic()) {
                 bar.fromTick = true;
             }
+            // the period's last minute is in: the derived bar closes now, at its own close time, not a minute later
+            if (!minute.openTime().plus(Duration.ofMinutes(1)).isBefore(start.plus(tf.duration()))) {
+                closed.add(bar.toCandle(id, tf, !bar.fromTick));
+                derivedBars.remove(key);
+            }
         }
         return closed;
     }
@@ -181,6 +192,12 @@ public class CandleBuilder {
 
     private long volumeBaseline(UUID id) {
         return lastCumulativeVolume.getOrDefault(id, 0L);
+    }
+
+    /** Forgets every instrument's cumulative day volume (a new SIM session starts from zero). */
+    public synchronized void clearVolumes() {
+        lastCumulativeVolume.clear();
+        lastTickDay.clear();
     }
 
     /** Closes and returns every open bar (session end / shutdown), 1m then derived, without synthetic gap-fill. */

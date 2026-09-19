@@ -77,8 +77,10 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         t.setDaemon(true);
         return t;
     });
-    private final Money startingCapital;
+    private Money startingCapital;
     private Money cash;
+    /** SIM (plan M7.2): a MARKET order waits for the next tick instead of filling at the price already seen. */
+    private volatile boolean fillOnNextTick;
 
     public PaperBrokerAdapter(BrokerAdapter delegate, BrokerInstrumentResolver instruments, BrokerOrderUpdates updates,
             HejjeClock clock, PaperBrokerProperties properties) {
@@ -164,7 +166,7 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         order.status = order.type == OrderType.SL || order.type == OrderType.SL_M ? BrokerOrderStatus.TRIGGER_PENDING : BrokerOrderStatus.OPEN;
         orders.put(order.id, order);
         publish(order);
-        BigDecimal ltp = currentPrice(order.instrumentId);
+        BigDecimal ltp = fillOnNextTick ? null : currentPrice(order.instrumentId);
         if (ltp != null) {
             match(order, ltp);
         }
@@ -179,7 +181,7 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         if (request.triggerPrice() != null) order.trigger = request.triggerPrice().value();
         order.updatedAt = clock.now();
         publish(order);
-        BigDecimal ltp = currentPrice(order.instrumentId);
+        BigDecimal ltp = fillOnNextTick ? null : currentPrice(order.instrumentId);
         if (ltp != null) match(order, ltp);
         return new BrokerOrderRef(order.id);
     }
@@ -351,6 +353,22 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         Money unrealized = p.net == 0 ? Money.ZERO : Money.of(ltp.subtract(p.avg).multiply(BigDecimal.valueOf(p.net)).setScale(2, RoundingMode.HALF_UP));
         return new BrokerPosition(p.instrumentId, p.tradingSymbol, p.exchangeSegment, p.product, p.net, p.avg, p.dayBuy, p.daySell,
                 BigDecimal.ZERO, BigDecimal.ZERO, p.realized, unrealized, ltp, Map.of("paper", true));
+    }
+
+    /** SIM: MARKET orders (and orders a modify makes marketable) fill on the next injected tick, not on placement. */
+    public void setFillOnNextTick(boolean fillOnNextTick) {
+        this.fillOnNextTick = fillOnNextTick;
+    }
+
+    /** SIM: a new session starts with no orders, trades or positions and the given cash. */
+    public synchronized void reset(Money capital) {
+        flush();
+        orders.clear();
+        trades.clear();
+        positions.clear();
+        lastPrice.clear();
+        startingCapital = capital;
+        cash = capital;
     }
 
     public void flush() {

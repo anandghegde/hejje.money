@@ -54,7 +54,7 @@ import org.springframework.stereotype.Component;
  * so a restart (or a deployment change) always converges on the same set of runners (docs/signals.md).
  */
 @Component
-public class SignalEngine {
+public class SignalEngine implements money.hejje.common.Drainable {
 
     private static final Logger log = LoggerFactory.getLogger(SignalEngine.class);
 
@@ -341,6 +341,12 @@ public class SignalEngine {
 
     public Collection<StrategyRunner> runners() {
         return List.copyOf(runners.values());
+    }
+
+    /** Waits for the engine thread to finish everything submitted so far (SIM replay, plan M7.2). */
+    @Override
+    public void drain() {
+        run(() -> { });
     }
 
     /** Runs work on the engine thread (or inline under the test profile) and waits for it. */

@@ -38,6 +38,19 @@ class BrokerAdapterConfig {
         if (properties.mode() == ExecutionMode.PAPER && fakeAdapter == null) {
             return new PaperBrokerAdapter(rateLimited, instruments, updates, clock, paperProperties);
         }
+        // SIM (plan M7.2): replayed ticks drive paper fills over the fake broker; a MARKET order fills on the next tick
+        if (properties.mode() == ExecutionMode.SIM) {
+            PaperBrokerAdapter paper = new PaperBrokerAdapter(rateLimited, instruments, updates, clock, paperProperties);
+            paper.setFillOnNextTick(true);
+            return paper;
+        }
         return rateLimited;
+    }
+
+    /** The simulated broker of a SIM instance: the replay feeds it ticks and resets it per session. */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "hejje.mode", havingValue = "SIM")
+    money.hejje.broker.BrokerSimulation brokerSimulation(BrokerAdapter brokerAdapter) {
+        return new money.hejje.broker.BrokerSimulation((PaperBrokerAdapter) brokerAdapter);
     }
 }

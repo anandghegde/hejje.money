@@ -22,9 +22,13 @@ import org.springframework.web.server.ResponseStatusException;
 class InstrumentController {
 
     private final InstrumentService instruments;
+    private final money.hejje.common.config.HejjeProperties properties;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
-    InstrumentController(InstrumentService instruments) {
+    InstrumentController(InstrumentService instruments, money.hejje.common.config.HejjeProperties properties, com.fasterxml.jackson.databind.ObjectMapper json) {
         this.instruments = instruments;
+        this.properties = properties;
+        this.json = json;
     }
 
     @GetMapping
@@ -54,5 +58,14 @@ class InstrumentController {
     @PreAuthorize("hasAuthority('SCOPE_admin')")
     InstrumentSyncResult sync() {
         return instruments.sync();
+    }
+
+    /** Writes the instrument master with ids to {@code <data-dir>/instruments/master.json} for a SIM instance (plan M7.2). */
+    @PostMapping("/export")
+    @PreAuthorize("hasAuthority('SCOPE_admin')")
+    java.util.Map<String, Object> export() throws java.io.IOException {
+        java.nio.file.Path file = properties.dataDir().resolve("instruments").resolve("master.json");
+        int count = instruments.exportMaster(file, json);
+        return java.util.Map.of("instruments", count, "file", file.toString());
     }
 }

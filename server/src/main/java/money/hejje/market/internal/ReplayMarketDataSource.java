@@ -68,6 +68,11 @@ public class ReplayMarketDataSource {
                 : ticks.get(ticks.size() - 1).ts().plusSeconds(120));
     }
 
+    /** Every tick of one recorded day file, ordered by time (SIM replay, plan M7.2). */
+    public static List<MarketTick> read(Path file) {
+        return readFile(file);
+    }
+
     static List<MarketTick> readFile(Path file) {
         List<MarketTick> out = new ArrayList<>();
         String sql = "SELECT instrument_id, ts, last_price, bid, ask, volume, oi, mode FROM read_parquet('" + file.toAbsolutePath() + "') ORDER BY ts";

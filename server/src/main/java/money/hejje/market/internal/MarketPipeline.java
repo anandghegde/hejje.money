@@ -65,6 +65,17 @@ public class MarketPipeline {
         }
     }
 
+    /**
+     * Starts a SIM session afresh (plan M7.2): open bars, cumulative volumes and cached quotes of a previous session are
+     * dropped without publishing anything.
+     */
+    public void resetForSimulation() {
+        candles.flushAll();
+        candles.clearVolumes();
+        quotes.clear();
+        lastTickAt = null;
+    }
+
     /** Test/session-end hook: close all open bars. */
     public void flush() {
         publishClosed(candles.flushAll());

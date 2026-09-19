@@ -16,9 +16,11 @@ public final class ScopeCatalog {
     public static final String RISK_READ = "risk:read";
     public static final String RISK_WRITE = "risk:write";
     public static final String ADMIN = "admin";
+    /** Create and control replay sessions of a SIM instance (plan M7.2). */
+    public static final String SIM_RUN = "sim:run";
 
     public static final Set<String> ALL = Set.of(MARKET_READ, STRATEGIES_READ, STRATEGIES_WRITE, ORDERS_PREPARE,
-            ORDERS_EXECUTE, ORDERS_CANCEL, POSITIONS_CLOSE, RISK_READ, RISK_WRITE, ADMIN);
+            ORDERS_EXECUTE, ORDERS_CANCEL, POSITIONS_CLOSE, RISK_READ, RISK_WRITE, ADMIN, SIM_RUN);
 
     public static final String AUTHORITY_PREFIX = "SCOPE_";
 

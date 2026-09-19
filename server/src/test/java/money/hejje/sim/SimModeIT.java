@@ -3,8 +3,6 @@ package money.hejje.sim;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -22,42 +20,14 @@ import money.hejje.market.internal.MarketPipeline;
 import money.hejje.risk.RiskService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * A SIM instance end to end (plan M7.1): its own database and data directory (never the shared integration-test context),
- * the simulation clock at {@code hejje.sim.start}, no {@code @Scheduled} job on wall time, and the market pipeline's
- * candle close driven by simulation time through {@link SimTime}.
+ * A SIM instance end to end (plan M7.1): the simulation clock at {@code hejje.sim.start}, no {@code @Scheduled} job on
+ * wall time, and the market pipeline's candle close driven by simulation time through {@link SimTime}.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
-        "hejje.mode=SIM",
-        "hejje.sim.start=2026-09-08T03:45:00Z",
-        "hejje.auth.admin-password=sim-admin-password",
-        "hejje.auth.jwt-secret=sim-secret-sim-secret-sim-secret-sim-secret",
-        "hejje.security.encryption-key=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-})
-@ActiveProfiles("sim")
-class SimModeIT {
+class SimModeIT extends AbstractSimIT {
 
     static final Instant OPEN = Instant.parse("2026-09-08T03:45:00Z"); // 09:15 IST
-
-    @ServiceConnection
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
-
-    static {
-        POSTGRES.start();
-    }
-
-    @DynamicPropertySource
-    static void dataDir(DynamicPropertyRegistry registry) throws Exception {
-        Path dir = Files.createTempDirectory("hejje-sim-it");
-        registry.add("hejje.data-dir", dir::toString);
-    }
 
     @Autowired SimTime time;
     @Autowired HejjeClock clock;
@@ -71,9 +41,17 @@ class SimModeIT {
     void simulationTimeDrivesTheScheduledJobs() {
         assertThat(properties.mode()).isEqualTo(ExecutionMode.SIM);
         assertThat(time.clock()).isInstanceOf(SimClock.class);
+        pipeline.resetForSimulation(); // other SIM ITs share the context
         time.startAt(OPEN);
         assertThat(clock.now()).isEqualTo(OPEN);
-        assertThat(time.scheduler().firedCounts()).as("nothing runs on wall time").isEmpty();
+        java.util.Map<String, Integer> before = time.scheduler().firedCounts();
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        assertThat(time.scheduler().firedCounts()).as("nothing runs on wall time").isEqualTo(before);
+        assertThat(clock.now()).as("the clock stands still").isEqualTo(OPEN);
         assertThat(time.scheduler().runningJobs()).first().isEqualTo("MarketPipeline#tick");
         assertThat(time.scheduler().runningJobs()).doesNotContain("NewsPoller#poll", "EgressIpVerifier#scheduledCheck", "InstrumentSyncJob#scheduled");
         assertThat(risk.limits(ExecutionMode.SIM)).as("SIM keeps its own risk limits (V34)").isNotNull();
@@ -101,6 +79,23 @@ class SimModeIT {
         List<String> first = time.advance(Duration.ofMinutes(5));
         time.startAt(OPEN);
         assertThat(time.advance(Duration.ofMinutes(5))).isEqualTo(first);
+    }
+
+    @Autowired com.fasterxml.jackson.databind.ObjectMapper json;
+
+    @Test
+    void theLiveInstrumentMasterImportsWithItsIds() throws Exception {
+        UUID id = UUID.fromString("01a0b8dd-0000-7000-8000-00000000ab01");
+        java.nio.file.Path file = java.nio.file.Files.createTempFile("master", ".json");
+        java.nio.file.Files.writeString(file, """
+                [{"id":"%s","symbol":"SIMTEST","name":"Sim Test Ltd","exchange":"NSE","type":"EQ","underlying":null,"expiry":null,"strike":null,
+                  "optionType":null,"lotSize":1,"tickSize":0.05,"isin":null,"active":true,"updatedAt":"2026-09-01T00:00:00Z",
+                  "hejjeSymbol":{"exchange":"NSE","symbol":"SIMTEST"},"derivative":false}]
+                """.formatted(id));
+        assertThat(instruments.importMaster(file, "fake", json)).isEqualTo(1);
+        assertThat(instruments.findById(id)).get().extracting(Instrument::symbol).isEqualTo("SIMTEST");
+        assertThat(instruments.mapping(id, "fake")).get().extracting(m -> m.brokerToken()).isEqualTo(id.toString());
+        assertThat(instruments.importMaster(file, "fake", json)).as("idempotent").isEqualTo(1);
     }
 
     static MarketTick tick(UUID id, Instant at, String price, long volume) {

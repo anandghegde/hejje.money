@@ -23,6 +23,7 @@ services:
       - hejje-sim-data:/data
       - ../data/candles:/data/candles:ro
       - ../data/ticks:/data/ticks:ro
+      - ../data/instruments:/data/instruments:ro   # POST /api/v1/instruments/export on the live instance first
     ports:
       - "127.0.0.1:8091:8080"
     depends_on:
