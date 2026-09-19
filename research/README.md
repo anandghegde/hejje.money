@@ -6,4 +6,9 @@ Python tooling that supports the Java core without being a source of truth.
   reference values for the indicator library). Needs a venv with `pandas`, `numpy`, `TA-Lib` (the C library via
   `brew install ta-lib`): `uv venv .venv --python 3.12 && uv pip install --python .venv/bin/python pandas numpy TA-Lib`.
 
+- `tools/bakeoff.py`: the Phase 6 strategy bake-off (plan M6.5, `docs/strategies/bakeoff.md`). Standard library only;
+  needs `HEJJE_URL` and `HEJJE_API_KEY` (scopes `strategies:read`, `strategies:write`, `market:read`). `plan` prints each
+  strategy's series and ranges, `run` starts the protocol backtests and writes the results table, `holdout` runs the
+  passing strategies once on the 6-month holdout (pass `--latest` from the protocol run).
+
 The optional research worker (plan M2.9) lives here later.
