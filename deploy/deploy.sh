@@ -13,8 +13,7 @@ LOG="$DIR/data/deploy/upgrade-$(date +%Y%m%d-%H%M%S).log"
 git diff --quiet HEAD || { echo "uncommitted changes: commit first (only committed main is deployed)"; exit 1; }
 
 git push origin main
-# tsconfig.tsbuildinfo is rewritten by every web build on the VM
-ssh "$HOST" "cd $DIR && git checkout -- web/tsconfig.tsbuildinfo && git pull --ff-only origin main && mkdir -p data/deploy && tmux new-session -d -s hejje-upgrade \
+ssh "$HOST" "cd $DIR && git pull --ff-only origin main && mkdir -p data/deploy && tmux new-session -d -s hejje-upgrade \
   'cd $DIR && deploy/upgrade.sh ${1:-} > $LOG 2>&1; echo \$? > $LOG.exit'"
 echo "upgrade started on $HOST, log $LOG"
 

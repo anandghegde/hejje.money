@@ -39,3 +39,4 @@ data/
 # IDE / tool output
 server/bin/
 .serena/
+web/tsconfig.tsbuildinfo
