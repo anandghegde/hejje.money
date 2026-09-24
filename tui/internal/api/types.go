@@ -66,6 +66,17 @@ type Position struct {
 	Fees         Paise   `json:"fees"`
 }
 
+// Quote is GET /market/quotes: the last tick of an instrument (bid/ask only in FULL mode).
+type Quote struct {
+	InstrumentID string   `json:"instrumentId"`
+	TS           string   `json:"ts"`
+	LastPrice    float64  `json:"lastPrice"`
+	Bid          *float64 `json:"bid"`
+	Ask          *float64 `json:"ask"`
+	Volume       int64    `json:"volume"`
+	Stale        bool     `json:"stale"`
+}
+
 type Trade struct {
 	ID       string  `json:"id"`
 	Side     string  `json:"side"`

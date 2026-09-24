@@ -6,12 +6,17 @@ as the web client.
 ## Config
 
 `~/.config/hejje/config.yaml` holds `server_url`. The API key comes from `HEJJE_API_KEY` (a client credential with the
-needed scopes) and is never stored in the file.
+needed scopes) and is never stored in the file. Create one in the web client under Settings → API keys with access
+"Terminal (TUI)" (every scope except `admin`, `sim:run` and `bot:decide`); it is shown once as an `export` line.
 
 ## Commands
 
 `hejje status | server | broker | positions | orders | order <id> | cancel <id> | close <instrument> | close-all |
-risk | logs | kill [--cancel-all|--close-all] | place --instrument --side --qty|--risk --type --price --stop --target`.
+risk | logs | kill [--cancel-all|--close-all] | place --instrument --side --qty|--risk --type --price --stop --target |
+track <symbol> [--every 1s]`.
+
+`track` subscribes the instrument to the live stream and redraws one line until Ctrl-C: last price, change since
+tracking started, bid/ask (FULL mode only), volume, `STALE`, and an open position with its unrealized P&L at that price.
 
 `--json` prints machine-readable output for scripting. Transactional commands send a client-generated `Idempotency-Key`.
 `kill --close-all` and `close-all` require typing `CLOSE ALL`; other destructive commands ask `[y/N]`.

@@ -52,6 +52,10 @@ Subscription modes (M5.4): the watchlist and option chains stream in FULL mode (
 put/call ratios and max pain need OI); every other subscription is LTP. An instrument already in FULL mode is never
 downgraded by a later LTP subscription.
 
+Traded instruments stream too (`TradedInstruments`): an order intent subscribes its instrument (manual orders, stops,
+closes), and at startup every open position's instrument is subscribed again, so paper stops trigger and position P&L
+moves for stocks no strategy watches. Only when `hejje.market.stream-on-startup` is on (off in tests and the e2e stack).
+
 
 ## Order book and flow (plan M9.4)
 

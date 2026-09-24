@@ -97,3 +97,12 @@ Every rate is shown with its count (`27 of 40 (68 %)`).
 
 Pure helpers live in `src/lib/context.ts` (`tests/context.test.ts`); the Playwright smoke is `tests-e2e/context.spec.ts`
 (server with `HEJJE_RATINGS_ENABLED=true HEJJE_ANALOGS_ENABLED=true HEJJE_RATINGS_UNIVERSE=nifty50 HEJJE_ANALOGS_UNIVERSE=nifty50`).
+
+## API keys and Jev status
+
+**Settings → API keys** (admin) creates client credentials: "Terminal (TUI)" gets every scope except `admin`, `sim:run`
+and `bot:decide`; the agent presets `research` and `execution` and the `bot` preset come from the server
+(`AgentPresets`). The key is shown once as `export HEJJE_API_KEY=…` with a copy button; the table lists prefix, scopes,
+last use and expiry (default 90 days) and revokes. Helpers in `src/lib/apiKeys.ts` (`tests/apiKeys.test.ts`).
+**Server** shows the Jev connection from `GET /jev/status`: enabled, key, model, circuit, today's calls by outcome,
+p50/p90 and cost, and the last error.

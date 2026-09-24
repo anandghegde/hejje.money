@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -159,6 +160,17 @@ func (c *Client) Risk() (RiskDashboard, error) {
 func (c *Client) ResolveInstrument(symbol string) (Instrument, error) {
 	var i Instrument
 	return i, c.do(http.MethodGet, "/instruments/resolve?symbol="+url.QueryEscape(symbol), nil, false, &i)
+}
+
+// Subscribe streams the instruments (LTP mode) so their quotes stay live.
+func (c *Client) Subscribe(ids ...string) error {
+	return c.do(http.MethodPost, "/market/subscriptions", map[string][]string{"instrumentIds": ids}, false, nil)
+}
+
+// Quotes is the last tick per instrument, keyed by instrument id.
+func (c *Client) Quotes(ids ...string) (map[string]Quote, error) {
+	var q map[string]Quote
+	return q, c.do(http.MethodGet, "/market/quotes?ids="+url.QueryEscape(strings.Join(ids, ",")), nil, false, &q)
 }
 
 // PlaceOrderRequest is the body of POST /orders/intents.
