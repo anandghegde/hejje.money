@@ -1,0 +1,43 @@
+# Plan M9.3: one story about one candidate company (docs/news.md "Jev classifier"). Asked per (story, symbol) with the
+# state { symbol, aliases, title, summary, source, publishedAt }. Bump the version on any change to a question, an
+# option, a level, or to the mapping into news_assessment (NewsJev.map).
+name: news
+version: "1"
+questions:
+  relevance:
+    type: noul
+    instructions: Is the story in `title` and `summary` about the company `symbol` (also known as `aliases`)?
+    criteria:
+      "true": The company is the subject of the story or directly affected by it
+      "false": The company is not mentioned, only mentioned in passing, or the name matches something else
+  direction:
+    type: choice
+    instructions: For the share price of `symbol`, what is the tone of the story in `title` and `summary`?
+    criteria:
+      bullish: Good for the company's shares
+      bearish: Bad for the company's shares
+      neutral: No clear direction
+  materiality:
+    type: score
+    instructions: How likely is the story in `title` and `summary` to move the share price of `symbol` today?
+    criteria: [Routine, Notable, Clearly price-moving]
+  novelty:
+    type: score
+    instructions: Is the story in `title` and `summary` new information about `symbol`?
+    criteria: [Repeat of known news, Update, New information]
+  event_type:
+    type: choice
+    instructions: What kind of event does the story in `title` and `summary` report for `symbol`?
+    criteria:
+      RESULTS: Quarterly or annual results
+      GUIDANCE: Outlook or guidance from the company
+      CONTRACT: An order, contract or deal win
+      MANAGEMENT: Changes in management or the board
+      REGULATORY: A regulator's action or approval
+      LEGAL: Courts, lawsuits, investigations
+      MACRO: Economy-wide news
+      SECTOR: News about the company's industry
+      RATING: A broker or credit rating change
+      CORPORATE_ACTION: Dividend, split, bonus, buyback
+      DEAL: Merger, acquisition, stake sale
+      OTHER: ~

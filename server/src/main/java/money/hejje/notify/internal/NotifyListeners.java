@@ -195,6 +195,17 @@ class NotifyListeners {
                             String.valueOf(d.get("summary")), d, "approval:" + d.get("id")));
                 }
             }
+            case "market_condition" -> async("market condition", () -> notifications.notify(NotificationType.MARKET_CONDITION_CHANGED,
+                    "DOWNTREND".equals(d.get("current")) ? NotificationType.Severity.WARNING : NotificationType.Severity.INFO,
+                    "Market condition: " + d.get("current"), "Was " + d.get("previous") + ". " + d.get("evidence"), d,
+                    "market-condition:" + d.get("date") + ":" + d.get("current")));
+            case "daily_context_digest" -> async("daily context digest", () -> notifications.notify(NotificationType.DAILY_CONTEXT_DIGEST,
+                    "Daily context " + d.get("date"), String.valueOf(d.get("line")), d, "daily-context:" + d.get("date")));
+            case "setup" -> async("setup", () -> notifications.notify(NotificationType.valueOf(String.valueOf(d.get("event"))),
+                    d.get("symbol") + ": " + String.valueOf(d.get("event")).toLowerCase().replace('_', ' '),
+                    d.get("type") + " pivot " + d.get("pivot") + ", buy zone to " + d.get("buyHigh") + ", stop " + d.get("stop") + ", goal " + d.get("goal")
+                            + (d.get("outcomeR") == null ? "" : ", outcome " + d.get("outcomeR") + " R") + ". Informational: Hejje does not trade it.",
+                    d, "setup:" + d.get("symbol") + ":" + d.get("date")));
             case "llm_budget" -> async("llm budget", () -> notifications.notify(NotificationType.LLM_BUDGET_EXCEEDED, "LLM daily budget reached",
                     "Spent " + d.get("spentPaise") + " of " + d.get("capPaise") + " paise today; LLM features pause until tomorrow.", d,
                     "llm-budget:" + d.get("date")));

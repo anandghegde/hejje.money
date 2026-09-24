@@ -85,6 +85,11 @@ type RiskDashboard struct {
 	MaxTradesPerDay          int     `json:"maxTradesPerDay"`
 	MarginUsedPct            float64 `json:"marginUsedPct"`
 	KillSwitchStopNewOrders  bool    `json:"killSwitchStopNewOrders"`
+	ConsecutiveLosses        int     `json:"consecutiveLosses"`
+	LossStreakMode           string  `json:"lossStreakMode"`
+	AllowanceUsed            *int    `json:"allowanceUsed"`
+	Allowance                *int    `json:"allowance"`
+	AllowanceReason          *string `json:"allowanceReason"`
 }
 
 type KillSwitch struct {
@@ -357,6 +362,9 @@ type MarketPulse struct {
 	Breadth       string           `json:"breadth"`
 	Sectors       []SectorStrength `json:"sectors"`
 	GlobalContext string           `json:"globalContext"`
+	// Plan M8.3: the daily market call of the last closed session and the sentence behind it.
+	MarketCondition         string `json:"marketCondition"`
+	MarketConditionEvidence string `json:"marketConditionEvidence"`
 }
 
 type PulseSnapshot struct {
@@ -394,6 +402,32 @@ type AiTurn struct {
 	Profile          string        `json:"profile"`
 	Flow             string        `json:"flow"`
 	StepLimitReached bool          `json:"stepLimitReached"`
+}
+
+// JevStatus is GET /jev/status (plan M9.1): the Jev connection and today's usage.
+type JevStatus struct {
+	Enabled           bool     `json:"enabled"`
+	Fixture           bool     `json:"fixture"`
+	KeyPresent        bool     `json:"keyPresent"`
+	Model             string   `json:"model"`
+	Circuit           string   `json:"circuit"`
+	LastError         string   `json:"lastError"`
+	Today             JevUsage `json:"today"`
+	DailyCostCapPaise *float64 `json:"dailyCostCapPaise"`
+	BudgetExceeded    bool     `json:"budgetExceeded"`
+}
+
+// JevUsage is today's Jev calls by outcome, tokens, estimated cost (paise) and latency percentiles.
+type JevUsage struct {
+	Calls       int64   `json:"calls"`
+	Ok          int64   `json:"ok"`
+	Cached      int64   `json:"cached"`
+	Failed      int64   `json:"failed"`
+	Timeouts    int64   `json:"timeouts"`
+	InputTokens int64   `json:"inputTokens"`
+	CostPaise   float64 `json:"costPaise"`
+	P50Ms       *int64  `json:"p50Ms"`
+	P90Ms       *int64  `json:"p90Ms"`
 }
 
 type AiStatus struct {

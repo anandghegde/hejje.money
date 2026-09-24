@@ -36,9 +36,12 @@ class MarketController {
     private final MarketPipeline pipeline;
     private final money.hejje.common.event.TickBus bus;
     private final money.hejje.common.time.HejjeClock clock;
+    private final money.hejje.market.UniverseHistory universeHistory;
 
     MarketController(MarketService market, HistoricalCandleStore historical, HistoricalBackfillJob backfill, money.hejje.market.MarketProperties properties,
-            MarketPipeline pipeline, money.hejje.common.event.TickBus bus, money.hejje.common.time.HejjeClock clock) {
+            MarketPipeline pipeline, money.hejje.common.event.TickBus bus, money.hejje.common.time.HejjeClock clock,
+            money.hejje.market.UniverseHistory universeHistory) {
+        this.universeHistory = universeHistory;
         this.market = market;
         this.historical = historical;
         this.backfill = backfill;
@@ -125,10 +128,30 @@ class MarketController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {}
 
+    record UniverseBackfillRequest(String universe, Timeframe timeframe,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {}
+
+    /** One parent job over a backfill per instrument of a universe file; symbols the master lacks are reported. */
+    @PostMapping("/history/backfill-universe")
+    @PreAuthorize("hasAuthority('SCOPE_admin')")
+    Map<String, Object> backfillUniverse(@RequestBody UniverseBackfillRequest request) {
+        if (request.universe() == null || request.from() == null || request.to() == null || !request.from().isBefore(request.to())) {
+            throw new IllegalArgumentException("universe, from and to (from before to) are required");
+        }
+        UUID jobId = universeHistory.backfill(request.universe(), request.timeframe() == null ? Timeframe.D1 : request.timeframe(),
+                request.from(), request.to());
+        money.hejje.market.UniverseBackfill started = universeHistory.progress(jobId);
+        return Map.of("jobId", jobId, "children", started.childrenTotal(), "unresolved", started.unresolved());
+    }
+
     @GetMapping("/history/jobs/{id}")
     @PreAuthorize("hasAuthority('SCOPE_admin')")
-    HistoricalBackfillJob.Progress job(@PathVariable UUID id) {
-        HistoricalBackfillJob.Progress progress = backfill.progress(id);
+    Object job(@PathVariable UUID id) {
+        Object progress = backfill.progress(id);
+        if (progress == null) {
+            progress = backfill.universeProgress(id);
+        }
         if (progress == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No backfill job " + id);
         }

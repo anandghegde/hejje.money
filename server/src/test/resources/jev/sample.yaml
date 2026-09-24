@@ -1,0 +1,23 @@
+# Test question set (JevQuestionSetsTest, JevIT).
+name: sample
+version: "1"
+questions:
+  urgent:
+    type: noul
+    instructions: Is `note` urgent?
+    criteria:
+      "true": Explicitly time-sensitive
+      "false": No urgency expressed
+  team:
+    type: choice
+    instructions: Which team should handle `note`?
+    criteria:
+      billing: Payments, invoicing, refunds
+      technical: Bugs, outages, integrations
+      sales: ~
+  mood:
+    type: score
+    instructions:
+      question: How frustrated is the writer of `note`?
+      context: Support ticket
+    criteria: [Calm, Frustrated, Very angry]

@@ -1,0 +1,16 @@
+SESSION ANALOGS  NSE:SBIN at 10:15 (2026-09-18)  50 matches of 52110 sessions  quality MODERATE (3.4/5)
+
+FORWARD      N         HIGHER   MEDIAN          P25..P75      MAE      MFE  TAGS
+close       50 22 of 50 (44%)   -0.12%   -0.60..  +0.40%   -0.50%   +0.45%  MIXED, reliability HIGH, risk LOW, NORMAL
+
+  ⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠧⠤⠤⠤⠤⠤⠤⠤⠤⠤⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⡤⠤⠤⠤⠤⠤⠤⠤⠤⢤
+  ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⢸
+  average path of 50 matches over the rest of the session
+
+expiryDay (the rest of the session): 50% higher of 4, median +0.10%  |  other: 43% of 46, median -0.14%
+sameWeekday (the rest of the session): 33% higher of 9, median -0.30%  |  other: 46% of 41, median -0.10%
+checkpoint high held in 21 of 50, low held in 17 of 50; median high at 11:40, low at 13:05; median move -0.06 ATR
+
+  In 50 similar past sessions at 10:15, price ended higher over the rest of the session (to 15:10) 22 times (44 %).

@@ -1,0 +1,5 @@
+SETUPS  2026-09-18
+
+SYMBOL               CLOSE     CHG   RS A/D COMP  OFF HI     VOL  SETUP
+NSE:INFY           1495.00   +1.2%   87  B+   91   -3.2%  +38.5%  FLAT_BASE IN_BUY_ZONE pivot 1480.00 (volume)
+NSE:NEWCO                —       —    —   —    —       —       —  CUP NEAR_PIVOT pivot 212.50

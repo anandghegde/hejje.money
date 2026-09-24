@@ -729,6 +729,8 @@ public class FakeBrokerAdapter implements BrokerAdapter {
                 return;
             }
             MarketTick delivered = mode == MarketTick.Mode.LTP ? MarketTick.ltp(tick.instrumentId(), tick.ts(), tick.lastPrice())
+                    : mode == MarketTick.Mode.FULL ? new MarketTick(tick.instrumentId(), tick.ts(), tick.lastPrice(), tick.bid(), tick.ask(), tick.volume(),
+                            tick.oi(), mode, tick.bidQty5(), tick.askQty5(), tick.totalBuyQty(), tick.totalSellQty())
                     : new MarketTick(tick.instrumentId(), tick.ts(), tick.lastPrice(), tick.bid(), tick.ask(), tick.volume(), tick.oi(), mode);
             try {
                 listener.onTick(delivered);

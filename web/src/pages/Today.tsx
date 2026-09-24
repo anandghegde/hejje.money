@@ -6,6 +6,7 @@ import { MarketEvent, PreparedOrder, Recommendation, TodayView } from '../api/ty
 import { decisionColor, formatR, rewardRisk, secondsLeft } from '../lib/today';
 import { NewsBiasPanel } from '../components/NewsBiasPanel';
 import { ContextCard } from '../components/ContextCard';
+import { CandidateContextLine, useCandidatesContext } from './Stock';
 
 function Header({ view }: { view: TodayView }) {
   const q = view.header.indexQuotes ?? {};
@@ -157,6 +158,7 @@ export function Today() {
   const { data } = useQuery({ queryKey: ['today'], queryFn: () => request<TodayView>('/today'), refetchInterval: 5000 });
   const [executing, setExecuting] = useState<Recommendation | null>(null);
   const [message, setMessage] = useState('');
+  const context = useCandidatesContext((data?.ranked ?? []).map((r) => r.instrument));
 
   async function skip(rec: Recommendation) {
     await request(`/signals/${rec.signalId}/skip`, { method: 'POST', body: { reason: 'skipped from Today' } });
@@ -184,7 +186,7 @@ export function Today() {
         <tbody>
           {(data?.ranked ?? []).map((r, i) => (
             <tr key={`${r.deploymentId}-${r.instrumentId}`}>
-              <td>{i + 1}</td><td>{r.instrument}</td><td>{r.strategy} v{r.version}</td><td>{r.score ?? '—'}</td>
+              <td>{i + 1}</td><td>{r.instrument}<CandidateContextLine symbol={r.instrument} rating={context.ratings[r.instrument]} session={context.sessions[r.instrument]} /></td><td>{r.strategy} v{r.version}</td><td>{r.score ?? '—'}</td>
               <td>{r.direction === 'BUY' ? 'Long' : r.direction === 'SELL' ? 'Short' : '—'}</td>
               <td style={{ color: decisionColor(r.decision), fontWeight: 700 }}>{r.decision}</td>
               <td style={{ fontSize: 12 }}>{[...r.hardBlocks, ...r.risks].slice(0, 2).join('; ')}</td>

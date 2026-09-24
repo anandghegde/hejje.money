@@ -16,6 +16,9 @@ func RenderPulse(p api.PulseSnapshot) string {
 	b.WriteString(fmt.Sprintf("%-16s %s\n", "Market regime", m.Regime))
 	b.WriteString(fmt.Sprintf("%-16s %s\n", "Volatility", m.Volatility))
 	b.WriteString(fmt.Sprintf("%-16s %s\n", "Breadth", m.Breadth))
+	if m.MarketCondition != "" {
+		b.WriteString(fmt.Sprintf("%-16s %s\n", "Market condition", m.MarketCondition))
+	}
 	for _, s := range m.Sectors {
 		b.WriteString(fmt.Sprintf("%-16s %-8s %s\n", s.Name, s.Label, pct(s.ChangePct)))
 	}

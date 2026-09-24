@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * Supplies the strategy lifecycle's evidence: BACKTESTED needs any completed backtest; VALIDATED needs a completed
  * backtest with an out-of-sample slice of at least {@link QualityChecker#MIN_TRADES_FAIL} trades and no FAIL warning.
+ * A research run with a session filter (plan M8.8) is never evidence: its entries were restricted from outside the strategy.
  */
 @Component
 @Primary
@@ -25,7 +26,7 @@ public class BacktestEvidenceAdapter implements StrategyEvidence {
 
     @Override
     public boolean hasBacktest(UUID versionId) {
-        return store.findByVersion(versionId).stream().anyMatch(b -> b.status() == BacktestStatus.DONE);
+        return store.findByVersion(versionId).stream().anyMatch(b -> b.status() == BacktestStatus.DONE && b.spec().sessionFilter() == null);
     }
 
     @Override
@@ -34,7 +35,7 @@ public class BacktestEvidenceAdapter implements StrategyEvidence {
     }
 
     public static boolean validates(Backtest b) {
-        if (b.status() != BacktestStatus.DONE || !b.spec().splits().hasOutOfSample()) {
+        if (b.status() != BacktestStatus.DONE || b.spec().sessionFilter() != null || !b.spec().splits().hasOutOfSample()) {
             return false;
         }
         if (b.warnings().stream().anyMatch(w -> w.severity() == money.hejje.backtest.QualityWarning.Severity.FAIL)) {

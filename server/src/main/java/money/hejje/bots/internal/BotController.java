@@ -97,6 +97,8 @@ class BotController {
         m.put("strategyId", b.strategyId());
         m.put("timeframe", b.timeframe());
         m.put("decisionEveryMinutes", b.decisionEveryMinutes());
+        m.put("exitConfirmVotes", b.exitConfirmVotes());
+        m.put("questionSet", b.questionSet());
         m.put("universe", b.universe());
         m.put("enabled", b.enabled());
         m.put("stats", hub.stats(b.id()));

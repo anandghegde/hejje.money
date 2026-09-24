@@ -20,6 +20,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param mildScore      |score| at or above which the label is BULLISH / BEARISH
  * @param maxItemsPerPoll cap of new items classified per source per poll (cost control)
  * @param titleSimilarity Jaccard token overlap at or above which two titles within 24 h are the same story
+ * @param classifier     {@code llm}, {@code jev} or {@code shadow} (LLM result used, Jev's stored beside it; plan M9.3)
+ * @param riskEventThreshold P(risk event today) from Jev at or above which a market-wide macro event is recorded
+ * @param marketHeadlineCount newest headlines of the day sent to Jev for the index risk-event check
  */
 @ConfigurationProperties("hejje.news")
 public record NewsProperties(
@@ -36,5 +39,8 @@ public record NewsProperties(
         @DefaultValue("25") int maxItemsPerPoll,
         @DefaultValue("0.8") double titleSimilarity,
         @DefaultValue("30s") Duration fetchTimeout,
-        @DefaultValue({}) List<String> ignoredHosts) {
+        @DefaultValue({}) List<String> ignoredHosts,
+        @DefaultValue("llm") String classifier,
+        @DefaultValue("0.6") double riskEventThreshold,
+        @DefaultValue("15") int marketHeadlineCount) {
 }

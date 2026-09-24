@@ -9,6 +9,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import money.hejje.common.Timeframe;
+import money.hejje.market.BarMicro;
 import money.hejje.market.Candle;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -60,8 +61,38 @@ public class MarketCandleStore {
     }
 
     public int pruneBefore(LocalDate cutoff) {
+        jdbc.sql("DELETE FROM bar_micro WHERE open_time < :cutoff").param("cutoff", cutoff.atStartOfDay().atOffset(ZoneOffset.UTC)).update();
         return jdbc.sql("DELETE FROM market_candle WHERE open_time < :cutoff")
                 .param("cutoff", cutoff.atStartOfDay().atOffset(ZoneOffset.UTC)).update();
+    }
+
+    /** Plan M9.4: one bar's order-book and flow features (upsert, so a replayed day rewrites the same rows). */
+    public void saveMicro(BarMicro m) {
+        jdbc.sql("""
+                INSERT INTO bar_micro (instrument_id, timeframe, open_time, imbalance_close, imbalance_mean, buy_sell_ratio, up_volume_share, up_volume,
+                    down_volume, ticks, depth_ticks)
+                VALUES (:id, :tf, :at, :ic, :im, :bs, :share, :up, :down, :ticks, :depth)
+                ON CONFLICT (instrument_id, timeframe, open_time) DO UPDATE SET imbalance_close = EXCLUDED.imbalance_close,
+                    imbalance_mean = EXCLUDED.imbalance_mean, buy_sell_ratio = EXCLUDED.buy_sell_ratio, up_volume_share = EXCLUDED.up_volume_share,
+                    up_volume = EXCLUDED.up_volume, down_volume = EXCLUDED.down_volume, ticks = EXCLUDED.ticks, depth_ticks = EXCLUDED.depth_ticks
+                """).param("id", m.instrumentId()).param("tf", m.timeframe().name()).param("at", ts(m.openTime())).param("ic", m.imbalanceClose())
+                .param("im", m.imbalanceMean()).param("bs", m.buySellRatio()).param("share", m.upVolumeShare()).param("up", m.upVolume())
+                .param("down", m.downVolume()).param("ticks", m.ticks()).param("depth", m.depthTicks()).update();
+    }
+
+    public List<BarMicro> readMicro(UUID instrumentId, Timeframe timeframe, Instant from, Instant to) {
+        return jdbc.sql("""
+                SELECT * FROM bar_micro WHERE instrument_id = :id AND timeframe = :tf AND open_time >= :from AND open_time <= :to ORDER BY open_time
+                """).param("id", instrumentId).param("tf", timeframe.name()).param("from", ts(from)).param("to", ts(to))
+                .query((rs, i) -> new BarMicro(rs.getObject("instrument_id", UUID.class), Timeframe.valueOf(rs.getString("timeframe")),
+                        rs.getObject("open_time", OffsetDateTime.class).toInstant(), dbl(rs, "imbalance_close"), dbl(rs, "imbalance_mean"),
+                        dbl(rs, "buy_sell_ratio"), dbl(rs, "up_volume_share"), rs.getLong("up_volume"), rs.getLong("down_volume"), rs.getInt("ticks"),
+                        rs.getInt("depth_ticks"))).list();
+    }
+
+    private static Double dbl(ResultSet rs, String column) throws SQLException {
+        double v = rs.getDouble(column);
+        return rs.wasNull() ? null : v;
     }
 
     private SqlParameterSource params(Candle c) {

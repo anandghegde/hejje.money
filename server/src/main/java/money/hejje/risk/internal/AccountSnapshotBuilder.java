@@ -73,13 +73,21 @@ public class AccountSnapshotBuilder {
             // margin unavailable; checks fall back to notional
         }
 
-        int consecutiveLosses = consecutiveLosses(todaysTrades);
-        return new AccountSnapshot(realized, unrealized, open, gross, todaysTrades.size(), consecutiveLosses, availableCash, usedMargin,
-                netByInstrument, lastTradeAt);
+        Day day = day(todaysTrades);
+        return new AccountSnapshot(realized, unrealized, open, gross, todaysTrades.size(), day.consecutiveLosses(), availableCash, usedMargin,
+                netByInstrument, lastTradeAt, day.entries(), day.closes());
+    }
+
+    /** Today's entries (first fill per opening order), closed round trips, and the trailing losses among them. */
+    record Day(List<Instant> entries, List<AccountSnapshot.Close> closes, int consecutiveLosses) {}
+
+    static int consecutiveLosses(List<Trade> trades) {
+        return day(trades).consecutiveLosses();
     }
 
     /** Reconstructs closed round-trips from today's trades (average cost, per instrument) and counts trailing losses. */
-    static int consecutiveLosses(List<Trade> trades) {
+    static Day day(List<Trade> trades) {
+        Map<UUID, Instant> entryOrders = new java.util.LinkedHashMap<>();
         List<Trade> ordered = new ArrayList<>(trades);
         ordered.sort((a, b) -> a.ts().compareTo(b.ts()));
         Map<UUID, int[]> net = new HashMap<>();           // net qty
@@ -94,6 +102,9 @@ public class AccountSnapshotBuilder {
             BigDecimal racc = realizedAccum.getOrDefault(k, BigDecimal.ZERO);
             int signed = t.side() == Side.BUY ? t.quantity() : -t.quantity();
             if (n == 0 || Integer.signum(n) == Integer.signum(signed)) {
+                if (t.orderId() != null) {
+                    entryOrders.putIfAbsent(t.orderId(), t.ts());
+                }
                 BigDecimal total = a.multiply(BigDecimal.valueOf(Math.abs(n))).add(t.price().multiply(BigDecimal.valueOf(t.quantity())));
                 n += signed;
                 a = total.divide(BigDecimal.valueOf(Math.abs(n)), 2, RoundingMode.HALF_UP);
@@ -123,6 +134,7 @@ public class AccountSnapshotBuilder {
                 break;
             }
         }
-        return count;
+        List<Instant> entries = entryOrders.values().stream().sorted().toList();
+        return new Day(entries, closes.stream().map(c -> new AccountSnapshot.Close(c.ts(), c.realized())).toList(), count);
     }
 }

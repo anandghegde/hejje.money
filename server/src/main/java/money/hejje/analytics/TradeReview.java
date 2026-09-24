@@ -17,11 +17,21 @@ import money.hejje.common.Side;
  * @param exitSlippageBps    fill vs the planned exit level (stop or target), 0 for market exits, null when unknown
  * @param ruleAdherencePct   100 when entry and exit followed the rules; 50 when only the entry did; null for manual
  * @param context            regime / breadth / news / event placeholders until Phase 3
+ * @param cause              why the trade ended as it did and how its entry was timed (plan M9.6); null until classified
  */
 public record TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID strategyPositionId, UUID strategyId, UUID strategyVersionId, UUID signalId,
         UUID instrumentId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice, BigDecimal exitPrice, Instant openedAt, Instant closedAt,
         Money grossPnl, Money fees, Money netPnl, Double outcomeR, Boolean expectedSetupValid, Double entrySlippageBps, Double exitSlippageBps,
-        Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt) {
+        Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt, TradeCause cause) {
+
+    public TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID strategyPositionId, UUID strategyId, UUID strategyVersionId, UUID signalId,
+            UUID instrumentId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice, BigDecimal exitPrice, Instant openedAt, Instant closedAt,
+            Money grossPnl, Money fees, Money netPnl, Double outcomeR, Boolean expectedSetupValid, Double entrySlippageBps, Double exitSlippageBps,
+            Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt) {
+        this(id, mode, positionId, strategyPositionId, strategyId, strategyVersionId, signalId, instrumentId, entryOrderId, side, quantity, entryPrice, exitPrice,
+                openedAt, closedAt, grossPnl, fees, netPnl, outcomeR, expectedSetupValid, entrySlippageBps, exitSlippageBps, ruleAdherencePct, closeReason, context,
+                notes, createdAt, null);
+    }
 
     public TradeReview {
         // placeholders are null until Phase 3, so keep an insertion-ordered copy that allows null values

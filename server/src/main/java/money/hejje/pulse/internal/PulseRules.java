@@ -151,7 +151,19 @@ final class PulseRules {
     static MarketPulse market(PulseInput in, PulseProperties p) {
         RegimeSnapshot r = in.regime();
         return new MarketPulse(r == null ? "Unknown" : regimeLabel(r.trend()), r == null ? "Unknown" : volatilityLabel(r.volatility()),
-                r == null ? "Unknown" : breadthLabel(r.breadth()), sectors(in, p.thresholds()), "NEUTRAL");
+                r == null ? "Unknown" : breadthLabel(r.breadth()), sectors(in, p.thresholds()), "NEUTRAL",
+                r == null ? "Unknown" : conditionLabel(r.marketCondition()),
+                r == null ? null : r.evidence().stream().filter(e -> e.startsWith("Market condition")).findFirst().orElse(null));
+    }
+
+    static String conditionLabel(money.hejje.regime.MarketCondition condition) {
+        return switch (condition) {
+            case CONFIRMED_UPTREND -> "Confirmed uptrend";
+            case UPTREND_UNDER_PRESSURE -> "Uptrend under pressure";
+            case RALLY_ATTEMPT -> "Rally attempt";
+            case DOWNTREND -> "Downtrend";
+            case UNKNOWN -> "Unknown";
+        };
     }
 
     static List<SectorStrength> sectors(PulseInput in, PulseProperties.Thresholds t) {

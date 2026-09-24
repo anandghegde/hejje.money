@@ -185,7 +185,11 @@ public class SignalEngine implements money.hejje.common.Drainable {
         Instant now = clock.now();
         List<Candle> history = market.candles(instrumentId, version.get().definition().timeframe(), now.minus(java.time.Duration.ofDays(signalProperties.warmupDays())), now);
         runner.warmUp(history);
-        market.subscribe(java.util.Set.of(instrumentId));
+        if (version.get().definition().entryOrderOrMarket().passive()) {
+            market.subscribeFull(java.util.Set.of(instrumentId)); // plan M9.8: a passive entry needs the touch (bid/ask)
+        } else {
+            market.subscribe(java.util.Set.of(instrumentId));
+        }
         log.info("Runner started for {} v{} on {} ({} warm-up bars)", version.get().definition().name(), version.get().version(), meta.symbol(), history.size());
         return runner;
     }
@@ -243,17 +247,17 @@ public class SignalEngine implements money.hejje.common.Drainable {
             return;
         }
         if (event instanceof CandleClosedEvent closed) {
-            run(() -> dispatchCandle(closed.candle()));
+            run(() -> dispatchCandle(closed.candle(), closed.micro()));
         } else if (event instanceof MarketTick tick) {
             run(() -> dispatchTick(tick));
         }
     }
 
-    private void dispatchCandle(Candle candle) {
+    private void dispatchCandle(Candle candle, money.hejje.market.BarMicro micro) {
         for (StrategyRunner runner : runners.values()) {
             if (runner.instrumentId().equals(candle.instrumentId())) {
                 try {
-                    runner.onCandleClosed(candle);
+                    runner.onCandleClosed(candle, micro);
                 } catch (RuntimeException e) {
                     log.error("Runner {} failed on candle {}", runner.meta().symbol(), candle.openTime(), e);
                 }
@@ -301,7 +305,12 @@ public class SignalEngine implements money.hejje.common.Drainable {
                 return;
             }
             StrategyPosition p = owned.position();
-            if (owned.role() == money.hejje.orders.OrderRole.ENTRY && p.status() == PositionStatus.PENDING_ENTRY) {
+            Optional<money.hejje.orders.HejjeOrder> order = orders.findById(orderId);
+            if (owned.role() == money.hejje.orders.OrderRole.ENTRY && p.status() == PositionStatus.PENDING_ENTRY && to == OrderState.CANCELLED
+                    && order.isPresent() && order.get().filledQuantity() > 0) {
+                // plan M9.8: a passive entry cancelled after a partial fill opens with the filled quantity (and its stop)
+                runner.onEntryFilled(order.get().filledQuantity(), order.get().averagePrice());
+            } else if (owned.role() == money.hejje.orders.OrderRole.ENTRY && p.status() == PositionStatus.PENDING_ENTRY) {
                 runner.onEntryFailed("entry order " + to);
             } else if (owned.role() == money.hejje.orders.OrderRole.STOP && p.status() == PositionStatus.OPEN && orderId.equals(p.stopOrderId())) {
                 runner.onStopOrderDead(orderId, "stop order " + to);

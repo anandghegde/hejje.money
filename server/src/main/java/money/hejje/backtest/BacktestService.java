@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class BacktestService {
 
+    private final money.hejje.risk.RiskService risk;
     private final BacktestStore store;
     private final BacktestEngine engine;
     private final BacktestRunner runner;
@@ -46,7 +47,9 @@ public class BacktestService {
 
     BacktestService(BacktestStore store, BacktestEngine engine, BacktestRunner runner, StrategyService strategies, InstrumentService instruments,
             MarketService market, BacktestProperties properties, RegimeService regime, HejjeClock clock,
-            org.springframework.context.ApplicationEventPublisher events, org.springframework.transaction.PlatformTransactionManager txManager) {
+            org.springframework.context.ApplicationEventPublisher events, org.springframework.transaction.PlatformTransactionManager txManager,
+            money.hejje.risk.RiskService risk) {
+        this.risk = risk;
         this.store = store;
         this.engine = engine;
         this.runner = runner;
@@ -136,10 +139,12 @@ public class BacktestService {
 
     /**
      * The backtest a version is judged by: the newest DONE run that validates (out-of-sample slice with enough trades
-     * and no FAIL), else the newest DONE run with an out-of-sample slice, else the newest DONE run.
+     * and no FAIL), else the newest DONE run with an out-of-sample slice, else the newest DONE run. A research run with
+     * a {@link SessionFilter} is never that backtest: its entries were restricted from outside the strategy.
      */
     public Optional<Backtest> baseBacktest(UUID versionId) {
-        List<Backtest> done = store.findByVersion(versionId).stream().filter(b -> b.status() == BacktestStatus.DONE).toList();
+        List<Backtest> done = store.findByVersion(versionId).stream()
+                .filter(b -> b.status() == BacktestStatus.DONE && b.spec().sessionFilter() == null).toList();
         return done.stream().filter(money.hejje.backtest.internal.BacktestEvidenceAdapter::validates).findFirst()
                 .or(() -> done.stream().filter(b -> b.spec().splits().hasOutOfSample()).findFirst())
                 .or(() -> done.stream().findFirst());
@@ -166,8 +171,17 @@ public class BacktestService {
             candles.put(meta.id(), market.candles(meta.id(), timeframe, from, to));
         }
         BacktestSpec effective = spec.timeframe() == null ? new BacktestSpec(spec.versionId(), spec.instrumentIds(), timeframe, spec.from(), spec.to(),
-                spec.fillModel(), spec.slippageBps(), spec.costModelVersion(), spec.splits(), spec.initialCapital(), spec.riskPerTrade()) : spec;
-        return new BacktestInput(def, effective, metas, candles, riskPerTrade(spec, def));
+                spec.fillModel(), spec.slippageBps(), spec.costModelVersion(), spec.splits(), spec.initialCapital(), spec.riskPerTrade(),
+                spec.sessionFilter()) : spec;
+        // plan M9.7: sessions with a market-wide macro event size at hejje.risk.macro-event-size-factor, as live
+        Map<java.time.LocalDate, java.math.BigDecimal> factors = new LinkedHashMap<>();
+        for (java.time.LocalDate d = spec.from(); !d.isAfter(spec.to()); d = d.plusDays(1)) {
+            money.hejje.risk.RiskService.SizeFactor f = risk.sizeFactor(d);
+            if (f.event() != null) {
+                factors.put(d, f.factor());
+            }
+        }
+        return new BacktestInput(def, effective, metas, candles, riskPerTrade(spec, def), factors);
     }
 
     /**

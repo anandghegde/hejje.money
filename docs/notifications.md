@@ -22,6 +22,9 @@ rules, with rate limiting and a delivery log. Off the trading core: a channel fa
 | `NEWS_CONTEXT_CHANGED` | INFO | the news bias label of a deployed instrument changed |
 | `APPROVAL_REQUESTED` | INFO | a new approval is waiting in the inbox |
 | `LLM_BUDGET_EXCEEDED` | WARNING | the LLM daily cost cap was reached |
+| `ENTERED_BUY_ZONE`, `NEAR_PIVOT`, `SETUP_STOPPED`, `SETUP_HIT_GOAL` | INFO | a base of a Leader (or a watchlist symbol) changed status in the nightly run (`docs/ratings.md`); informational, Hejje does not trade the setups; at most one per symbol per day; seeded with in-app rules |
+| `DAILY_CONTEXT_DIGEST` | INFO | the evening digest line after the nightly context run: market condition, new buy-zone entries, top five of the ranked analog list with counts; seeded with an in-app rule |
+| `MARKET_CONDITION_CHANGED` | INFO (WARNING into `DOWNTREND`) | the final regime label's market condition differs from the previous session's (`docs/regime.md`); seeded with an in-app rule |
 | `TEST` | INFO | `POST /notifications/test` |
 
 ## Channels

@@ -80,7 +80,8 @@ the entry, with `newsScore`), next to the regime/breadth of the session. Missing
 `PerformanceMath` (pure, `money.hejje.analytics`) works on `TradeFact`s (a closed round trip plus its review context):
 
 - **Loss attribution**: losses are the absolute net P&L of losing trades; every bucket (by family, strategy, trend,
-  regime, event, news, exit reason, hour, instrument, and family × trend) carries its losses and share of all losses,
+  regime, event, news, exit reason, **cause** and **entry timing** (M9.6; `UNKNOWN` until classified), hour, instrument,
+  and family × trend) carries its losses and share of all losses,
   sorted by losses. The headline is templated from the largest family × trend bucket ("83.3% of losses came from mean
   reversion strategies during strong up sessions").
 - **Slippage**: entry and exit basis points (positive = worse for the trader): mean, median, p90 (nearest rank), worst,
@@ -133,3 +134,60 @@ section with a counterfactual panel (actual and simulated columns side by side).
 
 Views: `GET /strategies/{id}/drift`, the strategy detail page's "Live vs backtest drift" panel (PRD 25 table, criteria,
 history, Override…), and `hejje strategy <id>` (DRIFT section).
+
+## Trade cause and entry timing (Phase 9, M9.6)
+
+Every closed trade's review gets a **cause** and an **entry timing** from deterministic rules on the M1 candles of its
+session (`TradeCauseClassifier`, thresholds in `config/analytics.yaml`, `hejje.analytics.cause.*`). R is the distance
+from the entry to the initial stop; MFE and MAE are the best and worst moves while the trade was open, in R.
+
+Causes, first match wins:
+
+| Cause | Rule |
+|---|---|
+| `BAD_ENTRY` | at the entry, the move in the trade's direction over the previous `pre-entry-minutes` (15) was ≥ `extended-atr` (1.5) × ATR(14) of M1 (mean true range of the last 14 bars), or the entry was ≥ `vwap-atr` (2) ATR from the session VWAP in the trade's direction |
+| `CLEAN_TARGET` | exited at the target (`TARGET`, which includes a bot's TAKE_PROFIT) with MAE better than `clean-target-mae-r` (−0.5R) |
+| `NOISE_STOP` | stopped out (`STOP`, `TRAILING_STOP`, `SOFTWARE_STOP`), and within `post-exit-minutes` (30) after the exit the price regained the entry and reached `noise-recovery-r` (+1R) |
+| `THESIS_BREAK` | exited by an exit rule (`RULE_EXIT`), a manual, bot or Jev exit (`MANUAL`), or stopped out without that recovery |
+| `DRIFT` | a time or force exit (`MAX_HOLDING`, `FORCE_EXIT`) with abs(R) under `drift-r` (0.3) |
+| `UNKNOWN` | anything else (e.g. a target reached after a deep MAE, a trade without a stop) |
+
+Entry timing: `EARLY` when MAE reached `early-mae-r` (−0.7R) before MFE reached `early-mfe-r` (+0.5R); `LATE` when MFE
+stayed under `late-mfe-r` (0.3R) and the entry was in the top (long) / bottom (short) `late-range-share` (20 %) of the
+previous `range-minutes` (30) range; else `GOOD`.
+
+**When.** A provisional cause is written with the review when the trade closes; a job (`TradeCauseJob#complete`, every
+5 minutes; RUN in SIM on simulation time) completes it once `post-exit-minutes` + 5 have passed, or at the session
+close. A trade closed less than 30 minutes before the close is completed from the candles that exist, with
+`partialWindow: true` in the evidence. The evidence lists every number the rules used (`r`, `mfeR`, `maeR`,
+`outcomeR`, `atr`, `preEntryMoveAtr`, `fromVwapAtr`, `postExitBestR`, `entryInRange`). The same trade and candles
+always give the same answer.
+
+**Jev beside the rules.** When Jev is on, completing a cause asks `config/jev/trade-cause.yaml` (`cause` choice,
+`entry_timing` score over Early / Good / Late) about the trade in named buckets and stores `jevCause` / `jevTiming`.
+The rules stay the source of truth. `GET /reviews/cause-agreement?from=&to=` (default the last 30 days) gives the
+count, the cause and timing agreement rates and the confusion matrix (rules → Jev).
+
+Surfaces: the review's `cause` object in `GET /reviews` and `/reviews/{id}`; `hejje reviews` (cause, timing, MFE/MAE,
+Jev); the web Reviews page and review detail; the loss attribution's `cause` and `entryTiming` dimensions.
+
+## Pace report (Phase 9, M9.7)
+
+Does trading more each day hurt? `GET /analytics/pace` (and `hejje analytics pace [--from --to --mode --strategy]`)
+takes the closed round trips of a period and reports, per bucket, the count, wins and win rate, expectancy in R (over
+the trades with a stop, their count beside it) and in rupees net of costs, and the net P&L:
+
+- by **trades taken that day**: 1–4, 5–8, 9–16, 17+ (the day's count of the trades in the report, so a strategy
+  filter applies to it too);
+- by the trade's **sequence number within its day**: 1st … 5th, 6th+;
+- by **entry hour** (IST).
+
+It describes; it changes nothing. The loss-streak allowance and the trades-per-day options (docs/risk.md) are the
+controls to act on what it shows.
+
+## Passive entries in the slippage report (Phase 9, M9.8)
+
+`GET /analytics/slippage` adds `passive` when the period has passive (`limit_touch`) entry orders: how many were placed,
+filled (fully or in part) and cancelled unfilled (`ENTRY_NOT_FILLED`), the fill rate (filled / decided), the mean
+seconds from placement to the first fill, and the mean entry slippage against the signal's price for passive entries
+and for market entries of strategies (with counts), so the two can be compared on the same period.

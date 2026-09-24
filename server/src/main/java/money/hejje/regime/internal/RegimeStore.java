@@ -40,12 +40,12 @@ public class RegimeStore {
     public void upsertFinal(RegimeSnapshot s, java.time.Instant computedAt) {
         jdbc.sql("""
                 INSERT INTO market_regime (session_date, classifier_version, as_of, trend, volatility, opening, breadth, intraday_structure, event_environment,
-                                           features, evidence, computed_at)
-                VALUES (:date, :version, :asOf, :trend, :volatility, :opening, :breadth, :structure, :environment, CAST(:features AS jsonb),
-                        CAST(:evidence AS jsonb), :computedAt)
+                                           market_condition, features, evidence, computed_at)
+                VALUES (:date, :version, :asOf, :trend, :volatility, :opening, :breadth, :structure, :environment, :condition,
+                        CAST(:features AS jsonb), CAST(:evidence AS jsonb), :computedAt)
                 ON CONFLICT (session_date, classifier_version) DO UPDATE SET as_of = EXCLUDED.as_of, trend = EXCLUDED.trend,
                     volatility = EXCLUDED.volatility, opening = EXCLUDED.opening, breadth = EXCLUDED.breadth,
-                    intraday_structure = EXCLUDED.intraday_structure, event_environment = EXCLUDED.event_environment,
+                    intraday_structure = EXCLUDED.intraday_structure, event_environment = EXCLUDED.event_environment, market_condition = EXCLUDED.market_condition,
                     features = EXCLUDED.features, evidence = EXCLUDED.evidence, computed_at = EXCLUDED.computed_at
                 """)
                 .params(params(s)).param("computedAt", computedAt.atOffset(ZoneOffset.UTC)).update();
@@ -54,8 +54,8 @@ public class RegimeStore {
     public void insertIntraday(RegimeSnapshot s, java.time.Instant computedAt) {
         jdbc.sql("""
                 INSERT INTO market_regime_intraday (id, session_date, classifier_version, as_of, trend, volatility, opening, breadth, intraday_structure,
-                                                    event_environment, features, evidence, computed_at)
-                VALUES (:id, :date, :version, :asOf, :trend, :volatility, :opening, :breadth, :structure, :environment, CAST(:features AS jsonb),
+                                                    event_environment, market_condition, features, evidence, computed_at)
+                VALUES (:id, :date, :version, :asOf, :trend, :volatility, :opening, :breadth, :structure, :environment, :condition, CAST(:features AS jsonb),
                         CAST(:evidence AS jsonb), :computedAt)
                 """)
                 .params(params(s)).param("id", Ids.newId()).param("computedAt", computedAt.atOffset(ZoneOffset.UTC)).update();
@@ -93,6 +93,7 @@ public class RegimeStore {
             p.put("breadth", s.breadth().name());
             p.put("structure", s.intradayStructure().name());
             p.put("environment", s.eventEnvironment().name());
+            p.put("condition", s.marketCondition().name());
             p.put("features", json.writeValueAsString(s.features()));
             p.put("evidence", json.writeValueAsString(s.evidence()));
             return p;
@@ -107,7 +108,8 @@ public class RegimeStore {
             return new RegimeSnapshot(rs.getObject("session_date", LocalDate.class), rs.getObject("as_of", OffsetDateTime.class).toInstant(),
                     Trend.valueOf(rs.getString("trend")), Volatility.valueOf(rs.getString("volatility")), Opening.valueOf(rs.getString("opening")),
                     Breadth.valueOf(rs.getString("breadth")), IntradayStructure.valueOf(rs.getString("intraday_structure")),
-                    EventEnvironment.valueOf(rs.getString("event_environment")), json.readValue(rs.getString("features"), FEATURES),
+                    EventEnvironment.valueOf(rs.getString("event_environment")),
+                    money.hejje.regime.MarketCondition.valueOf(rs.getString("market_condition")), json.readValue(rs.getString("features"), FEATURES),
                     json.readValue(rs.getString("evidence"), EVIDENCE), rs.getString("classifier_version"), isFinal);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);

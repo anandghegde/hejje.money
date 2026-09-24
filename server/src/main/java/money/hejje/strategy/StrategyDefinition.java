@@ -37,7 +37,8 @@ public record StrategyDefinition(
         EventRules eventRules,
         RiskOverrides riskOverrides,
         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY) List<OptionLeg> legs,
-        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) CombinedExit combinedExit) {
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) CombinedExit combinedExit,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) EntryOrder entryOrder) {
 
     public StrategyDefinition {
         universe = List.copyOf(universe);
@@ -157,5 +158,25 @@ public record StrategyDefinition(
 
     public record RiskOverrides(BigDecimal minRewardRisk, Integer maxQuantity) {
         public static final RiskOverrides NONE = new RiskOverrides(null, null);
+    }
+
+    /** The entry order as written (plan M9.8); null means {@link EntryOrder#MARKET}, so older definitions hash as before. */
+    public EntryOrder entryOrderOrMarket() {
+        return entryOrder == null ? EntryOrder.MARKET : entryOrder;
+    }
+
+    public enum EntryOrderType { MARKET, LIMIT_TOUCH }
+
+    /**
+     * How the entry is placed (plan M9.8, docs/signals.md "Passive entries"). {@code LIMIT_TOUCH}: a limit at the best
+     * bid (long) or ask (short), moved to the new touch at most {@code maxRequotes} times and never more than
+     * {@code maxChaseBps} beyond the signal's price, cancelled after {@code cancelAfterSeconds}.
+     */
+    public record EntryOrder(EntryOrderType type, int maxRequotes, int cancelAfterSeconds, BigDecimal maxChaseBps) {
+        public static final EntryOrder MARKET = new EntryOrder(EntryOrderType.MARKET, 0, 0, BigDecimal.ZERO);
+
+        public boolean passive() {
+            return type == EntryOrderType.LIMIT_TOUCH;
+        }
     }
 }

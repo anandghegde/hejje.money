@@ -15,8 +15,19 @@ strategies (PRD 59, §66E).
 ```
 
 - `kind`: `EXTERNAL` (a script), `LLM` (the same, with `knowledgeCutoff`: a SIM session dated before it is flagged,
-  because the model may already know that day) or `STRATEGY` (give `strategyId`: an existing strategy runs as a bot).
-- An EXTERNAL or LLM bot gets a generated **backing strategy** `bot_<name>` (`family: bot`, direction both, the bot's
+  because the model may already know that day), `STRATEGY` (give `strategyId`: an existing strategy runs as a bot) or
+  `JEV` (plan M9.5: runs in-process on Jev, see docs/jev.md "The Jev bot"; `questionSet` prefix, default `bot`;
+  `knowledgeCutoff` defaults to `hejje.jev.knowledge-cutoff`, the model version's release date, and registration is
+  refused without either).
+- An `ENTER_*` decision may carry `"entryOrder": { "type": "limit_touch", "maxRequotes": 3, "cancelAfterSeconds": 90,
+  "maxChaseBps": 10 }` (plan M9.8): the entry rests at the touch and re-quotes (docs/signals.md "Passive entries");
+  without it the entry is a market order.
+- `exitConfirmVotes` (1–10, default 1; 2 for a `JEV` bot): an `EXIT` / `TAKE_PROFIT` executes only after that many
+  **consecutive decision points** voted it for the same position. Earlier votes are recorded `NOTED` with the detail
+  `awaiting_confirmation: exit vote n of N`; a point without a vote (HOLD, NONE, another action, or SKIPPED) starts the
+  count again. Stops, force exits and the kill switch never wait. The counts live in memory, so a restart starts them
+  again.
+- An EXTERNAL, LLM or JEV bot gets a generated **backing strategy** `bot_<name>` (`family: bot`, direction both, the bot's
   universe and timeframe, force exit 15:10). Its runner manages the bot's positions (protective stop, target, force
   exit) and never evaluates entry rules of its own. It goes DRAFT → PAPER directly (there are no rules to backtest).
 - **Deploy** the backing strategy like any strategy (`POST /strategies/{id}/versions/1/deployments`: mode, instruments,
@@ -35,12 +46,16 @@ its universe (or every `decisionEveryMinutes` minutes of M1 bars) the bot gets o
 ```json
 { "type": "decision_point", "botId": "…", "pointId": "2026-09-09T04:10:00Z", "clock": "2026-09-09T04:10:00Z", "mode": "SIM",
   "timeframe": "M5", "bars": [ { "instrument": "NSE:INFY", "openTime": "…", "open": 1504.2, "high": 1506.8, "low": 1504.0,
-  "close": 1506.1, "volume": 25000 } ], "quotes": { "NSE:INFY": { "last": 1506.1, "ts": "…" } },
+  "close": 1506.1, "volume": 25000, "micro": { "imbalance": 0.21, "imbalanceMean": 0.08, "buySellRatio": 1.34, "upVolumeShare": 0.62,
+  "ticks": 58 } } ], "quotes": { "NSE:INFY": { "last": 1506.1, "ts": "…" } },
   "positions": [ { "instrument", "side", "quantity", "entry", "stop", "target", "status" } ], "workingOrders": [ … ],
   "regime": { "trend", "volatility", "opening", "breadth" }, "pulse": { "direction", "strength", "score" }, "answerWithinMs": 5000 }
 ```
 
 The bars of one close time arrive together (the point waits until every instrument of the universe has its bar).
+`micro` (plan M9.4) is the bar's order-book and flow data, **null** when its ticks carried none (LTP/QUOTE mode, a
+replay from candles); see docs/market-data.md. The harness candidates panel shows each candidate's latest imbalance and
+up-volume share when there is one.
 Nothing in the message is later than the clock (in SIM the look-ahead guard caps every read, docs/simulation.md).
 
 ## Decisions
@@ -100,7 +115,12 @@ session (which clears the simulated ledger) and are keyed by the bot's **name an
   alike) by expectancy net of costs over their reports whose sessions fall in the range, with sessions, trades, win
   rate, profit factor, max drawdown (the worst session), net P&L and friction alongside. `common=true` keeps only the
   session day sets every ranked bot played, so all rows compare the same sessions (give every bot the same capital).
+  Each row also carries the bot's **pooled Brier score** of its entry confidence (`brier`, `brierN`; M9.2).
   `hejje harness leaderboard [--from --to --common]`.
+- **Confidence calibration** (M9.2, `docs/calibration.md`): an entry's `confidence` is recorded as the probability that
+  +1R comes before −1R within 30 minutes (purpose `bot:<name>`, the bot's version). SIM labels the session's entries at
+  its end, so every report carries `confidenceCalibration` (`n`, `none`, `pending`, `brier`, `buckets`);
+  `hejje calibration --bot <name>` shows the pooled buckets.
 - **Promotion**: a bot's backing strategy may be deployed in **PAPER** only after `hejje.bots.min-sim-sessions` (20)
   reports of that bot version with **positive expectancy over all their trades**; otherwise the deployment is refused
   with the count or the expectancy. PAPER → LIVE follows the existing paper track-record and drift rules. STRATEGY bots

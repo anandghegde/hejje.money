@@ -82,6 +82,6 @@ public class PulseService {
 
     private static PulseSnapshot disabled(LocalDate date, Instant now, String reason) {
         return new PulseSnapshot(date, now, new TechnicalPulse(PulseDirection.NEUTRAL, PulseStrength.WEAK, 0, 0, List.of(), List.of(reason)),
-                new MarketPulse("Unknown", "Unknown", "Unknown", List.of(), "NEUTRAL"));
+                new MarketPulse("Unknown", "Unknown", "Unknown", List.of(), "NEUTRAL", "Unknown", null));
     }
 }

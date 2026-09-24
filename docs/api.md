@@ -231,11 +231,20 @@ and cannot be removed). Returns `{ "subscribed": ["<uuid>"] }`.
 ### `POST /api/v1/market/history/backfill`
 
 Scope: `admin`. Body `{ "instrumentId", "timeframe", "from", "to" }`. Returns `{ "jobId": "<uuid>" }`. Minute data is
-chunked into <=60-day broker requests; a 3/s throttle stands in until the M1.6 limiter.
+chunked into <=60-day broker requests (M3/M5 100 days, M15 200, H1 400, D1 2000, Kite's per-request limits); a 3/s throttle stands in until the M1.6 limiter.
+
+### `POST /api/v1/market/history/backfill-universe`
+
+Scope: `admin`. Body `{ "universe": "nifty500", "timeframe": "D1", "from", "to" }` (`timeframe` defaults to `D1`). Fans
+out into one backfill per instrument of `config/universe/<universe>.yaml`, run one after the other under the historical
+throttle. Returns `{ "jobId", "children": 498, "unresolved": ["NSE:HEG"] }`; symbols the instrument master lacks are
+reported and skipped. An unknown universe is 400.
 
 ### `GET /api/v1/market/history/jobs/{id}`
 
-Scope: `admin`. `{ "jobId", "instrumentId", "timeframe", "from", "to", "status": "RUNNING|DONE|FAILED", "chunksTotal",
+Scope: `admin`. For a universe job: `{ "jobId", "universe", "timeframe", "from", "to", "status": "RUNNING|DONE|PARTIAL",
+"childrenTotal", "childrenDone", "childrenFailed", "candlesWritten", "unresolved": [], "failed": ["NSE:X: error"] }`.
+For a single-instrument job: `{ "jobId", "instrumentId", "timeframe", "from", "to", "status": "RUNNING|DONE|FAILED", "chunksTotal",
 "chunksDone", "candlesWritten", "error" }`.
 
 ### `GET /api/v1/market/history/coverage?instrumentId=&timeframe=M1`
@@ -306,7 +315,10 @@ and its limit, open positions, trades today, consecutive losses, margin used %, 
 
 Scope: `risk:read` / `risk:write`. Limits for the current mode (money fields in paise). The PUT body carries every limit
 as a flat field (e.g. `maxLossPerDayPaise`, `maxRiskPerTradePaise`, `maxOpenPositions`, `noNewTradesAfter` as `HH:mm`,
-`mandatoryStop`, `noAveragingDown`, `noReentryMinutes`, `maxConsecutiveLosses`).
+`mandatoryStop`, `noAveragingDown`, `noReentryMinutes`, `maxConsecutiveLosses`, and since M9.7 `lossStreakMode`
+(`BLOCK`/`ALLOWANCE`), `allowanceDrawdownPaise`, `lossStreakAllowance`, `tradesPerDayWhenGreen` (`LIMIT`/`UNLIMITED`); these four
+keep their current values when left out). The dashboard (`GET /risk`) adds `lossStreakMode`, `allowanceUsed`, `allowance`,
+`allowanceReason` (null until an ALLOWANCE day triggers).
 
 ### `POST /api/v1/risk/kill-switch`
 
@@ -442,6 +454,14 @@ Scope: `strategies:write`. Returns 202 with the queued backtest.
 `versionId` may replace `strategyId` + `version`; `splits` may be `{ "type": "NONE" }` or
 `{ "type": "WALK_FORWARD", "trainMonths": 6, "testMonths": 2, "anchored": false }`. 422 when the version does not
 exist, the universe resolves to nothing or there are no candles.
+
+**Research only (plan M8.8):** `"sessionFilter": { "unlistedDates": "BLOCK", "days": { "2026-03-02": { "instruments":
+["NSE:INFY", "NSE:TCS"], "sides": ["BUY"] } } }` restricts **entries** per session to the listed instruments and sides
+(`null` or absent = no restriction on that axis); a session without a rule blocks every entry (`BLOCK`, the default) or
+is left unrestricted (`ALLOW`). Exits are never affected. The filter is stored with the run's `spec`. A run that carries
+one is **never the version's evidence**: it is ignored by `BACKTESTED`/`VALIDATED`, by the base backtest behind the
+Hejje Score and by `get_strategy_backtest`. It exists for `research/tools/context_validation.py`
+(`docs/strategies/context-validation.md`); it is not a strategy feature.
 
 ### `GET /api/v1/backtests/{id}`
 
@@ -652,7 +672,7 @@ The current session's snapshot (cached for `hejje.regime.intraday-snapshot`).
 
 ```json
 { "date": "2026-09-08", "asOf": "2026-09-08T10:01:00Z", "trend": "STRONG_UP", "volatility": "LOW", "opening": "GAP_CONTINUATION",
-  "breadth": "STRONG_POSITIVE", "intradayStructure": "TREND_DAY", "eventEnvironment": "NORMAL",
+  "breadth": "STRONG_POSITIVE", "intradayStructure": "TREND_DAY", "eventEnvironment": "NORMAL", "marketCondition": "CONFIRMED_UPTREND",
   "features": { "close": 29480.2, "emaFast": 29210.5, "emaSlow": 28840.1, "emaSlopePct": 1.52, "adx": 41.3, "vix": 13.8, "vixPercentile": 22.0,
                 "volatilityPercentile": 24.5, "gapPct": 0.5, "openingRangeClose": 29360.0, "advances": 41, "declines": 7, "breadthRatio": 0.83,
                 "intradayBars": 9, "rangeExpansion": 3.4, "closePosition": 0.97, "rangeAtr": 1.1, "vwapCrosses": 0 },
@@ -968,7 +988,9 @@ See `docs/analytics.md`. `market:read`; `from`/`to` default to month to date.
 
 ### `GET /api/v1/analytics/slippage?from=&to=` · `GET /api/v1/analytics/adherence?from=&to=`
 
-`{ "slippage": { "entry": { "trades", "meanBps", "medianBps", "p90Bps", "worstBps", "costRupees" }, "exit": {…}, "totalCostRupees", "byStrategy": [...] } }` and
+`{ "slippage": { "entry": { "trades", "meanBps", "medianBps", "p90Bps", "worstBps", "costRupees" }, "exit": {…}, "totalCostRupees", "byStrategy": [...] },
+"passive": { "placed", "filled", "notFilled", "fillRate", "meanSecondsToFill", "passiveEntrySlippageBps", "passiveWithSlippage",
+"marketEntrySlippageBps", "marketWithSlippage" } }` (`passive`, plan M9.8: null when the period has no passive entry) and
 `{ "adherence": { "trades", "withAdherence", "meanAdherencePct", "fullAdherence", "setupInvalid", "manualExits", "netFullAdherence", "netPartialAdherence", "byStrategy": [...] } }`.
 
 ### `POST /api/v1/analytics/counterfactual`
@@ -1250,8 +1272,8 @@ finishes (`DONE`, `CANCELLED` or `FAILED`).
 
 ## Bots (Phase 7, M7.3)
 
-See `docs/bots.md`. `POST /api/v1/bots` (`strategies:write`) registers a bot (EXTERNAL/LLM: generated backing strategy
-`bot_<name>`; STRATEGY: an existing `strategyId`); `GET /api/v1/bots` · `GET /api/v1/bots/{id}` (with `stats`)
+See `docs/bots.md`. `POST /api/v1/bots` (`strategies:write`) registers a bot (EXTERNAL/LLM/JEV: generated backing strategy
+`bot_<name>`; STRATEGY: an existing `strategyId`; optional `exitConfirmVotes` and, for JEV, `questionSet`, M9.5); `GET /api/v1/bots` · `GET /api/v1/bots/{id}` (with `stats`)
 (`strategies:read`); `POST /api/v1/bots/{id}/enabled`; `POST /api/v1/bots/{id}/decisions` (`bot:decide`, body
 `{ "pointId", "decisions": [ { "instrument", "action", "stop", "target", "confidence", "thesis", "stage", "scores",
 "candidates" } ] }`, returns the recorded decisions); `GET /api/v1/bots/{id}/decisions?limit=`. WebSocket
@@ -1275,9 +1297,261 @@ costRupees}` (shown as the LLM tile).
 See `docs/bots.md`. `GET /api/v1/sim/reports?bot=&version=&limit=` · `GET /api/v1/sim/reports/{id}` (`market:read`):
 `{ id, sessionId, botName, botVersion, botKind, sessionDates, capitalPaise, trades, wins, expectancyR, profitFactor,
 maxDrawdownPaise, netPnlPaise, winPaise, lossPaise, frictionPaise, tradeRs, decisionsHash, resultHash, snapshot,
-createdAt }`. `POST /api/v1/sim/reports/import` (`admin`, body: a list of reports) → `{ received, imported }`.
+confidenceCalibration, createdAt }` (`confidenceCalibration`, M9.2: `{ n, none, pending, brier, buckets: [ { lo, hi, n, hits } ] }`, null on
+older reports). `POST /api/v1/sim/reports/import` (`admin`, body: a list of reports) → `{ received, imported }`.
 `GET /api/v1/sim/leaderboard?from=&to=&common=` (`market:read`) → `{ from, to, common, minSimSessions, rows: [ { rank,
-bot, version, kind, sessions, trades, winRate, expectancyR, profitFactor, maxDrawdownPaise, netPnlPaise, frictionPaise
-} ] }`. Deploying a bot's backing strategy in PAPER is refused (409) until the bot version has
+bot, version, kind, sessions, trades, winRate, expectancyR, profitFactor, maxDrawdownPaise, netPnlPaise, frictionPaise,
+brier, brierN } ] }` (`brier`: pooled Brier score of the bot's entry confidence over `brierN` labelled entries, M9.2). Deploying a bot's backing strategy in PAPER is refused (409) until the bot version has
 `hejje.bots.min-sim-sessions` reports with positive expectancy.
 
+
+## Daily ratings (Phase 8, M8.2)
+
+Module `ratings` (`docs/ratings.md`). Scope `market:read` unless noted. Every endpoint answers **503** while
+`hejje.ratings.enabled=false`. `date` defaults to the latest computed session and is capped at the last session that
+has closed on the Hejje clock (the simulation clock in SIM).
+
+### `POST /api/v1/ratings/compute`
+
+Scope: `admin`. Body `{ "from": "2016-01-01", "to": "2026-09-18" }`. Computes every session of the range without rows
+under the engine version (synchronously) and returns `{ "from", "to", "engineVersion", "sessions", "computed", "rows",
+"hash" }`; `hash` is a SHA-256 over all rows of the range, so the same candles give the same hash on a re-run.
+
+### `POST /api/v1/ratings/refresh`
+
+Scope: `admin`. Body `{ "sessions": 30 }` (default 5, 1..2000). Runs the evening D1 refresh now over that many sessions,
+waits for it, publishes `DailyCandlesRefreshed` and returns the universe job (`docs/api.md`, history jobs).
+
+### `GET /api/v1/ratings?date=&sort=&minRs=&group=&limit=`
+
+`sort` is one of `composite` (default), `rs`, `ad`, `volume`, `change`, `offHigh`; `limit` 1..1000 (default 50).
+`{ "date": "2026-09-18", "universe": 497, "ratings": [ { "sessionDate", "instrumentId", "engineVersion", "symbol":
+"NSE:INFY", "rsRaw": 0.1312, "rsRating": 87, "adRaw": 0.21, "adGrade": "B+", "offHighPct": 3.2, "offLowPct": 41.0,
+"volVsAvg50Pct": 38.5, "upDownVolRatio": 1.4, "avgTurnoverCr": 812.4, "close": "1495.00", "changePct": 1.2, "groupId":
+"information-technology", "groupRank": 4, "techComposite": 91, "evidence": { "sessions": 2630, "rsQuarters": 4,
+"partial": false, "universe": 497, "rsPct": 0.87, "adPct": 0.71, "groupPct": 0.84, "offHighPct": 0.66 } } ] }`.
+`universe` is the count the percentiles were taken over.
+
+### `GET /api/v1/ratings/{symbol}?date=`
+
+One row as above; 404 when the symbol has no row that session.
+
+### `GET /api/v1/ratings/{symbol}/history?from=&to=`
+
+Rows oldest first.
+
+### `GET /api/v1/ratings/groups?date=`
+
+`[ { "sessionDate", "groupId", "engineVersion", "name": "Information Technology", "rank": 1, "strength": 0.18,
+"members": 27 } ]`, strongest first.
+
+### `POST /api/v1/ratings/bases/compute`
+
+Scope: `admin`. Body `{ "from", "to" }`. Advances and detects bases for every session not processed yet (per instrument
+the run continues after `base_progress`, so `from` only matters the first time). Returns `{ "from", "to",
+"engineVersion", "instruments", "detected", "transitions", "hash" }`.
+
+### `GET /api/v1/ratings/bases?status=&type=&date=` and `GET /api/v1/ratings/{symbol}/bases?date=`
+
+Bases with their status **as of** `date` (default and cap: the last closed session). `[ { "id", "instrumentId",
+"symbol": "NSE:INFY", "type": "FLAT_BASE|CUP_WITH_HANDLE|CUP|DOUBLE_BOTTOM|MA_REVERSAL", "engineVersion", "startDate",
+"detectedDate", "depthPct": 8.92, "baseLow": "137.30", "pivot": "150.75", "buyLow": "150.75", "buyHigh": "158.30", "stop":
+"140.20", "goal": "180.90", "evidence": { "leftHigh": "2026-06-03", "low": "2026-06-10", "sessions": 25 }, "status":
+"IN_BUY_ZONE", "statusDate", "triggerDate", "entry": "150.75", "volumeConfirmed": true, "exit": null, "outcomePct": null,
+"outcomeR": null } ]`. Statuses: `FORMING, NEAR_PIVOT, IN_BUY_ZONE, EXTENDED, PULLBACK, HIT_GOAL, STOPPED, FAILED, EXPIRED`.
+
+### `GET /api/v1/ratings/lists/{name}?date=`
+
+`name` is `setups`, `buyzone`, `nearpivot`, `leaders`, `movers` or `groups` (`docs/ratings.md`, "Lists"). `{ "name",
+"date", "rows": [ { "rating": { ...daily rating... }, "base": { ...base or null... } } ] }`; `groups` returns `"groups"`
+instead of `"rows"`. An unknown name is 400.
+
+### `GET /api/v1/ratings/setups/past?from=&to=`
+
+The past-setups ledger: bases that closed in the range, newest first, with a summary per type: `{ "from", "to",
+"summary": { "FLAT_BASE": { "count": 41, "HIT_GOAL": 9, "STOPPED": 14, "FAILED": 6, "EXPIRED": 12, "triggered": 27, "meanR":
+0.31 } }, "setups": [ ...bases... ] }`. `meanR` is over triggered setups and always shown with `triggered`, its count.
+
+## Historical analogs (Phase 8, M8.5 and M8.6)
+
+Module `analogs` (`docs/analogs.md`). Scope `market:read` unless noted; **503** while `hejje.analogs.enabled=false`.
+`date` defaults to the latest computed session; a daily summary is visible only after its session has closed on the
+Hejje clock.
+
+### `POST /api/v1/analogs/compute`
+
+Scope: `admin`. Body `{ "dates": ["2026-09-18"], "symbols": ["NSE:INFY"], "lookbacks": [15, 30] }` (`symbols` and
+`lookbacks` optional: the whole universe, every configured lookback; the candidates are always the whole universe).
+Synchronous. `{ "dates", "engineVersion", "symbols": 497, "summaries": 3976, "millis": 181234, "hash" }`; a (date, lookback)
+that already has summaries is skipped for whole-universe runs, and `hash` covers every summary of the dates.
+
+### `GET /api/v1/analogs/{symbol}?lookback=15&date=`
+
+`{ "sessionDate", "instrumentId", "symbol", "kind": "DAILY", "lookback": 15, "checkpoint": "", "engineVersion",
+"candidates": 1210000, "compared": 244780, "matches": 50, "medianQuality": 3.9, "qualityTag": "MODERATE", "outcomes": [ {
+"forward": "5", "count": 50, "winRate": 0.62, "mean": 0.91, "median": 0.74, "p25": -0.8, "p75": 2.1, "best": 9.2, "worst":
+-6.4, "maeMedian": -1.1, "maeP25": -2.3, "mfeMedian": 1.9, "mfeP75": 3.2, "avgPath": [..], "p25Path": [..], "p75Path": [..],
+"distinctSymbols": 38, "distinctYears": 7, "direction": "BULLISH", "consistency": "NORMAL", "reliability": "HIGH", "risk":
+"MODERATE", "outlier": false } ], "splits": [ { "name": "sameMonth", "forward": "5", "count": 6, "winRate": 0.5, "median":
+0.2, "otherCount": 44, "otherWinRate": 0.64, "otherMedian": 0.8 } ], "context": [ { "lookback": 5, "volatility", "trend",
+"rangePosition", "volumeZ", "maxDrawdown" } ], "narrative": [ "...five sentences..." ], "session": null }`. Returns are
+percent. 404 without a summary for that lookback.
+
+### `GET /api/v1/analogs/{symbol}/matches?lookback=15&date=`
+
+The matches behind the summary, **unordered** (the client sorts; there is no `rank` field): `[ { "instrumentId",
+"symbol", "endDate", "similarity": 0.41, "quality": 4.1, "components": { "path_correlation": 0.93, "shape_distance": 0.37,
+"volatility_distance", "trend_distance", "range_position_distance", "volume_distance", "risk_distance" }, "scores": {
+"shape": 4.5, "trend", "volatility", "rangePosition", "volume", "risk" }, "returns": { "3": 0.4, "5": 1.1, "10": 2.0, "15":
+1.2 }, "path": [0, 0.4, ...] } ]`. 404 once pruned (`match-retention-days`).
+
+### `GET /api/v1/analogs/rank?lookback=15&forward=5&sort=winRate|median|count|reliability&minCount=10&date=`
+
+The ranked universe: `{ "date", "lookback", "forward", "rows": [ { "symbol", "lookback", "qualityTag", "matches",
+"outcome": { ...as above... } } ] }`. `minCount` keeps thin evidence off the top.
+
+### `GET /api/v1/analogs/session/{symbol}?checkpoint=&date=` and `.../session/{symbol}/matches`
+
+Session analogs at `09:45`, `10:15`, `11:15` or `13:00` (default: the latest checkpoint that has passed; `date` default
+today). Same shape with `"kind": "SESSION"`, `"lookback"` = M5 bars closed by the checkpoint, one outcome with
+`"forward": "close"` (checkpoint → 15:10), the splits `sameWeekday` and `expiryDay`, and `"session": { "count", "highHeld",
+"lowHeld", "medianHighTime", "medianLowTime", "medianReturnAtr" }`. A match's `returns` are `{ "close", "closeAtr",
+"highHeld", "lowHeld" }`. Computed on demand when missing; 404 before the first checkpoint or without the bars. Each
+computed checkpoint is pushed on `/ws/events` as `session_analogs_updated` `{ date, checkpoint, symbols }`.
+
+## Screener, saved screens and watchlist (Phase 8, M8.7)
+
+Scope `market:read` to run and read, `strategies:write` to save or change; 503 while ratings are off.
+
+### `POST /api/v1/ratings/screen`
+
+Body `{ "date": null, "filters": [ { "field": "rsRating", "op": "gte", "value": 80 }, { "field": "baseStatus", "op": "in",
+"value": ["IN_BUY_ZONE", "NEAR_PIVOT"] } ], "sort": "-techComposite", "limit": 50 }`. All filters must hold; operators
+`gte lte gt lt eq ne in`; a stock without a value for a field never matches a filter on it; `sort` is a field, `-` for
+descending; `limit` 1..1000. Returns `{ "date", "universe": 497, "matched": 12, "rows": [ { ...one flat object of fields... } ] }`.
+An unknown field, operator or sort is 400. `GET /api/v1/ratings/screen/fields` lists the fields: `symbol, close,
+changePct, rsRating, rsRaw, adGrade, adRaw, techComposite, offHighPct, offLowPct, volVsAvg50Pct, upDownVolRatio,
+avgTurnoverCr, groupId, groupRank, baseType, baseStatus, pivot, distanceToPivotPct, volumeConfirmed, watchlist`, plus from
+the analogs module (15-session lookback, present when the session has summaries) `analogDirection, analogReliability,
+analogQuality, analogMatches` and per forward window `analogWinRateN, analogMedianN, analogCountN` (N = 3, 5, 10, 15).
+There is no market cap: Kite has no fundamentals.
+
+### `GET /api/v1/ratings/screens`, `POST /api/v1/ratings/screens`, `POST /api/v1/ratings/screens/{id}/run`, `DELETE /api/v1/ratings/screens/{id}`
+
+A saved screen is a named screen request without a date: `{ "id", "name", "definition": { "filters", "sort", "limit" },
+"seeded", "createdAt", "updatedAt" }`. `POST` body `{ "name", "definition" }` creates it or replaces the definition of the
+screen with that name (audit `SCREEN_SAVED`); `run` takes an optional `{ "date" }`; `DELETE` audits `SCREEN_DELETED`.
+Seeded: Leaders, In buy zone, Near pivot, On the move: up, On the move: down, Top groups.
+
+### `GET /api/v1/ratings/watchlist`, `POST /api/v1/ratings/watchlist`, `DELETE /api/v1/ratings/watchlist/{symbol}`
+
+`POST` body `{ "symbol": "NSE:INFY", "note": "results next week" }` adds the symbol or replaces its note; an unknown
+symbol is 400. Items: `{ "symbol", "instrumentId", "note", "addedAt" }`. Changes audit `WATCHLIST_UPDATED`. Watchlist
+symbols get the setup alerts like Leaders and their session analogs at every checkpoint.
+
+## Jev (Phase 9, M9.1)
+
+See `docs/jev.md`.
+
+### `GET /api/v1/jev/status`
+
+Scope: `market:read`. Whether Jev is on, the pinned model, the circuit, and today's (IST) calls by outcome with tokens, estimated
+cost (paise, fractional) and latency percentiles of answered calls. `keyPresent` only says whether the env var holds a value.
+
+```json
+{ "enabled": true, "fixture": false, "keyPresent": true, "model": "jev-1.13", "timeout": "PT2.5S", "circuit": "CLOSED",
+  "consecutiveFailures": 0, "lastError": null,
+  "today": { "calls": 812, "ok": 790, "cached": 0, "failed": 4, "timeouts": 18, "inputTokens": 2410000, "costPaise": 867.6000,
+             "p50Ms": 180, "p90Ms": 420 },
+  "dailyCostCapPaise": 5000, "budgetExceeded": false }
+```
+
+### `GET /api/v1/jev/calls?purpose=&subject=&limit=50`
+
+Scope: `market:read`. Recorded calls, newest first (at most 500), each with its answers.
+
+```json
+[ { "id": "…", "at": "2026-09-23T04:10:02Z", "purpose": "news", "subject": "INFY", "setName": "news", "setVersion": "1",
+    "model": "jev-1.13", "stateHash": "9c1f…", "latencyMs": 212, "inputTokens": 640, "costPaise": 0.2304, "outcome": "OK", "error": null,
+    "answers": [ { "key": "relevance", "type": "noul", "choice": null, "score": null, "noul": 0.93, "probabilities": {}, "confidence": null } ] } ]
+```
+
+### `POST /api/v1/jev/evaluate`
+
+Scope: `admin`. Try a question set out: `{ "state": {…}, "set": "news" }`, or inline questions in the API's shape
+`{ "state": {…}, "questions": { "urgent": { "type": "noul", "instructions": "Is `note` urgent?" } } }` (recorded with purpose
+`manual`, set `manual` version `inline`). A Jev failure is in the body (`ok: false`, `outcome`, `error`), not an HTTP error.
+
+```json
+{ "ok": true, "outcome": "OK", "answers": { "urgent": { "key": "urgent", "type": "noul", "noul": 0.95, "probabilities": {}, "confidence": null } },
+  "latencyMs": 190, "inputTokens": 296, "model": "jev-1.13", "callId": "…", "error": null }
+```
+
+
+## Calibration (Phase 9, M9.2)
+
+See `docs/calibration.md`.
+
+### `GET /api/v1/calibration?purpose=&version=&bot=&from=&to=`
+
+Scope: `market:read`. The calibration report of a purpose (or `bot=<name>` for `bot:<name>`), for one version (the
+newest when omitted; versions are never pooled), over sessions in `[from, to]`. Buckets under `min-bucket-count` have
+`rate`, `wilsonLo` and `wilsonHi` null.
+
+```json
+{ "purpose": "bot:momo", "version": "1", "from": null, "to": null, "n": 312, "none": 40, "pending": 3, "sessions": 18,
+  "buckets": [ { "lo": 0.5, "hi": 0.6, "n": 120, "hits": 61, "meanProbability": 0.55, "rate": 0.5083, "wilsonLo": 0.4196, "wilsonHi": 0.5965 }, … ],
+  "brier": 0.2411, "ece": 0.052,
+  "topVsBottom": { "top": { … }, "bottom": { … }, "separated": true },
+  "passes": true, "reasons": [] }
+```
+
+### `GET /api/v1/calibration/purposes`
+
+Scope: `market:read`. `[ { "purpose": "bot:momo", "version": "1", "predictions": 355, "labelled": 312, "first": "2026-09-01", "last": "2026-09-23" } ]`.
+
+## News on Jev (Phase 9, M9.3)
+
+### `GET /api/v1/news/classifier-comparison?from=&to=`
+
+Scope: `market:read`. Shadow mode: Jev's assessments against the LLM's on the same (story, instrument); dates default to
+the last 30 days. `directionMatrix` is LLM label → Jev label → count.
+
+```json
+{ "from": "2026-09-01", "to": "2026-09-30", "classifier": "shadow", "pairs": 214, "directionAgreement": 0.71,
+  "materialityMae": 0.18, "relevanceMae": 0.09,
+  "directionMatrix": { "bullish": { "bullish": 60, "neutral": 12 }, "neutral": { "neutral": 70, "bearish": 9 }, "bearish": { "bearish": 22 } },
+  "directionCalibration": { "purpose": "news.direction", "version": "1", "n": 180, "…": "…" } }
+```
+
+## Trade cause (Phase 9, M9.6)
+
+Reviews (`GET /api/v1/reviews`, `/reviews/{id}`) carry `cause`: `{ "cause": "NOISE_STOP", "entryTiming": "EARLY",
+"mfeR": 0.2, "maeR": -1.0, "evidence": { "r": 2.0, "postExitBestR": 1.3, "partialWindow": true }, "jevCause": "NOISE_STOP",
+"jevTiming": "GOOD", "complete": true }` (null before classification). `GET /api/v1/analytics/losses` has the dimensions
+`cause` and `entryTiming`.
+
+### `GET /api/v1/reviews/cause-agreement?from=&to=`
+
+Scope: `market:read`. Completed reviews closed in the range that have Jev's reading (default the last 30 days).
+
+```json
+{ "from": "2026-09-01", "to": "2026-09-30", "trades": 42, "causeAgreement": 0.69, "timingAgreement": 0.55,
+  "causeMatrix": { "NOISE_STOP": { "NOISE_STOP": 9, "THESIS_BREAK": 3 }, "THESIS_BREAK": { "THESIS_BREAK": 17 } } }
+```
+
+## Pace report (Phase 9, M9.7)
+
+### `GET /api/v1/analytics/pace?from=&to=&mode=&strategy=`
+
+Scope: `market:read`. Closed round trips in the period (default month to date; `strategy` = slug or id), bucketed by
+trades taken that day (`1-4`, `5-8`, `9-16`, `17+`), by the trade's sequence number within its day (`1st` … `6th+`) and
+by entry hour. Every row carries its count; `expectancyR` is over the `withR` trades that had a stop; `expectancyRupees`
+is net of costs.
+
+```json
+{ "mode": "PAPER", "from": "2026-09-01", "to": "2026-09-30", "strategy": null, "trades": 64,
+  "byTradesThatDay": [ { "bucket": "1-4", "trades": 30, "wins": 16, "winRate": 0.533, "expectancyR": 0.21, "withR": 30,
+                         "expectancyRupees": 118.40, "netPnl": 3552.00 }, … ],
+  "bySequence": [ { "bucket": "1st", … }, … ], "byHour": [ { "bucket": "09", … }, … ] }
+```

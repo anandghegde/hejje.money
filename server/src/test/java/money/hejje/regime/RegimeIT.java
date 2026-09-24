@@ -152,9 +152,9 @@ class RegimeIT extends AbstractIntegrationTest {
         assertThat(s.intradayStructure()).isEqualTo(IntradayStructure.TREND_DAY);
         assertThat(s.eventEnvironment()).isEqualTo(EventEnvironment.NORMAL);
         assertThat(s.finalLabel()).isTrue();
-        assertThat(s.classifierVersion()).isEqualTo("1");
+        assertThat(s.classifierVersion()).isEqualTo("2");
         assertThat(s.features()).containsKeys("adx", "emaFast", "emaSlow", "vixPercentile", "gapPct", "advances", "rangeExpansion", "vwapCrosses");
-        assertThat(s.evidence()).hasSize(6);
+        assertThat(s.evidence()).hasSize(7);
         assertThat(s.evidence().get(0)).startsWith("Trend " + s.trend());
         assertThat(s.evidence().get(3)).contains("5 advances / 0 declines").contains("5 of 5 above VWAP");
 

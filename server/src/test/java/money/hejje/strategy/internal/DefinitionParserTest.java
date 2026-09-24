@@ -84,6 +84,31 @@ class DefinitionParserTest {
     }
 
     @Test
+    void entryOrderParsesWithDefaultsAndMarketStaysAbsent() throws Exception {
+        StrategyDefinition passive = parseValid(PRD_EXAMPLE + """
+                entry_order:
+                  type: limit_touch
+                """);
+        assertThat(passive.entryOrder()).isEqualTo(new StrategyDefinition.EntryOrder(StrategyDefinition.EntryOrderType.LIMIT_TOUCH, 3, 90,
+                java.math.BigDecimal.TEN));
+        assertThat(passive.entryOrderOrMarket().passive()).isTrue();
+        StrategyDefinition tuned = parseValid(PRD_EXAMPLE + """
+                entry_order: { type: limit_touch, max_requotes: 1, cancel_after_seconds: 30, max_chase_bps: 5 }
+                """);
+        assertThat(tuned.entryOrder().maxRequotes()).isEqualTo(1);
+        assertThat(tuned.entryOrder().cancelAfterSeconds()).isEqualTo(30);
+        // market (written or not) is stored as absent, so the definition's JSON (and every hash over it) is unchanged
+        StrategyDefinition market = parseValid(PRD_EXAMPLE + "entry_order: { type: market }\n");
+        StrategyDefinition plain = parseValid(PRD_EXAMPLE);
+        assertThat(market.entryOrder()).isNull();
+        com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules();
+        assertThat(json.writeValueAsString(market)).isEqualTo(json.writeValueAsString(plain)).doesNotContain("entryOrder");
+        assertThat(errorsOf(PRD_EXAMPLE + "entry_order: { type: limit_touch, max_requotes: 11, cancel_after_seconds: 2 }\n"))
+                .extracting(ValidationError::path).contains("entry_order.max_requotes", "entry_order.cancel_after_seconds");
+        assertThat(errorsOf(PRD_EXAMPLE + "entry_order: { type: iceberg }\n")).extracting(ValidationError::path).contains("entry_order.type");
+    }
+
+    @Test
     void prdExampleParsesAndValidates() {
         StrategyDefinition d = parseValid(PRD_EXAMPLE);
         assertThat(d.name()).isEqualTo("nifty_orb_vwap");

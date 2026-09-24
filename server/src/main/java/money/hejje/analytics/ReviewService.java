@@ -49,9 +49,18 @@ public class ReviewService {
     private final money.hejje.events.EventService events;
     private final money.hejje.news.NewsService news;
     private final HejjeClock clock;
+    private final TradeCauseProperties causeProps;
+    private final money.hejje.llm.JevService jev;
+    private final money.hejje.llm.JevQuestionSets jevSets;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
     ReviewService(AnalyticsService analytics, OrderService orders, SignalService signals, StrategyService strategies, MarketService market, ReviewStore store,
-            money.hejje.regime.RegimeService regime, money.hejje.events.EventService events, money.hejje.news.NewsService news, HejjeClock clock) {
+            money.hejje.regime.RegimeService regime, money.hejje.events.EventService events, money.hejje.news.NewsService news, HejjeClock clock,
+            TradeCauseProperties causeProps, money.hejje.llm.JevService jev, money.hejje.llm.JevQuestionSets jevSets, com.fasterxml.jackson.databind.ObjectMapper json) {
+        this.causeProps = causeProps;
+        this.jev = jev;
+        this.jevSets = jevSets;
+        this.json = json;
         this.analytics = analytics;
         this.regime = regime;
         this.events = events;
@@ -83,7 +92,120 @@ public class ReviewService {
         }
         TradeReview review = build(p, trip);
         store.insert(review);
-        return Optional.of(review);
+        classify(review, false); // provisional; completed after the post-exit window (plan M9.6)
+        return store.findByEntryOrder(trip.entryOrderId()).or(() -> Optional.of(review));
+    }
+
+    // --- trade cause and entry timing (plan M9.6) ---
+
+    /** Completes the causes whose post-exit window has passed (or whose session has closed); returns how many. */
+    public int completeCauses() {
+        Instant now = clock.now();
+        int n = 0;
+        for (TradeReview r : store.causePending(now, 200)) {
+            try {
+                TradeCause c = classify(r, true);
+                if (c != null && c.complete()) {
+                    n++;
+                }
+            } catch (RuntimeException e) {
+                log.warn("Trade cause of review {} failed: {}", r.id(), e.getMessage());
+            }
+        }
+        return n;
+    }
+
+    /** Classifies from the candles that exist now; asks Jev once the window is complete. Stored; null without an instrument session. */
+    TradeCause classify(TradeReview r, boolean withJev) {
+        java.time.LocalDate day = r.openedAt().atZone(clock.zone()).toLocalDate();
+        Instant open = clock.sessionWindow(day).open().toInstant();
+        Instant close = day.atTime(money.hejje.common.time.HejjeClock.SESSION_CLOSE).atZone(clock.zone()).toInstant();
+        Instant now = clock.now();
+        Instant until = r.closedAt().plus(Duration.ofMinutes(causeProps.postExitMinutes()));
+        List<Candle> bars = market.candles(r.instrumentId(), money.hejje.common.Timeframe.M1, open, until.isBefore(now) ? until : now);
+        money.hejje.analytics.internal.TradeCauseClassifier.Trade t = new money.hejje.analytics.internal.TradeCauseClassifier.Trade(r.side() == Side.BUY,
+                r.entryPrice(), r.exitPrice(), stopOf(r.entryOrderId()), r.closeReason(), r.openedAt(), r.closedAt(), close, now);
+        TradeCause c = money.hejje.analytics.internal.TradeCauseClassifier.classify(t, bars, causeProps);
+        if (withJev && c.complete() && jev.enabled() && c.cause() != TradeCause.Cause.UNKNOWN) {
+            c = withJev(r, c);
+        }
+        store.updateCause(r.id(), c);
+        return c;
+    }
+
+    /** Jev's reading ({@code config/jev/trade-cause.yaml}) beside the rules; unchanged when Jev fails. */
+    private TradeCause withJev(TradeReview r, TradeCause c) {
+        var state = json.createObjectNode();
+        var trade = state.putObject("trade");
+        trade.put("side", r.side() == Side.BUY ? "long" : "short");
+        trade.put("exit_reason", r.closeReason() == null ? "manual" : r.closeReason().toLowerCase(java.util.Locale.ROOT));
+        trade.put("minutes_held", Duration.between(r.openedAt(), r.closedAt()).toMinutes());
+        Map<String, Object> ev = c.evidence();
+        trade.put("result", bucketR(ev.get("outcomeR")));
+        trade.put("best_move_while_open", bucketR(c.mfeR()));
+        trade.put("worst_move_while_open", bucketR(c.maeR()));
+        if (ev.get("preEntryMoveAtr") instanceof Number m) {
+            trade.put("move_before_entry", m.doubleValue() >= causeProps.extendedAtr() ? "stretched" : m.doubleValue() <= -causeProps.extendedAtr() ? "against" : "normal");
+        }
+        if (ev.get("fromVwapAtr") instanceof Number v) {
+            trade.put("entry_vs_vwap", v.doubleValue() >= causeProps.vwapAtr() ? "far_in_trade_direction" : "normal");
+        }
+        if (ev.get("postExitBestR") instanceof Number post) {
+            trade.put("after_the_stop", post.doubleValue() >= causeProps.noiseRecoveryR() ? "went_the_trade_way" : "did_not_recover");
+        }
+        money.hejje.llm.JevResult res = jev.evaluate("trade-cause", r.id().toString(), state, jevSets.get("trade-cause"));
+        if (!res.ok()) {
+            return c;
+        }
+        String jevCause = res.answer("cause").map(money.hejje.llm.JevAnswer::choice).orElse(null);
+        String jevTiming = res.answer("entry_timing").map(money.hejje.llm.JevAnswer::score)
+                .map(s -> TradeCause.Timing.values()[(int) Math.max(0, Math.min(2, Math.round(s)))].name()).orElse(null);
+        return new TradeCause(c.cause(), c.entryTiming(), c.mfeR(), c.maeR(), c.evidence(), jevCause, jevTiming, c.complete());
+    }
+
+    private static String bucketR(Object r) {
+        if (!(r instanceof Number n)) {
+            return "unknown";
+        }
+        double v = n.doubleValue();
+        return v >= 1 ? "over_1r_gain" : v >= 0.3 ? "small_gain" : v > -0.3 ? "flat" : v > -1 ? "small_loss" : "full_loss";
+    }
+
+    /** The entry's initial stop: the strategy position's, else the order intent's. */
+    private BigDecimal stopOf(UUID entryOrderId) {
+        Optional<StrategyPosition> sp = signals.positionForOrder(entryOrderId);
+        if (sp.isPresent()) {
+            return sp.get().initialStop();
+        }
+        return orders.findById(entryOrderId).flatMap(o -> orders.findIntent(o.intentId())).map(i -> i.stopPrice() == null ? null : i.stopPrice().value())
+                .orElse(null);
+    }
+
+    /** Rules against Jev over completed reviews closed in {@code [from, to]}: counts, agreement and the confusion matrix (rules → Jev). */
+    public record CauseAgreement(java.time.LocalDate from, java.time.LocalDate to, int trades, Double causeAgreement, Double timingAgreement,
+            Map<String, Map<String, Integer>> causeMatrix) {}
+
+    public CauseAgreement causeAgreement(java.time.LocalDate from, java.time.LocalDate to) {
+        List<TradeReview> rs = store.withJevCause(from.atStartOfDay(clock.zone()).toInstant(), to.plusDays(1).atStartOfDay(clock.zone()).toInstant());
+        Map<String, Map<String, Integer>> matrix = new java.util.TreeMap<>();
+        int same = 0;
+        int timingSame = 0;
+        int timed = 0;
+        for (TradeReview r : rs) {
+            TradeCause c = r.cause();
+            matrix.computeIfAbsent(c.cause().name(), k -> new java.util.TreeMap<>()).merge(c.jevCause(), 1, Integer::sum);
+            if (c.cause().name().equals(c.jevCause())) {
+                same++;
+            }
+            if (c.entryTiming() != null && c.jevTiming() != null) {
+                timed++;
+                if (c.entryTiming().name().equals(c.jevTiming())) {
+                    timingSame++;
+                }
+            }
+        }
+        return new CauseAgreement(from, to, rs.size(), rs.isEmpty() ? null : Math.round(1000.0 * same / rs.size()) / 1000.0,
+                timed == 0 ? null : Math.round(1000.0 * timingSame / timed) / 1000.0, matrix);
     }
 
     TradeReview build(Position p, RoundTrip trip) {

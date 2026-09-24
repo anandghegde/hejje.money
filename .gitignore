@@ -35,3 +35,7 @@ data/
 .idea/
 *.iml
 .vscode/
+
+# IDE / tool output
+server/bin/
+.serena/

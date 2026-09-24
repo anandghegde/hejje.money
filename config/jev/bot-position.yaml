@@ -1,0 +1,27 @@
+# Plan M9.5: the Jev bot's open positions, one call per position at every decision point. State: `symbol`, `position`
+# (side, R and bps in and out of profit, best move, giveback, minutes held, stop at break-even), `stock`, `index`.
+# Bump the version on any change here, including the thresholds.
+name: bot-position
+version: "1"
+params:
+  exit-thesis-below: 1       # thesis level (0 Broken .. 3 Strengthening) under which the position is closed
+  exit-now-prob: 0.7
+  take-profit-prob: 0.7
+  break-even-thesis-below: 1.5
+  break-even-after-r: 0.5
+  time-stop-minutes: 30
+questions:
+  thesis:
+    type: score
+    instructions: Given `stock` and `index`, how is the case for keeping the `position` in `symbol` now?
+    criteria: [Broken, Weakening, Intact, Strengthening]
+  exit_now:
+    type: noul
+    instructions: Should the `position` in `symbol` be closed now, given `stock` and `index`?
+  extended:
+    type: score
+    instructions: How far has `symbol` moved in the direction of the `position` compared with a normal move?
+    criteria: [Not extended, Somewhat extended, Very extended]
+  take_profit:
+    type: noul
+    instructions: Is now a good moment to take the profit of the `position` in `symbol`, given `stock`?

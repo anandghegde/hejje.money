@@ -40,7 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
  * Session reports, the leaderboard and promotion (plan M7.5): two fixture bots on the same three sessions. {@code winner}
  * shorts NSE:INFY into the 09:35 drop and covers at 09:40; {@code loser} buys NSE:TCS into the same drop and is stopped out.
  */
-class LeaderboardIT extends AbstractSimIT {
+public class LeaderboardIT extends AbstractSimIT {
 
     static final ZoneId IST = ZoneId.of("Asia/Kolkata");
     static final List<LocalDate> DAYS = List.of(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 22), LocalDate.of(2026, 9, 23));
@@ -70,7 +70,7 @@ class LeaderboardIT extends AbstractSimIT {
     }
 
     /** The SimReplayIT day shape on any date: flat-ish to 09:34, a drop from 1502 through 1490 in the 09:35 bar, lower after. */
-    static List<Candle> day(UUID id, LocalDate date) {
+    public static List<Candle> day(UUID id, LocalDate date) {
         List<Candle> out = new ArrayList<>();
         for (int i = 0; i < SimSession.STEPS_PER_DAY; i++) {
             BigDecimal open;
@@ -94,7 +94,7 @@ class LeaderboardIT extends AbstractSimIT {
         return out;
     }
 
-    static String hhmm(String pointId) {
+    public static String hhmm(String pointId) {
         return java.time.Instant.parse(pointId).atZone(IST).toLocalTime().toString();
     }
 
@@ -110,7 +110,7 @@ class LeaderboardIT extends AbstractSimIT {
         return bot;
     }
 
-    static BotDecision.Input act(String symbol, String action, String stop, String thesis) {
+    public static BotDecision.Input act(String symbol, String action, String stop, String thesis) {
         return new BotDecision.Input(symbol, action, stop == null ? null : new BigDecimal(stop), null, 0.6, thesis, "test", null, null);
     }
 
@@ -133,6 +133,7 @@ class LeaderboardIT extends AbstractSimIT {
             sessions.control(s.id(), SimSessionService.Action.PLAY, "MAX");
             SimSession done = await(s.id());
             assertThat(done.state()).as("%s", done.error()).isEqualTo(SimSession.State.DONE);
+            awaitReports(s.id(), 2); // the session is stored DONE before its reports are written (same thread, just after)
         }
 
         // one report per bot and session, from the harness snapshot at the end
@@ -147,6 +148,10 @@ class LeaderboardIT extends AbstractSimIT {
         });
         assertThat(won).extracting(r -> r.sessionDates().get(0)).containsExactlyInAnyOrderElementsOf(DAYS);
         assertThat(lost).hasSize(3).allSatisfy(r -> assertThat(r.expectancyR()).isLessThan(-0.5)); // stopped out: about −1R after costs
+        // confidence calibration (M9.2): the winner's short never reaches ±1R in 30 minutes (NONE); the loser's long hits −1R at once
+        assertThat(won).allSatisfy(r -> assertThat(r.confidenceCalibration()).containsEntry("n", 0).containsEntry("none", 1));
+        assertThat(lost).allSatisfy(r -> assertThat(r.confidenceCalibration()).containsEntry("n", 1).containsEntry("brier", 0.36));
+        assertThat(reports.find(lost.get(0).id()).orElseThrow().confidenceCalibration()).isEqualTo(lost.get(0).confidenceCalibration());
         // the decisions hash covers each session's own decision points (their ids are dated), so the three differ
         assertThat(won.stream().map(SimReport::decisionsHash).distinct()).hasSize(3);
 
@@ -162,17 +167,34 @@ class LeaderboardIT extends AbstractSimIT {
         assertThat(board.get(1).winRate()).isEqualTo(0.0);
         assertThat(board.get(1).profitFactor()).isEqualTo(0.0);
         assertThat(board.get(1).maxDrawdownPaise()).isPositive();
+        assertThat(board.get(0).brier()).isNull();
+        assertThat(board.get(1).brier()).isEqualTo(0.36);
+        assertThat(board.get(1).brierN()).isEqualTo(3);
 
         // promotion: 3 sessions are not the 20 PAPER needs
         assertThatThrownBy(() -> strategies.deploy(winner.strategyId(), 1, ExecutionMode.PAPER, List.of(), 0, Map.of(), "admin"))
                 .isInstanceOf(StrategyException.Conflict.class).hasMessageContaining("3 of the 20 SIM sessions");
         // with the bar at 3 sessions the winner qualifies and the loser does not (negative expectancy)
-        SimReports lowBar = new SimReports(null, null, null, bots, decisions, 3);
+        SimReports lowBar = new SimReports(null, null, null, bots, decisions, null, 3);
         assertThat(lowBar.refusal(winner.name(), "1", won)).isNull();
         assertThat(lowBar.refusal(loser.name(), "1", lost)).contains("PAPER needs it positive");
 
         // exported reports import idempotently where the bot is promoted
         assertThat(reports.importReports(won)).isZero();
+    }
+
+    void awaitReports(UUID sessionId, int count) {
+        for (int i = 0; i < 200; i++) {
+            if (reports.list(null, null, 1000).stream().filter(r -> r.sessionId().equals(sessionId)).count() >= count) {
+                return;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        throw new AssertionError("reports of session " + sessionId + " were not written");
     }
 
     SimSession await(UUID id) {

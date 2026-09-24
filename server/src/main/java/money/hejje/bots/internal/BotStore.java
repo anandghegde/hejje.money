@@ -35,9 +35,10 @@ public class BotStore {
     public void insert(Bot b) {
         jdbc.sql("""
                 INSERT INTO bot (id, name, version, kind, knowledge_cutoff, allowed_modes, strategy_id, timeframe, decision_every_minutes, universe, enabled,
-                    created_by, created_at, updated_at)
-                VALUES (:id, :name, :version, :kind, :cutoff, CAST(:modes AS jsonb), :strategy, :tf, :every, CAST(:universe AS jsonb), :enabled, :by, :at, :at)
-                """).param("id", b.id()).param("name", b.name()).param("version", b.version()).param("kind", b.kind().name())
+                    created_by, created_at, updated_at, exit_confirm_votes, question_set)
+                VALUES (:id, :name, :version, :kind, :cutoff, CAST(:modes AS jsonb), :strategy, :tf, :every, CAST(:universe AS jsonb), :enabled, :by, :at, :at,
+                    :votes, :qset)
+                """).param("votes", b.exitConfirmVotes()).param("qset", b.questionSet()).param("id", b.id()).param("name", b.name()).param("version", b.version()).param("kind", b.kind().name())
                 .param("cutoff", b.knowledgeCutoff()).param("modes", write(b.allowedModes().stream().map(Enum::name).sorted().toList()))
                 .param("strategy", b.strategyId()).param("tf", b.timeframe().name()).param("every", b.decisionEveryMinutes())
                 .param("universe", write(b.universe())).param("enabled", b.enabled()).param("by", b.createdBy()).param("at", ts(b.createdAt())).update();
@@ -120,7 +121,8 @@ public class BotStore {
         return new Bot(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("version"), Bot.Kind.valueOf(rs.getString("kind")),
                 rs.getObject("knowledge_cutoff", LocalDate.class), Set.copyOf(modes.stream().map(ExecutionMode::valueOf).toList()),
                 rs.getObject("strategy_id", UUID.class), Timeframe.valueOf(rs.getString("timeframe")), every == null ? null : ((Number) every).intValue(),
-                universe, rs.getBoolean("enabled"), rs.getString("created_by"), instant(rs, "created_at"), instant(rs, "updated_at"));
+                universe, rs.getBoolean("enabled"), rs.getString("created_by"), instant(rs, "created_at"), instant(rs, "updated_at"),
+                rs.getInt("exit_confirm_votes"), rs.getString("question_set"));
     }
 
     private BotDecision decision(ResultSet rs, int i) throws SQLException {

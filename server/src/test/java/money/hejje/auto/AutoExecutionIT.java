@@ -119,6 +119,9 @@ class AutoExecutionIT extends AbstractIntegrationTest {
     @Autowired ApprovalService approvals;
     @Autowired LlmService llm;
     @Autowired ApplicationEventPublisher publisher;
+    @Autowired money.hejje.jev.SignalCheck jevCheck;
+    @Autowired money.hejje.llm.JevTransport jevTransport;
+    @Autowired money.hejje.market.HistoricalCandleStore history;
 
     UUID infy;
     String token;
@@ -259,6 +262,62 @@ class AutoExecutionIT extends AbstractIntegrationTest {
     int entryIntents(UUID signalId) {
         return jdbc.queryForObject("SELECT count(*) FROM order_intent WHERE signal_id = ? AND source = 'STRATEGY' AND status <> 'PROPOSED' "
                 + "AND idempotency_key LIKE 'auto:%'", Integer.class, signalId);
+    }
+
+    /**
+     * Plan M9.5: with the signal check on and its gate at approval (allowed once calibration passes), a Jev disagreement
+     * turns the AUTO execution into an approval; the answer is on the signal's evidence.
+     */
+    @Test
+    void aJevDisagreementTurnsAutoIntoAnApprovalOnceTheGateIsAllowed() throws Exception {
+        money.hejje.llm.FixtureJev fx = (money.hejje.llm.FixtureJev) jevTransport;
+        try {
+            jevCheck.enabled(true);
+            assertThat(jevCheck.gate(money.hejje.jev.SignalCheck.Gate.APPROVAL)).contains("does not pass"); // no calibration yet
+            seedPassingCalibration();
+            assertThat(jevCheck.gate(money.hejje.jev.SignalCheck.Gate.APPROVAL)).isNull();
+            fx.script("setup", (q, st) -> new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("type", "choice").put("choice", "chop")
+                    .put("confidence", 0.8).set("probabilities", new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode().put("chop", 0.7)
+                            .put("long_continuation", 0.2)));
+            List<Candle> m1 = new java.util.ArrayList<>();
+            for (int i = 0; i < 21; i++) {
+                BigDecimal px = new BigDecimal("1500.00").add(BigDecimal.valueOf(i).multiply(new BigDecimal("0.25")));
+                m1.add(new Candle(infy, money.hejje.common.Timeframe.M1, DAY.atTime(9, 15).plusMinutes(i).atZone(SyntheticSessions.IST).toInstant(), px,
+                        px.add(BigDecimal.ONE), px.subtract(BigDecimal.ONE), px.add(new BigDecimal("0.25")), 1000, 0, false));
+            }
+            history.write(infy, money.hejje.common.Timeframe.M1, m1);
+            deploy(4, Map.of());
+            openingRangeAndBreakout();
+            Signal signal = awaitSignal();
+            Approval held = await(() -> pendingFor(signal.id()).stream().findFirst(), "an approval");
+            assertThat(held.rationale()).contains("JEV_DISAGREES").contains("chop");
+            assertThat(entryIntents(signal.id())).isZero();
+            Map<String, Object> check = (Map<String, Object>) signals.find(signal.id()).orElseThrow().evidence().stream()
+                    .filter(e -> e.containsKey("jevCheck")).findFirst().orElseThrow().get("jevCheck");
+            assertThat(check).containsEntry("setup", "chop").containsEntry("agrees", false).containsEntry("version", "1");
+        } finally {
+            jevCheck.enabled(false);
+            fx.reset();
+            jdbc.update("DELETE FROM calibration_label WHERE purpose = 'signal-check'");
+        }
+    }
+
+    /** 400 labelled signal-check answers over 15 sessions, calibrated bucket by bucket (the bar of docs/calibration.md passes). */
+    private void seedPassingCalibration() {
+        for (int b = 0; b < 10; b++) {
+            double p = 0.05 + 0.1 * b;
+            int hits = (int) Math.round(p * 40);
+            for (int i = 0; i < 40; i++) {
+                LocalDate session = LocalDate.of(2026, 8, 3).plusDays(i % 15);
+                boolean hit = i < hits;
+                jdbc.update("""
+                        INSERT INTO calibration_label (source, source_id, key, horizon, purpose, version, probability, instrument_id, rule, side, stop, decided_at,
+                            session_date, outcome, label)
+                        VALUES ('jev', ?, 'setup', '30m', 'signal-check', '1', ?, ?, 'ENTRY_1R', 'BUY', 100, ?, ?, ?, ?)
+                        """, UUID.randomUUID().toString(), p, infy, ts(session.atTime(10, 0).atZone(SyntheticSessions.IST).toInstant()), session,
+                        hit ? "HIT" : "MISS", hit ? 1 : 0);
+            }
+        }
     }
 
     @Test

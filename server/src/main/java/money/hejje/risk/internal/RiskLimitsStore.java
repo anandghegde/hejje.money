@@ -31,8 +31,10 @@ public class RiskLimitsStore {
                     max_risk_per_trade_paise = :maxRiskPerTrade, max_quantity = :maxQty, max_notional_paise = :maxNotional,
                     min_reward_risk = :minRr, mandatory_stop = :mandatoryStop, max_stop_distance_pct = :maxStopDist,
                     no_new_trades_after = :noNewAfter, no_averaging_down = :noAvg, no_reentry_minutes = :noReentry,
-                    max_consecutive_losses = :maxConsecutive, updated_at = now() WHERE mode = :mode
-                """)
+                    max_consecutive_losses = :maxConsecutive, loss_streak_mode = :lossStreakMode, allowance_drawdown_paise = :allowanceDrawdown,
+                    loss_streak_allowance = :allowance, trades_per_day_when_green = :whenGreen, updated_at = now() WHERE mode = :mode
+                """).param("lossStreakMode", l.lossStreakMode().name()).param("allowanceDrawdown", l.allowanceDrawdown().paise())
+                .param("allowance", l.lossStreakAllowance()).param("whenGreen", l.tradesPerDayWhenGreen().name())
                 .param("mode", l.mode().name()).param("maxLossPerDay", l.maxLossPerDay().paise())
                 .param("maxRealizedLoss", l.maxRealizedLoss().paise()).param("maxTotalLoss", l.maxTotalLossInclUnrealized().paise())
                 .param("maxCapital", l.maxCapitalDeployed().paise()).param("maxMargin", l.maxMarginUtilizationPct())
@@ -64,6 +66,10 @@ public class RiskLimitsStore {
                 rs.getObject("no_new_trades_after", LocalTime.class),
                 rs.getBoolean("no_averaging_down"),
                 rs.getInt("no_reentry_minutes"),
-                rs.getInt("max_consecutive_losses"));
+                rs.getInt("max_consecutive_losses"),
+                RiskLimits.LossStreakMode.valueOf(rs.getString("loss_streak_mode")),
+                Money.ofPaise(rs.getLong("allowance_drawdown_paise")),
+                rs.getInt("loss_streak_allowance"),
+                RiskLimits.TradesWhenGreen.valueOf(rs.getString("trades_per_day_when_green")));
     }
 }

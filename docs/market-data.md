@@ -52,3 +52,44 @@ Subscription modes (M5.4): the watchlist and option chains stream in FULL mode (
 put/call ratios and max pain need OI); every other subscription is LTP. An instrument already in FULL mode is never
 downgraded by a later LTP subscription.
 
+
+## Order book and flow (plan M9.4)
+
+**Which modes carry depth.** Only **FULL**-mode Kite ticks carry the five best bid and ask levels and the exchange's
+day totals of pending buy and sell quantity; `KiteMapper` fills `bidQty5` / `askQty5` (sums of the five levels'
+quantities) and `totalBuyQty` / `totalSellQty` from them. LTP and QUOTE ticks leave the four fields null, as do the
+Dhan adapter (its polled quotes have no depth) and the SIM replay from M1 candles. The watchlist and option chains
+stream in FULL mode (above); a deployment's instruments stream LTP unless they are also on the watchlist.
+
+**Recording.** The day file has four more nullable columns (`bid_qty5`, `ask_qty5`, `total_buy_qty`,
+`total_sell_qty`). Files written before them replay with the fields null and no error (the reader checks the schema;
+old files are not migrated, but a recorder appending to such a day rewrites it in the new schema).
+
+**Per-bar features** (`BarMicro`, built in `MarketPipeline` beside the candles from the same ticks):
+
+| Field | Definition |
+|---|---|
+| `imbalanceClose` | (bid5 − ask5) / (bid5 + ask5) at the bar's last tick with both quantities |
+| `imbalanceMean` | the mean of that imbalance over the bar's ticks with depth (tick-weighted) |
+| `buySellRatio` | totalBuy / totalSell at the bar's last tick carrying both (totalSell > 0) |
+| `upVolumeShare` | up / (up + down) volume, where each tick's volume delta over the previous tick of the day is signed by the price change and unchanged-price ticks are ignored |
+| `ticks`, `depthTicks` | ticks in the bar, and those with depth |
+
+M1 values are rolled up into M3/M5/M15/H1 like candles: the last minute's imbalance and ratio, the depth-tick-weighted
+mean, summed up/down volume. A bar has micro data only when at least one of its ticks carried order-book fields;
+synthetic minutes never do.
+
+**The approximation.** `upVolumeShare` signs **polled cumulative volume** between consecutive ticks, not individual
+trade prints: several trades between two ticks are one delta signed by the net price change, and volume on an
+unchanged price is dropped. Treat it as a coarse flow proxy (as warrenduffer's `flowShare`), not a trade-by-trade
+buy/sell split.
+
+**Storage.** `bar_micro` (V46) in Postgres for the operational window, pruned with `market_candle`
+(`retention-sessions`); never written to the Parquet history. `MarketService.micro(instrument, timeframe, from, to)`
+reads it (in SIM capped at the simulation clock). Closed-candle events carry the bar's micro data to the signal engine
+and to bots' decision points (`micro`, null when absent).
+
+**Live-only rule.** Historical candles carry no depth or tick flow. The indicators that read these values
+(`book_imbalance`, `book_imbalance_mean`, `buy_sell_qty_ratio`, `flow_up_share(n)`, docs/indicators.md) are
+`NOT_READY` on bars without micro data, so in a backtest over history a rule using them never passes, and the
+backtester says so (`MICROSTRUCTURE_NOT_READY`). Such a rule can only pass on live or recorded ticks.

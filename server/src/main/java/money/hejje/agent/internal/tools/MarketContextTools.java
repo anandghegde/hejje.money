@@ -49,7 +49,7 @@ public class MarketContextTools implements AgentToolProvider {
     public record Snapshot(Instant asOf, List<Quote> quotes, List<String> noQuote) {}
 
     public record Regime(boolean available, LocalDate date, Instant asOf, String trend, String volatility, String opening, String breadth,
-            String intradayStructure, String eventEnvironment, List<String> evidence, String classifierVersion, boolean finalLabel) {}
+            String intradayStructure, String eventEnvironment, String marketCondition, List<String> evidence, String classifierVersion, boolean finalLabel) {}
 
     public record PulseRow(String name, Double value, double contribution, String evidence) {}
 
@@ -107,8 +107,9 @@ public class MarketContextTools implements AgentToolProvider {
                                  "instruments":{"type":"array","items":%s,"minItems":1,"maxItems":20}},"additionalProperties":false}"""
                                 .formatted(INSTRUMENT_PROP, INSTRUMENT_PROP)),
                         SnapshotInput.class, Snapshot.class, this::snapshot),
-                AgentTool.of("get_market_regime", "Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) "
-                        + "with one evidence sentence per dimension, from the deterministic regime classifier.", ScopeCatalog.MARKET_READ, NO_INPUT,
+                AgentTool.of("get_market_regime", "Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment, and the "
+                        + "daily market condition: CONFIRMED_UPTREND, UPTREND_UNDER_PRESSURE, RALLY_ATTEMPT or DOWNTREND from distribution and follow-through "
+                        + "days) with one evidence sentence per dimension, from the deterministic regime classifier.", ScopeCatalog.MARKET_READ, NO_INPUT,
                         NoInput.class, Regime.class, this::regime),
                 AgentTool.of("get_pulse", "Technical Pulse (direction, strength, -100..100 score, per-rule components) and Market Pulse rows (regime, volatility, "
                         + "breadth, sector strength).", ScopeCatalog.MARKET_READ, NO_INPUT, NoInput.class, Pulse.class, this::pulse),
@@ -152,12 +153,12 @@ public class MarketContextTools implements AgentToolProvider {
 
     Regime regime(NoInput in, ToolContext ctx) {
         if (!regime.enabled()) {
-            return new Regime(false, null, null, null, null, null, null, null, null, List.of("The regime engine is disabled"), null, false);
+            return new Regime(false, null, null, null, null, null, null, null, null, null, List.of("The regime engine is disabled"), null, false);
         }
         RegimeSnapshot s = regime.current();
         boolean available = s.trend() != null && s.trend() != Trend.UNKNOWN;
         return new Regime(available, s.date(), s.asOf(), name(s.trend()), name(s.volatility()), name(s.opening()), name(s.breadth()),
-                name(s.intradayStructure()), name(s.eventEnvironment()), s.evidence(), s.classifierVersion(), s.finalLabel());
+                name(s.intradayStructure()), name(s.eventEnvironment()), name(s.marketCondition()), s.evidence(), s.classifierVersion(), s.finalLabel());
     }
 
     Pulse pulse(NoInput in, ToolContext ctx) {

@@ -30,7 +30,7 @@ public class NewsClassifier {
     private static final Logger log = LoggerFactory.getLogger(NewsClassifier.class);
     public static final String PROMPT_VERSION = "news_classify_v1";
     static final String SYSTEM = "You are a careful financial news classifier. Answer with JSON only.";
-    private static final List<String> EVENT_TYPES = List.of("RESULTS", "GUIDANCE", "CONTRACT", "MANAGEMENT", "REGULATORY", "LEGAL", "MACRO", "SECTOR", "RATING",
+    static final List<String> EVENT_TYPES = List.of("RESULTS", "GUIDANCE", "CONTRACT", "MANAGEMENT", "REGULATORY", "LEGAL", "MACRO", "SECTOR", "RATING",
             "CORPORATE_ACTION", "DEAL", "OTHER");
 
     private final StructuredOutput structured;

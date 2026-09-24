@@ -33,10 +33,14 @@ public class MarketService {
     private final ContinuousFuturesBuilder continuousBuilder;
     private final money.hejje.common.time.HejjeClock clock;
     private final boolean simulation;
+    private final money.hejje.instruments.InstrumentService instruments;
+    /** The index a D1 gap is compared with in the integrity report's suspect-gap check. */
+    private static final String GAP_INDEX = "INDEX:NIFTY 50";
 
     MarketService(QuoteCache quotes, MarketCandleStore recent, HistoricalCandleStore historical, MarketDataStreamer streamer,
             ContinuousSeriesStore continuous, ContinuousFuturesBuilder continuousBuilder, money.hejje.common.time.HejjeClock clock,
-            money.hejje.common.config.HejjeProperties properties) {
+            money.hejje.common.config.HejjeProperties properties, money.hejje.instruments.InstrumentService instruments) {
+        this.instruments = instruments;
         this.simulation = properties.mode() == money.hejje.common.ExecutionMode.SIM;
         this.quotes = quotes;
         this.recent = recent;
@@ -76,7 +80,9 @@ public class MarketService {
     public DataIntegrityReport integrity(UUID instrumentId, Timeframe timeframe, LocalDate from, LocalDate to) {
         Instant start = from.atStartOfDay(clock.zone()).toInstant();
         Instant end = to.plusDays(1).atStartOfDay(clock.zone()).toInstant().minusSeconds(1);
-        return HistoryIntegrity.report(instrumentId, timeframe, from, to, candles(instrumentId, timeframe, start, end), clock);
+        List<Candle> index = timeframe != Timeframe.D1 ? List.of()
+                : instruments.resolve(GAP_INDEX).map(i -> candles(i.id(), timeframe, start, end)).orElse(List.of());
+        return HistoryIntegrity.report(instrumentId, timeframe, from, to, candles(instrumentId, timeframe, start, end), index, clock);
     }
 
     public Optional<QuoteSnapshot> quote(UUID instrumentId) {
@@ -122,6 +128,19 @@ public class MarketService {
             merged.values().removeIf(c -> c.openTime().plus(timeframe.duration()).isAfter(now));
         }
         return List.copyOf(merged.values());
+    }
+
+    /**
+     * Order-book and flow data of stored bars in {@code [from, to]} (plan M9.4): live or recorded ticks only, so most
+     * bars have none. In SIM, bars not yet closed on the simulation clock are hidden like candles.
+     */
+    public List<BarMicro> micro(UUID instrumentId, Timeframe timeframe, Instant from, Instant to) {
+        List<BarMicro> out = new java.util.ArrayList<>(recent.readMicro(instrumentId, timeframe, from, to));
+        if (simulation) {
+            Instant now = clock.now();
+            out.removeIf(m -> m.openTime().plus(timeframe.duration()).isAfter(now));
+        }
+        return List.copyOf(out);
     }
 
     public void subscribe(Set<UUID> instrumentIds) {

@@ -14,6 +14,8 @@ import { System } from './pages/System';
 import { Settings } from './pages/Settings';
 import { Today } from './pages/Today';
 import { Pulse } from './pages/Pulse';
+import { Screener } from './pages/Screener';
+import { Stock } from './pages/Stock';
 import { Strategies } from './pages/Strategies';
 import { StrategyDetail } from './pages/StrategyDetail';
 import { Lab } from './pages/Lab';
@@ -40,6 +42,8 @@ export function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/today" element={<Protected><Today /></Protected>} />
             <Route path="/pulse" element={<Protected><Pulse /></Protected>} />
+            <Route path="/screener" element={<Protected><Screener /></Protected>} />
+            <Route path="/stocks/:symbol" element={<Protected><Stock /></Protected>} />
             <Route path="/strategies" element={<Protected><Strategies /></Protected>} />
             <Route path="/strategies/:id" element={<Protected><StrategyDetail /></Protected>} />
             <Route path="/lab" element={<Protected><Lab /></Protected>} />

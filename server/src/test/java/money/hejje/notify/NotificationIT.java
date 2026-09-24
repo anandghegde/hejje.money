@@ -200,7 +200,7 @@ class NotificationIT extends AbstractIntegrationTest {
         assertThat(rest.exchange("/api/v1/notifications/rules", HttpMethod.GET, new HttpEntity<>(bearer(reader)), String.class).getStatusCode())
                 .isEqualTo(HttpStatus.FORBIDDEN);
         List<Map<String, Object>> rules = rest.exchange("/api/v1/notifications/rules", HttpMethod.GET, new HttpEntity<>(bearer(admin)), List.class).getBody();
-        assertThat(rules).hasSize(16 + 13 * 2);
+        assertThat(rules).hasSize(16 + 13 * 2 + 6); // + the in-app rules of Phase 8: market condition, the four setup alerts, the evening digest
         String ruleId = ruleId(NotificationType.NEWS_CONTEXT_CHANGED, NotificationType.Channel.IN_APP);
         ResponseEntity<Map> updated = rest.exchange("/api/v1/notifications/rules/" + ruleId, HttpMethod.PUT,
                 new HttpEntity<>(Map.of("enabled", false), bearer(admin)), Map.class);

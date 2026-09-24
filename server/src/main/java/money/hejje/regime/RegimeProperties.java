@@ -18,11 +18,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param minSessions        below this many daily bars volatility percentiles are {@code UNKNOWN}
  * @param intradaySnapshot   how often an intraday snapshot is stored during the session (also the cache lifetime)
  * @param adjuster           points used by the regime compatibility score adjuster
+ * @param marketCondition    distribution-day, rally-attempt and follow-through thresholds of the market condition
  */
 @ConfigurationProperties("hejje.regime")
 public record RegimeProperties(
         @DefaultValue("true") boolean enabled,
-        @DefaultValue("1") String classifierVersion,
+        @DefaultValue("2") String classifierVersion,
         @DefaultValue("true") boolean labelOnStartup,
         @DefaultValue("INDEX:NIFTY 50") String indexSymbol,
         @DefaultValue("INDEX:INDIA VIX") String vixSymbol,
@@ -35,7 +36,8 @@ public record RegimeProperties(
         @DefaultValue OpeningRules opening,
         @DefaultValue BreadthRules breadth,
         @DefaultValue StructureRules structure,
-        @DefaultValue AdjusterPoints adjuster) {
+        @DefaultValue AdjusterPoints adjuster,
+        @DefaultValue ConditionRules marketCondition) {
 
     /**
      * @param trendAdx       ADX at or above which a bullish/bearish EMA structure counts as a trend (below: RANGE)
@@ -93,5 +95,27 @@ public record RegimeProperties(
      */
     public record AdjusterPoints(@DefaultValue("3") int preferredPoints, @DefaultValue("6") int avoidPoints, @DefaultValue("7") int similarFullPoints,
             @DefaultValue("0.5") double similarFullDiffR, @DefaultValue("10") int minSimilarTrades) {
+    }
+
+    /**
+     * @param distributionDropPct       an index close down by at least this percent on higher proxy volume is a distribution day
+     * @param distributionWindow        a distribution day drops out of the count after this many sessions
+     * @param distributionExpiryGainPct ... or once the index closes this percent above that day's close
+     * @param followThroughMinDay       earliest day of a rally attempt that can be a follow-through day
+     * @param followThroughGainPct      index gain, on higher volume, that makes a follow-through day
+     * @param pressureCount             distribution days at which a confirmed uptrend is under pressure
+     * @param downtrendCount            distribution days at which an uptrend becomes a downtrend
+     * @param downtrendBelowSmaCount    ... or this many together with a close below the moving average
+     * @param recoverCount              under pressure returns to confirmed when the count falls to this
+     * @param sma                       the moving average (sessions)
+     * @param windowSessions            the state machine runs over exactly this many sessions ending at the session labelled,
+     *                                  so a label depends on a fixed window of candles and not on where a labelling job started
+     * @param minConstituents           constituents that must have a candle for a session's proxy volume to be known
+     */
+    public record ConditionRules(@DefaultValue("0.2") double distributionDropPct, @DefaultValue("25") int distributionWindow,
+            @DefaultValue("5.0") double distributionExpiryGainPct, @DefaultValue("4") int followThroughMinDay,
+            @DefaultValue("1.25") double followThroughGainPct, @DefaultValue("4") int pressureCount, @DefaultValue("6") int downtrendCount,
+            @DefaultValue("5") int downtrendBelowSmaCount, @DefaultValue("3") int recoverCount, @DefaultValue("50") int sma,
+            @DefaultValue("200") int windowSessions, @DefaultValue("45") int minConstituents) {
     }
 }

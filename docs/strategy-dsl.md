@@ -57,8 +57,16 @@ event_rules:                    # optional (default allow); docs/events.md
 risk_overrides:                 # optional
   min_reward_risk: 1.5
   max_quantity: 100
+entry_order:                    # optional (plan M9.8); default type: market, today's behaviour
+  type: limit_touch             # market | limit_touch: a limit at the best bid (long) / ask (short) that re-quotes
+  max_requotes: 3               # 0..10 moves to the new touch
+  cancel_after_seconds: 90      # 5..900; then it is cancelled and the signal ends EXPIRED (ENTRY_NOT_FILLED)
+  max_chase_bps: 10             # 0..100: a re-quote never goes further than this beyond the signal's price
 version: 3                      # ignored: versions are assigned by the server
 ```
+
+`entry_order: { type: market }` and no `entry_order` are the same definition (and hash the same). docs/signals.md
+"Passive entries" describes the live behaviour, docs/backtesting.md how the backtester fills it.
 
 Options strategies (`family: options`) add `legs` and an optional `combined_exit`; see "Options legs" below.
 
@@ -134,6 +142,9 @@ args      := arg (',' arg)*       arg := number | duration        duration := <i
 | `prev_day_nr(n)` | sessions | 1 when yesterday had the narrowest range of the last n sessions (NR7 = `prev_day_nr(7) == 1`), else 0 |
 | `opening_return(d)` | duration (required) | % return from the previous close to the close of the bar ending at 09:15 + d; NOT_READY before it |
 | `highest(n)`, `lowest(n)` | period | highest high / lowest low of the last n bars |
+| `book_imbalance`, `book_imbalance_mean` | — | order-book imbalance of the bar (at its close / mean), −1..1; **live or recorded ticks only** |
+| `buy_sell_qty_ratio` | — | total buy / total sell quantity at the bar's close; live or recorded ticks only |
+| `flow_up_share(5)` | bars (default 5) | share of volume traded on upticks over the last n bars, 0..1; live or recorded ticks only |
 
 Implementations arrive in `market.indicators` (M2.2). Until an indicator is warmed up it is *not ready* and every
 condition referencing it evaluates to `NOT_READY`, which never counts as true.

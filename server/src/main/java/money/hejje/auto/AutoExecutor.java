@@ -15,6 +15,7 @@ import money.hejje.common.Money;
 import money.hejje.common.config.AutoProperties;
 import money.hejje.common.event.EventMeta;
 import money.hejje.common.time.HejjeClock;
+import money.hejje.jev.SignalCheck;
 import money.hejje.events.EventRisk;
 import money.hejje.events.EventService;
 import money.hejje.orders.HejjeOrder;
@@ -47,6 +48,8 @@ import org.springframework.stereotype.Service;
 public class AutoExecutor {
 
     private static final Logger log = LoggerFactory.getLogger(AutoExecutor.class);
+    /** How long AUTO waits for a running Jev signal check: the Jev deadline plus a margin. */
+    private static final java.time.Duration JEV_WAIT = java.time.Duration.ofMillis(3000);
 
     private final SignalService signals;
     private final StrategyService strategies;
@@ -58,9 +61,10 @@ public class AutoExecutor {
     private final ApplicationEventPublisher publisher;
     private final AutoProperties properties;
     private final HejjeClock clock;
+    private final SignalCheck jevCheck;
 
     AutoExecutor(SignalService signals, StrategyService strategies, PolicyEngine policies, RiskService risk, EventService events, ScoringService scoring,
-            AuditService audit, ApplicationEventPublisher publisher, AutoProperties properties, HejjeClock clock) {
+            AuditService audit, ApplicationEventPublisher publisher, AutoProperties properties, HejjeClock clock, SignalCheck jevCheck) {
         this.signals = signals;
         this.strategies = strategies;
         this.policies = policies;
@@ -71,6 +75,7 @@ public class AutoExecutor {
         this.publisher = publisher;
         this.properties = properties;
         this.clock = clock;
+        this.jevCheck = jevCheck;
     }
 
     /** Re-offers every actionable signal of an autonomy 4-5 deployment (startup and periodic sweep; executed signals are skipped). */
@@ -128,6 +133,13 @@ public class AutoExecutor {
         if (policy.decision() == PolicyDecision.ALLOW && d.autonomyLevel() == 4 && entriesOnInstrument > 0) {
             policy = new PolicyResult(PolicyDecision.REQUIRE_APPROVAL, policy.rule(), "autonomy 4 automates the first entry per instrument and day; this is entry "
                     + (entriesOnInstrument + 1) + " today, so it needs a human (autonomy 5 re-enters within the daily budget)", policy.trace());
+        }
+        // plan M9.5: with the signal-check gate at approval, a Jev disagreement turns this execution into an approval
+        if (policy.decision() == PolicyDecision.ALLOW && jevCheck.gate() == SignalCheck.Gate.APPROVAL) {
+            Optional<SignalCheck.Result> check = jevCheck.result(s.id(), JEV_WAIT);
+            if (check.isPresent() && !check.get().agrees()) {
+                policy = new PolicyResult(PolicyDecision.REQUIRE_APPROVAL, "jev-signal-check", SignalCheck.DISAGREES + ": " + check.get().line(), policy.trace());
+            }
         }
         Map<String, Object> context = new LinkedHashMap<>();
         context.put("deploymentId", d.id().toString());

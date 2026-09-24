@@ -24,7 +24,8 @@ final class RegimeClassifier {
         this.props = props;
     }
 
-    RegimeSnapshot classify(LocalDate date, Instant asOf, DailyState daily, IntradayInput intraday, BreadthInput breadth, EventEnvironment environment) {
+    RegimeSnapshot classify(LocalDate date, Instant asOf, DailyState daily, IntradayInput intraday, BreadthInput breadth, EventEnvironment environment,
+            Labelled<money.hejje.regime.MarketCondition> condition) {
         Labelled<Trend> trend = RegimeRules.trend(daily, props.trend());
         Labelled<Volatility> volatility = RegimeRules.volatility(daily, props.volatility(), props.lookbackSessions());
         Labelled<Opening> opening = RegimeRules.opening(daily, intraday, props.opening());
@@ -37,7 +38,9 @@ final class RegimeClassifier {
             evidence.addAll(l.evidence());
         }
         evidence.add("Event environment " + environment);
+        features.putAll(condition.features());
+        evidence.addAll(condition.evidence());
         return new RegimeSnapshot(date, asOf, trend.label(), volatility.label(), opening.label(), breadthLabel.label(), structure.label(), environment,
-                features, evidence, props.classifierVersion(), intraday.sessionClosed());
+                condition.label(), features, evidence, props.classifierVersion(), intraday.sessionClosed());
     }
 }

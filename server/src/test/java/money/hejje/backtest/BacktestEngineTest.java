@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import money.hejje.backtest.SyntheticSessions.Ohlc;
 import money.hejje.common.InstrumentType;
@@ -124,6 +125,82 @@ class BacktestEngineTest {
         assertThat(result.sessionsWithData()).isEqualTo(1);
         // warm-up session produced no trades (out of range)
         assertThat(result.trades()).allMatch(x -> x.entryTime().atZone(IST).toLocalDate().equals(DAY));
+    }
+
+    /**
+     * Plan M9.8: a {@code limit_touch} entry rests at the signal close and fills at its limit only when a later bar trades
+     * strictly through it, within the cancel time; otherwise it is counted as not filled.
+     */
+    @Test
+    void aPassiveEntryFillsOnlyWhenABarTradesThroughItsLimit() {
+        StrategyDefinition passive = new DefinitionParser().parse(ORB + "entry_order: { type: limit_touch, cancel_after_seconds: 600 }\n");
+        // the 09:30 bar closes 103 above the opening range: limit 103.00; 09:35 dips only to 103.00 (not through), 09:40 to 102.50
+        List<Candle> candles = new ArrayList<>(SyntheticSessions.flat(INSTRUMENT, WARMUP, "101"));
+        candles.addAll(breakoutDay(List.of(SyntheticSessions.bar("103.5", "104", "103", "103.8"), SyntheticSessions.bar("103.8", "111", "102.5", "110"))));
+        BacktestSpec spec = spec(UUID.randomUUID(), DAY, DAY, FillModel.NEXT_OPEN, 5);
+        BacktestResult r = engine.run(new BacktestInput(passive, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000)));
+        assertThat(r.trades()).hasSize(1);
+        BacktestTrade t = r.trades().get(0);
+        assertThat(t.entryPrice()).isEqualByComparingTo("103.00"); // the limit, no slippage on a passive fill
+        assertThat(t.entryTime()).isEqualTo(DAY.atTime(9, 40).atZone(IST).toInstant());
+        assertThat(r.warnings()).filteredOn(w -> w.code().equals("PASSIVE_ENTRY_NOT_FILLED")).singleElement()
+                .satisfies(w -> assertThat(w.evidence()).containsEntry("filled", 1).containsEntry("notFilled", 0));
+
+        // a cancel time shorter than the wait: never filled (each expiry frees the rule to signal again on the next bar, as live)
+        StrategyDefinition quick = new DefinitionParser().parse(ORB + "entry_order: { type: limit_touch, cancel_after_seconds: 300 }\n");
+        BacktestResult none = engine.run(new BacktestInput(quick, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000)));
+        assertThat(none.trades()).isEmpty();
+        assertThat(none.warnings()).filteredOn(w -> w.code().equals("PASSIVE_ENTRY_NOT_FILLED")).singleElement()
+                .satisfies(w -> {
+                    assertThat(w.evidence()).containsEntry("filled", 0);
+                    assertThat((Integer) w.evidence().get("notFilled")).isPositive();
+                });
+        // the market definition is untouched
+        assertThat(engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000))).warnings())
+                .noneMatch(w -> w.code().equals("PASSIVE_ENTRY_NOT_FILLED"));
+    }
+
+    /** Plan M9.7: a macro-event day sizes at the factor; other days and an empty factor map are unchanged. */
+    @Test
+    void theRiskEventSizeFactorHalvesTheQuantityOnItsDayOnly() {
+        List<Candle> candles = new ArrayList<>(SyntheticSessions.flat(INSTRUMENT, WARMUP, "101"));
+        candles.addAll(breakoutDay(List.of(SyntheticSessions.bar("103.5", "104", "103", "103.8"), SyntheticSessions.bar("103.8", "111", "103.5", "110"))));
+        BacktestSpec spec = spec(UUID.randomUUID(), DAY, DAY, FillModel.NEXT_OPEN, 0);
+        BacktestResult plain = engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000)));
+        BacktestResult none = engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000), Map.of()));
+        BacktestResult otherDay = engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000),
+                Map.of(DAY.plusDays(1), new BigDecimal("0.5"))));
+        BacktestResult eventDay = engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000),
+                Map.of(DAY, new BigDecimal("0.5"))));
+        assertThat(plain.trades().get(0).qty()).isEqualTo(571);
+        assertThat(none.resultHash()).isEqualTo(plain.resultHash());
+        assertThat(otherDay.resultHash()).isEqualTo(plain.resultHash());
+        assertThat(eventDay.trades().get(0).qty()).isEqualTo(285); // floor(1000 / 3.50)
+    }
+
+    /** The breakout day under a research-only session filter (plan M8.8). */
+    BacktestResult runFiltered(SessionFilter filter) {
+        List<Candle> candles = new ArrayList<>(SyntheticSessions.flat(INSTRUMENT, WARMUP, "101"));
+        candles.addAll(breakoutDay(List.of(SyntheticSessions.bar("103.5", "104", "103", "103.8"), SyntheticSessions.bar("103.8", "111", "103.5", "110"))));
+        BacktestSpec spec = new BacktestSpec(UUID.randomUUID(), List.of(INSTRUMENT), Timeframe.M5, DAY, DAY, FillModel.NEXT_OPEN, 0, null, Splits.NONE,
+                Money.ofRupees(1_000_000), null, filter);
+        return engine.run(new BacktestInput(orb, spec, Map.of(INSTRUMENT, META), Map.of(INSTRUMENT, candles), Money.ofRupees(2000)));
+    }
+
+    @Test
+    void sessionFilterBlocksOrPermitsEntriesPerSessionInstrumentAndSide() {
+        UUID other = UUID.randomUUID();
+        // the instrument is on the day's list and longs are allowed: the trade of breakoutDayProducesExactlyOneTradeToTarget
+        assertThat(runFiltered(new SessionFilter(Map.of(DAY, new SessionFilter.Rule(Set.of(INSTRUMENT), Set.of(Side.BUY))), true)).trades()).hasSize(1);
+        assertThat(runFiltered(new SessionFilter(Map.of(DAY, new SessionFilter.Rule(null, null)), true)).trades()).hasSize(1);
+        // not on the list that day, or only shorts allowed (the market-condition gate): no entry
+        assertThat(runFiltered(new SessionFilter(Map.of(DAY, new SessionFilter.Rule(Set.of(other), null)), true)).trades()).isEmpty();
+        assertThat(runFiltered(new SessionFilter(Map.of(DAY, new SessionFilter.Rule(null, Set.of(Side.SELL))), true)).trades()).isEmpty();
+        // a session without a rule: blocked, or unrestricted when the filter says so
+        assertThat(runFiltered(new SessionFilter(Map.of(), true)).trades()).isEmpty();
+        assertThat(runFiltered(new SessionFilter(Map.of(DAY.minusDays(1), new SessionFilter.Rule(Set.of(other), null)), false)).trades()).hasSize(1);
+        // no filter at all is the unrestricted run
+        assertThat(runFiltered(null).trades()).hasSize(1);
     }
 
     @Test

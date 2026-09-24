@@ -91,7 +91,7 @@ public class NewsStore {
         }
         return jdbc.sql("""
                 SELECT DISTINCT i.* FROM news_item i JOIN news_assessment a ON a.item_id = i.id
-                WHERE i.published_at >= :since AND a.instrument_id = :instrument ORDER BY i.published_at DESC LIMIT :n
+                WHERE i.published_at >= :since AND a.instrument_id = :instrument AND NOT a.shadow ORDER BY i.published_at DESC LIMIT :n
                 """).param("since", since.atOffset(ZoneOffset.UTC)).param("instrument", instrumentId).param("n", limit).query(this::mapItem).list();
     }
 
@@ -102,12 +102,17 @@ public class NewsStore {
     // --- assessments ---
 
     public void insertAssessment(NewsAssessment a) {
+        insertAssessment(a, false);
+    }
+
+    /** {@code shadow}: a comparison-only assessment (plan M9.3) that never feeds the bias. */
+    public void insertAssessment(NewsAssessment a, boolean shadow) {
         jdbc.sql("""
                 INSERT INTO news_assessment (id, item_id, instrument_id, sector, relevance, direction, materiality, novelty, confidence, event_type, summary, model,
-                                             prompt_version, created_at)
+                                             prompt_version, created_at, shadow)
                 VALUES (:id, :itemId, :instrumentId, :sector, :relevance, :direction, :materiality, :novelty, :confidence, :eventType, :summary, :model, :promptVersion,
-                        :createdAt)
-                """).param("id", a.id()).param("itemId", a.itemId()).param("instrumentId", a.instrumentId(), java.sql.Types.OTHER).param("sector", a.sector())
+                        :createdAt, :shadow)
+                """).param("shadow", shadow).param("id", a.id()).param("itemId", a.itemId()).param("instrumentId", a.instrumentId(), java.sql.Types.OTHER).param("sector", a.sector())
                 .param("relevance", a.relevance()).param("direction", a.direction()).param("materiality", a.materiality()).param("novelty", a.novelty())
                 .param("confidence", a.confidence()).param("eventType", a.eventType()).param("summary", a.summary()).param("model", a.model())
                 .param("promptVersion", a.promptVersion()).param("createdAt", a.createdAt().atOffset(ZoneOffset.UTC)).update();
@@ -117,12 +122,33 @@ public class NewsStore {
     public List<NewsAssessment> assessments(UUID instrumentId, Instant since) {
         return jdbc.sql("""
                 SELECT a.* FROM news_assessment a JOIN news_item i ON i.id = a.item_id
-                WHERE a.instrument_id = :instrument AND i.published_at >= :since ORDER BY i.published_at DESC
+                WHERE a.instrument_id = :instrument AND i.published_at >= :since AND NOT a.shadow ORDER BY i.published_at DESC
                 """).param("instrument", instrumentId).param("since", since.atOffset(ZoneOffset.UTC)).query(this::mapAssessment).list();
     }
 
     public List<NewsAssessment> assessmentsOfItem(UUID itemId) {
-        return jdbc.sql("SELECT * FROM news_assessment WHERE item_id = :id").param("id", itemId).query(this::mapAssessment).list();
+        return jdbc.sql("SELECT * FROM news_assessment WHERE item_id = :id AND NOT shadow").param("id", itemId).query(this::mapAssessment).list();
+    }
+
+    /** One (item, instrument) assessed by both classifiers: the used assessment and the shadow one. */
+    public record Pair(NewsAssessment used, NewsAssessment shadow) {}
+
+    /** Pairs whose shadow assessment was made in {@code [from, to)}. */
+    public List<Pair> shadowPairs(Instant from, Instant to) {
+        return jdbc.sql("""
+                SELECT u.*, s.id AS s_id, s.relevance AS s_relevance, s.direction AS s_direction, s.materiality AS s_materiality, s.novelty AS s_novelty,
+                       s.confidence AS s_confidence, s.event_type AS s_event_type, s.summary AS s_summary, s.model AS s_model, s.prompt_version AS s_prompt_version,
+                       s.created_at AS s_created_at
+                FROM news_assessment s JOIN news_assessment u ON u.item_id = s.item_id AND u.instrument_id = s.instrument_id AND NOT u.shadow
+                WHERE s.shadow AND s.created_at >= :from AND s.created_at < :to ORDER BY s.created_at
+                """).param("from", from.atOffset(ZoneOffset.UTC)).param("to", to.atOffset(ZoneOffset.UTC)).query((rs, i) -> {
+                    NewsAssessment used = mapAssessment(rs, i);
+                    NewsAssessment shadow = new NewsAssessment(rs.getObject("s_id", UUID.class), used.itemId(), used.instrumentId(), used.sector(),
+                            rs.getDouble("s_relevance"), rs.getDouble("s_direction"), rs.getDouble("s_materiality"), rs.getDouble("s_novelty"),
+                            rs.getDouble("s_confidence"), rs.getString("s_event_type"), rs.getString("s_summary"), rs.getString("s_model"),
+                            rs.getString("s_prompt_version"), rs.getObject("s_created_at", java.time.OffsetDateTime.class).toInstant());
+                    return new Pair(used, shadow);
+                }).list();
     }
 
     // --- bias ---

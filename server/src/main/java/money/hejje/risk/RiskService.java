@@ -47,8 +47,18 @@ public class RiskService {
     private final MarketService market;
     private final InstrumentService instruments;
 
+    private final org.springframework.beans.factory.ObjectProvider<SizeFactorSource> sizeSources;
+    private final BigDecimal macroEventSizeFactor;
+
     RiskService(RiskLimitsStore limitsStore, KillSwitchStore killSwitchStore, AccountSnapshotBuilder snapshots, AuditService audit,
-            HejjeClock clock, ApplicationEventPublisher events, MarketService market, InstrumentService instruments) {
+            HejjeClock clock, ApplicationEventPublisher events, MarketService market, InstrumentService instruments,
+            org.springframework.beans.factory.ObjectProvider<SizeFactorSource> sizeSources,
+            @org.springframework.beans.factory.annotation.Value("${hejje.risk.macro-event-size-factor:1.0}") BigDecimal macroEventSizeFactor) {
+        if (macroEventSizeFactor.signum() <= 0 || macroEventSizeFactor.compareTo(BigDecimal.ONE) > 0) {
+            throw new IllegalArgumentException("hejje.risk.macro-event-size-factor must be in (0, 1]; it only ever reduces size");
+        }
+        this.sizeSources = sizeSources;
+        this.macroEventSizeFactor = macroEventSizeFactor;
         this.limitsStore = limitsStore;
         this.killSwitchStore = killSwitchStore;
         this.snapshots = snapshots;
@@ -66,7 +76,10 @@ public class RiskService {
     public RiskLimits updateLimits(RiskLimits limits, String actor) {
         limitsStore.update(limits);
         audit.record(AuditEvent.of(AuditEventType.RISK_LIMITS_UPDATED, ActorType.USER).withActorId(actor)
-                .withPayload(Map.of("mode", limits.mode().name())));
+                .withPayload(Map.of("mode", limits.mode().name(), "lossStreakMode", limits.lossStreakMode().name(), "lossStreakAllowance",
+                        limits.lossStreakAllowance(), "allowanceDrawdown", limits.allowanceDrawdown().toRupeesString(), "tradesPerDayWhenGreen",
+                        limits.tradesPerDayWhenGreen().name(), "maxConsecutiveLosses", limits.maxConsecutiveLosses(), "maxTradesPerDay",
+                        limits.maxTradesPerDay())));
         return limitsStore.find(limits.mode());
     }
 
@@ -113,9 +126,44 @@ public class RiskService {
         long capital = s.usedMargin().paise() + s.availableCash().paise();
         BigDecimal marginPct = capital <= 0 ? BigDecimal.ZERO
                 : BigDecimal.valueOf(s.usedMargin().paise()).multiply(BigDecimal.valueOf(100)).divide(BigDecimal.valueOf(capital), 2, RoundingMode.HALF_UP);
+        money.hejje.risk.internal.RiskControls.Allowance a = l.lossStreakMode() == RiskLimits.LossStreakMode.ALLOWANCE
+                ? money.hejje.risk.internal.RiskControls.allowance(s, l) : null;
         return new RiskDashboard(mode, s.realizedPnl(), s.unrealizedPnl(), s.totalPnl(), l.maxLossPerDay(), s.grossExposure(),
                 l.maxGrossExposure(), s.openPositionCount(), l.maxOpenPositions(), s.tradesToday(), l.maxTradesPerDay(),
-                s.consecutiveLosses(), marginPct, killSwitchStore.find(mode).stopNewOrders());
+                s.consecutiveLosses(), marginPct, killSwitchStore.find(mode).stopNewOrders(), l.lossStreakMode().name(), a == null ? null : a.used(),
+                a == null ? null : a.allowance(), a == null ? null : a.reason());
+    }
+
+    /** The risk-money multiplier for new entries on a session and why (plan M9.7). */
+    public record SizeFactor(BigDecimal factor, String event) {
+
+        public static final SizeFactor NONE = new SizeFactor(BigDecimal.ONE, null);
+
+        public Money apply(Money risk) {
+            return factor.compareTo(BigDecimal.ONE) == 0 ? risk
+                    : Money.of(risk.toRupees().multiply(factor).setScale(2, RoundingMode.HALF_UP));
+        }
+    }
+
+    /**
+     * {@code hejje.risk.macro-event-size-factor} on a session with a market-wide macro event (calendar or news-detected),
+     * else 1. The factor 1.0 (the default) switches the cut off.
+     */
+    public SizeFactor sizeFactor(java.time.LocalDate date) {
+        if (macroEventSizeFactor.compareTo(BigDecimal.ONE) == 0 || date == null) {
+            return SizeFactor.NONE;
+        }
+        for (SizeFactorSource source : sizeSources.orderedStream().toList()) {
+            try {
+                java.util.Optional<String> event = source.macroEvent(date);
+                if (event.isPresent()) {
+                    return new SizeFactor(macroEventSizeFactor, event.get());
+                }
+            } catch (RuntimeException e) {
+                log.warn("Macro event lookup for {} failed: {}", date, e.getMessage());
+            }
+        }
+        return SizeFactor.NONE;
     }
 
     public int positionSize(money.hejje.common.Price entry, money.hejje.common.Price stop, Money riskMoney, int lotSize, int maxQty) {

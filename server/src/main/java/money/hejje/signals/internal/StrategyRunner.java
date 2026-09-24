@@ -188,6 +188,11 @@ public final class StrategyRunner {
     // --- market events ---
 
     public synchronized void onCandleClosed(Candle candle) {
+        onCandleClosed(candle, null);
+    }
+
+    /** {@code micro}: the bar's order-book and flow data (plan M9.4), null when its ticks carried none. */
+    public synchronized void onCandleClosed(Candle candle, money.hejje.market.BarMicro micro) {
         if (candle.timeframe() != def.timeframe() || !candle.instrumentId().equals(meta.id())) {
             return;
         }
@@ -207,7 +212,7 @@ public final class StrategyRunner {
         if (position != null && position.status() == PositionStatus.OPEN) {
             checkBarExtremes(bar);
         }
-        ctx.onCandleClosed(candle);
+        ctx.onCandleClosed(candle, micro);
         lastBar = bar;
         if (position != null && position.status() == PositionStatus.OPEN) {
             manageAtClose(bar);

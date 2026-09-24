@@ -320,6 +320,10 @@ public class HarnessService {
                     row.put("instrument", String.valueOf(c));
                 }
                 row.put("sent", d.instrument().equals(row.get("instrument")) && d.action() != BotDecision.Action.NONE && d.action() != BotDecision.Action.HOLD);
+                latestMicro(String.valueOf(row.get("instrument")), bot.timeframe()).ifPresent(m -> { // plan M9.4
+                    row.put("imbalance", m.imbalanceClose());
+                    row.put("flowShare", m.upVolumeShare());
+                });
                 candidates.add(row);
             }
         }
@@ -435,5 +439,14 @@ public class HarnessService {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /** The latest bar with order-book data of a symbol on the bot's timeframe in the last day, if any. */
+    private java.util.Optional<money.hejje.market.BarMicro> latestMicro(String symbol, Timeframe timeframe) {
+        return instruments.resolve(symbol).flatMap(i -> {
+            Instant now = clock.now();
+            List<money.hejje.market.BarMicro> m = market.micro(i.id(), timeframe, now.minus(Duration.ofDays(1)), now);
+            return m.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(m.get(m.size() - 1));
+        });
     }
 }

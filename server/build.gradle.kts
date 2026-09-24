@@ -73,7 +73,7 @@ tasks.processResources {
     }
     // Context config (regime thresholds, universes) ships inside the jar as the fallback for config/ overrides.
     from("../config") {
-        include("regime.yaml", "pulse.yaml", "events.yaml", "news-sources.yaml", "aliases.yaml")
+        include("regime.yaml", "ratings.yaml", "analogs.yaml", "pulse.yaml", "events.yaml", "news-sources.yaml", "aliases.yaml", "analytics.yaml")
     }
     from("../config/events") {
         into("events")
@@ -81,6 +81,10 @@ tasks.processResources {
     }
     from("../config/universe") {
         into("universe")
+        include("*.yaml")
+    }
+    from("../config/jev") {
+        into("jev")
         include("*.yaml")
     }
     // The strategy DSL reference is part of the NL strategy builder prompt (M4.6), so the prompt never drifts from the doc.

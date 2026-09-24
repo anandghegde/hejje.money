@@ -247,7 +247,7 @@ public class StrategyTools implements AgentToolProvider {
             b = backtests.get(UUID.fromString(in.backtestId())).orElseThrow(() -> ToolException.notFound("Unknown backtest " + in.backtestId()));
         } else if (in.versionId() != null) {
             UUID v = UUID.fromString(in.versionId());
-            b = backtests.baseBacktest(v).or(() -> backtests.list(v).stream().findFirst())
+            b = backtests.baseBacktest(v).or(() -> backtests.list(v).stream().filter(x -> x.spec().sessionFilter() == null).findFirst()) // never a research-filtered run
                     .orElseThrow(() -> ToolException.notFound("No backtest for version " + in.versionId()));
         } else {
             throw ToolException.invalid("Give backtestId or versionId");

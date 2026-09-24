@@ -54,6 +54,27 @@ class PerformanceMathTest {
     }
 
     @Test
+    void lossAttributionBreaksLossesDownByCause() {
+        List<TradeFact> facts = new java.util.ArrayList<>();
+        String[] causes = {"NOISE_STOP", "NOISE_STOP", "THESIS_BREAK", "CLEAN_TARGET", "DRIFT"};
+        for (int i = 0; i < FACTS.size(); i++) {
+            TradeFact f = FACTS.get(i);
+            facts.add(new TradeFact(f.entryOrderId(), f.instrumentId(), f.instrument(), f.strategyId(), f.strategy(), f.family(), f.openedAt(), f.closedAt(),
+                    f.side(), f.quantity(), f.entryPrice(), f.exitPrice(), f.grossPaise(), f.feesPaise(), f.netPaise(), f.outcomeR(), f.regime(), f.trend(),
+                    f.event(), f.news(), f.exitReason(), f.entrySlippageBps(), f.exitSlippageBps(), f.adherencePct(), f.setupValid(), f.hour(), causes[i],
+                    i == 0 ? "EARLY" : "GOOD"));
+        }
+        PerformanceMath.LossAttribution a = PerformanceMath.attribute(facts);
+        List<PerformanceMath.Bucket> cause = a.dimensions().stream().filter(d -> d.name().equals("cause")).findFirst().orElseThrow().buckets();
+        assertThat(cause.get(0)).extracting(PerformanceMath.Bucket::key, PerformanceMath.Bucket::losers, PerformanceMath.Bucket::lossSharePct)
+                .containsExactly("NOISE_STOP", 2, r("83.3"));
+        assertThat(a.dimensions()).extracting(PerformanceMath.Dimension::name).contains("cause", "entryTiming");
+        // facts built before M9.6 read UNKNOWN
+        assertThat(PerformanceMath.attribute(FACTS).dimensions().stream().filter(d -> d.name().equals("cause")).findFirst().orElseThrow().buckets())
+                .extracting(PerformanceMath.Bucket::key).containsExactly("UNKNOWN");
+    }
+
+    @Test
     void slippageStatsAndCost() {
         PerformanceMath.SlippageStats s = PerformanceMath.slippage(FACTS);
         // entry bps [10, 20, 0] on 1000 × 10: cost 10 + 20 + 0 = 30

@@ -68,6 +68,9 @@ public final class RiskControls {
 
     public static RiskCheck tradesPerDay(RiskInputs in) {
         int trades = in.snapshot().tradesToday();
+        if (in.limits().tradesPerDayWhenGreen() == RiskLimits.TradesWhenGreen.UNLIMITED && in.snapshot().totalPnl().paise() >= 0) {
+            return RiskCheck.pass("tradesPerDay", trades + " (no limit while the day is green)"); // plan M9.7
+        }
         return trades >= in.limits().maxTradesPerDay()
                 ? RiskCheck.fail("tradesPerDay", String.valueOf(trades), String.valueOf(in.limits().maxTradesPerDay()), "max trades per day reached")
                 : RiskCheck.pass("tradesPerDay", String.valueOf(trades));
@@ -187,6 +190,50 @@ public final class RiskControls {
         return minutes < in.limits().noReentryMinutes()
                 ? RiskCheck.fail("reentryCooldown", minutes + "m", in.limits().noReentryMinutes() + "m", "re-entry cooldown active")
                 : RiskCheck.pass("reentryCooldown", minutes + "m");
+    }
+
+    /**
+     * Plan M9.7: BLOCK is the consecutive-loss limit; ALLOWANCE lets {@code lossStreakAllowance} more entries through from
+     * the moment the streak (or the day's drawdown) triggers, and then rejects with LOSS_STREAK_ALLOWANCE. A winning
+     * trade does not give the allowance back.
+     */
+    public static RiskCheck lossStreak(RiskInputs in) {
+        if (in.limits().lossStreakMode() == RiskLimits.LossStreakMode.BLOCK) {
+            return consecutiveLosses(in);
+        }
+        Allowance a = allowance(in.snapshot(), in.limits());
+        if (a == null) {
+            return RiskCheck.pass("lossStreakAllowance", "not triggered today");
+        }
+        String used = a.used() + "/" + a.allowance();
+        return a.used() >= a.allowance()
+                ? RiskCheck.fail("LOSS_STREAK_ALLOWANCE", used, "< " + a.allowance(), "loss-streak allowance used: " + a.reason())
+                : RiskCheck.pass("lossStreakAllowance", used + " entries since " + a.reason());
+    }
+
+    /** An ALLOWANCE day's state: entries used since the trigger, the allowance, and why it triggered. Null when not triggered. */
+    public record Allowance(int used, int allowance, java.time.Instant since, String reason) {}
+
+    public static Allowance allowance(AccountSnapshot s, RiskLimits l) {
+        int streak = 0;
+        java.math.BigDecimal net = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal drawdown = l.allowanceDrawdown().toRupees();
+        for (AccountSnapshot.Close c : s.closesToday()) {
+            net = net.add(c.realized());
+            streak = c.realized().signum() < 0 ? streak + 1 : 0;
+            String reason = null;
+            if (streak >= l.maxConsecutiveLosses()) {
+                reason = streak + " consecutive losses";
+            } else if (drawdown.signum() > 0 && net.compareTo(drawdown.negate()) <= 0) {
+                reason = "the day's net at " + net.setScale(2, RoundingMode.HALF_UP).toPlainString();
+            }
+            if (reason != null) {
+                java.time.Instant since = c.at();
+                int used = (int) s.entriesToday().stream().filter(e -> e.isAfter(since)).count();
+                return new Allowance(used, l.lossStreakAllowance(), since, reason);
+            }
+        }
+        return null;
     }
 
     public static RiskCheck consecutiveLosses(RiskInputs in) {

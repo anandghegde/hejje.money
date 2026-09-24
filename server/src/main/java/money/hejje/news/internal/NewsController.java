@@ -57,6 +57,13 @@ class NewsController {
         return news.bias(instrumentId);
     }
 
+    /** Plan M9.3: Jev against the LLM on the same stories (shadow mode), with news-direction calibration. Default: the last 30 days. */
+    @GetMapping("/news/classifier-comparison")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    NewsService.ClassifierComparison comparison(@RequestParam(required = false) java.time.LocalDate from, @RequestParam(required = false) java.time.LocalDate to) {
+        return news.classifierComparison(from, to);
+    }
+
     @GetMapping("/news/sources")
     @PreAuthorize("hasAuthority('SCOPE_market:read')")
     List<NewsSource> sources() {

@@ -12,18 +12,28 @@ import java.util.Set;
  *
  * @param date               the session (IST)
  * @param asOf               the last bar/quote the labels reflect
+ * @param marketCondition    the daily market call as of the last closed session (an intraday snapshot carries the previous session's)
  * @param features           the observed numbers behind the labels (EMA values, ADX, percentiles, gap %, ...)
  * @param evidence           templated sentences explaining each label (README rule 11)
  * @param classifierVersion  rule set version that produced the labels
  * @param finalLabel         true once the session closed (intraday snapshots are partial)
  */
 public record RegimeSnapshot(LocalDate date, Instant asOf, Trend trend, Volatility volatility, Opening opening, Breadth breadth,
-        IntradayStructure intradayStructure, EventEnvironment eventEnvironment, Map<String, Object> features, List<String> evidence,
-        String classifierVersion, boolean finalLabel) {
+        IntradayStructure intradayStructure, EventEnvironment eventEnvironment, MarketCondition marketCondition, Map<String, Object> features,
+        List<String> evidence, String classifierVersion, boolean finalLabel) {
 
     public RegimeSnapshot {
+        marketCondition = marketCondition == null ? MarketCondition.UNKNOWN : marketCondition;
         features = features == null ? Map.of() : Map.copyOf(features);
         evidence = evidence == null ? List.of() : List.copyOf(evidence);
+    }
+
+    /** A snapshot without a market condition ({@code UNKNOWN}). */
+    public RegimeSnapshot(LocalDate date, Instant asOf, Trend trend, Volatility volatility, Opening opening, Breadth breadth,
+            IntradayStructure intradayStructure, EventEnvironment eventEnvironment, Map<String, Object> features, List<String> evidence,
+            String classifierVersion, boolean finalLabel) {
+        this(date, asOf, trend, volatility, opening, breadth, intradayStructure, eventEnvironment, MarketCondition.UNKNOWN, features, evidence,
+                classifierVersion, finalLabel);
     }
 
     public static RegimeSnapshot unknown(LocalDate date, Instant asOf, String classifierVersion, String reason) {
@@ -62,7 +72,8 @@ public record RegimeSnapshot(LocalDate date, Instant asOf, Trend trend, Volatili
             case "expiry" -> eventEnvironment == EventEnvironment.EXPIRY_SESSION;
             default -> key.equals(trend.name().toLowerCase(Locale.ROOT)) || key.equals(volatility.name().toLowerCase(Locale.ROOT))
                     || key.equals(opening.name().toLowerCase(Locale.ROOT)) || key.equals(breadth.name().toLowerCase(Locale.ROOT))
-                    || key.equals(intradayStructure.name().toLowerCase(Locale.ROOT)) || key.equals(eventEnvironment.name().toLowerCase(Locale.ROOT));
+                    || key.equals(intradayStructure.name().toLowerCase(Locale.ROOT)) || key.equals(eventEnvironment.name().toLowerCase(Locale.ROOT))
+                    || key.equals(marketCondition.name().toLowerCase(Locale.ROOT));
         };
     }
 

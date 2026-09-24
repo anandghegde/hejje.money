@@ -90,7 +90,7 @@ public class BotHub implements Drainable {
     private final Map<UUID, Channel> channels = new ConcurrentHashMap<>();
     private final Map<UUID, Set<UUID>> universes = new ConcurrentHashMap<>();
     /** Bars closed per bot and close time, until every instrument of the bot's universe has one. */
-    private final Map<UUID, TreeMap<Instant, List<Candle>>> pendingBars = new ConcurrentHashMap<>();
+    private final Map<UUID, TreeMap<Instant, List<CandleClosedEvent>>> pendingBars = new ConcurrentHashMap<>();
     private final Deque<Point> outbox = new ArrayDeque<>();
     /** Points sent and not answered yet: bot → (point id → sent at, nanos, and the answer's completion). */
     private final Map<UUID, Map<String, Outstanding>> outstanding = new ConcurrentHashMap<>();
@@ -180,13 +180,13 @@ public class BotHub implements Drainable {
                 continue;
             }
             Instant closeTime = c.openTime().plus(c.timeframe().duration());
-            TreeMap<Instant, List<Candle>> pending = pendingBars.computeIfAbsent(botId, k -> new TreeMap<>());
+            TreeMap<Instant, List<CandleClosedEvent>> pending = pendingBars.computeIfAbsent(botId, k -> new TreeMap<>());
             List<Point> ready = new ArrayList<>();
             synchronized (pending) {
-                pending.computeIfAbsent(closeTime, k -> new ArrayList<>()).add(c);
+                pending.computeIfAbsent(closeTime, k -> new ArrayList<>()).add(closed);
                 // earlier close times will not complete any more; the current one completes with every instrument's bar
                 for (Instant t : List.copyOf(pending.keySet())) {
-                    boolean complete = pending.get(t).stream().map(Candle::instrumentId).distinct().count() >= universe.size();
+                    boolean complete = pending.get(t).stream().map(e -> e.candle().instrumentId()).distinct().count() >= universe.size();
                     if (t.isBefore(closeTime) || complete) {
                         ready.add(point(bot.get(), t, pending.remove(t)));
                     }
@@ -212,7 +212,8 @@ public class BotHub implements Drainable {
         return minuteOfDay % bot.decisionEveryMinutes() == 0;
     }
 
-    private Point point(Bot bot, Instant closeTime, List<Candle> bars) {
+    private Point point(Bot bot, Instant closeTime, List<CandleClosedEvent> closedBars) {
+        List<Candle> bars = closedBars.stream().map(CandleClosedEvent::candle).toList();
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("type", "decision_point");
         m.put("botId", bot.id().toString());
@@ -232,6 +233,7 @@ public class BotHub implements Drainable {
             bar.put("low", c.low());
             bar.put("close", c.close());
             bar.put("volume", c.volume());
+            bar.put("micro", closedBars.stream().filter(e -> e.candle() == c).findFirst().map(CandleClosedEvent::micro).map(BotHub::micro).orElse(null));
             b.add(bar);
         }
         m.put("bars", b);
@@ -279,6 +281,17 @@ public class BotHub implements Drainable {
             m.put("answerWithinMs", decisionTimeout.toMillis());
         }
         return new Point(bot, closeTime.toString(), m);
+    }
+
+    /** Plan M9.4: the bar's order-book and flow data for a bot (null in the message when the bar has none). */
+    static Map<String, Object> micro(money.hejje.market.BarMicro m) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("imbalance", m.imbalanceClose());
+        out.put("imbalanceMean", m.imbalanceMean());
+        out.put("buySellRatio", m.buySellRatio());
+        out.put("upVolumeShare", m.upVolumeShare());
+        out.put("ticks", m.ticks());
+        return out;
     }
 
     private static Map<String, Object> order(HejjeOrder o, Object symbol) {

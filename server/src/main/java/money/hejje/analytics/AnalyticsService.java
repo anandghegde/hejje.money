@@ -243,7 +243,8 @@ public class AnalyticsService {
                     String.valueOf(ctx.getOrDefault("event", "UNKNOWN")), String.valueOf(ctx.getOrDefault("news", "UNKNOWN")), exitReasonOf(r),
                     review.map(TradeReview::entrySlippageBps).orElse(null), review.map(TradeReview::exitSlippageBps).orElse(null),
                     review.map(TradeReview::ruleAdherencePct).orElse(null), review.map(TradeReview::expectedSetupValid).orElse(null),
-                    r.openedAt().atZone(clock.zone()).getHour()));
+                    r.openedAt().atZone(clock.zone()).getHour(), review.map(TradeReview::cause).map(c -> c.cause().name()).orElse("UNKNOWN"),
+                    review.map(TradeReview::cause).map(TradeCause::entryTiming).map(Enum::name).orElse("UNKNOWN")));
         }
         out.sort(java.util.Comparator.comparing(TradeFact::closedAt));
         return out;
@@ -257,8 +258,61 @@ public class AnalyticsService {
         return new LossReport(mode.name(), from, to, PerformanceMath.attribute(facts(mode, from, to)));
     }
 
+    /** Plan M9.7: expectancy by trades that day, by sequence within the day and by entry hour; {@code strategy} (slug or id) filters. */
+    public PaceReport pace(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to, String strategy) {
+        List<TradeFact> facts = facts(mode, from, to).stream().filter(f -> strategy == null || strategy.isBlank() || strategy.equals(f.strategy())
+                || (f.strategyId() != null && strategy.equals(f.strategyId().toString()))).toList();
+        return PerformanceMath.pace(mode.name(), from, to, strategy, new ArrayList<>(facts), clock.zone());
+    }
+
     public SlippageReport slippage(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {
-        return new SlippageReport(mode.name(), from, to, PerformanceMath.slippage(facts(mode, from, to)));
+        List<TradeFact> facts = facts(mode, from, to);
+        return new SlippageReport(mode.name(), from, to, PerformanceMath.slippage(facts), passiveEntries(mode, from, to, facts));
+    }
+
+    /** Plan M9.8: passive entry orders (LIMIT entries of strategy signals) against market entries in the period; null without any. */
+    private SlippageReport.PassiveEntries passiveEntries(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to, List<TradeFact> facts) {
+        Instant start = from.atStartOfDay(clock.zone()).toInstant();
+        Instant end = to.plusDays(1).atStartOfDay(clock.zone()).toInstant();
+        java.util.Set<UUID> passiveOrders = new java.util.HashSet<>();
+        int filled = 0;
+        int notFilled = 0;
+        List<Double> secondsToFill = new ArrayList<>();
+        for (money.hejje.orders.HejjeOrder o : orders.query(mode, null, start, end)) {
+            if (o.orderType() != money.hejje.common.OrderType.LIMIT || (o.role() != null && o.role() != money.hejje.orders.OrderRole.ENTRY)) {
+                continue;
+            }
+            boolean signalEntry = orders.findIntent(o.intentId()).map(i -> i.reason() == money.hejje.orders.OrderReason.STRATEGY_SIGNAL).orElse(false);
+            if (!signalEntry) {
+                continue;
+            }
+            passiveOrders.add(o.id());
+            if (o.filledQuantity() > 0) {
+                filled++;
+                orders.tradesForOrder(o.id()).stream().map(money.hejje.orders.Trade::ts).min(java.util.Comparator.naturalOrder())
+                        .ifPresent(first -> secondsToFill.add((double) java.time.Duration.between(o.placedAt(), first).toMillis() / 1000));
+            } else if (o.state() == money.hejje.orders.OrderState.CANCELLED) {
+                notFilled++;
+            }
+        }
+        if (passiveOrders.isEmpty()) {
+            return null;
+        }
+        List<Double> passive = facts.stream().filter(f -> passiveOrders.contains(f.entryOrderId())).map(TradeFact::entrySlippageBps)
+                .filter(java.util.Objects::nonNull).toList();
+        List<Double> market = facts.stream().filter(f -> !passiveOrders.contains(f.entryOrderId()) && f.strategyId() != null).map(TradeFact::entrySlippageBps)
+                .filter(java.util.Objects::nonNull).toList();
+        int decided = filled + notFilled;
+        return new SlippageReport.PassiveEntries(passiveOrders.size(), filled, notFilled, decided == 0 ? null : round3((double) filled / decided),
+                mean(secondsToFill), mean(passive), passive.size(), mean(market), market.size());
+    }
+
+    private static Double mean(List<Double> xs) {
+        return xs.isEmpty() ? null : round3(xs.stream().mapToDouble(Double::doubleValue).average().orElse(0));
+    }
+
+    private static double round3(double v) {
+        return Math.round(v * 1000) / 1000.0;
     }
 
     public AdherenceReport adherence(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {

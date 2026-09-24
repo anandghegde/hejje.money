@@ -20,6 +20,7 @@ import money.hejje.bots.Bot;
 import money.hejje.bots.BotDecision;
 import money.hejje.bots.BotDecisions;
 import money.hejje.bots.BotService;
+import money.hejje.calibration.CalibrationService;
 import money.hejje.harness.internal.SimReportStore;
 import money.hejje.sim.SimSession;
 import money.hejje.sim.SimSessionFinished;
@@ -39,7 +40,8 @@ import org.springframework.stereotype.Service;
  * costs over their reports in a date range, with profit factor, max drawdown and trade count alongside. A bot's backing
  * strategy may be deployed in PAPER after {@code hejje.bots.min-sim-sessions} (20) reports with positive expectancy over
  * all their trades. Reports are keyed by the bot's name and version, so a SIM instance's reports can be exported and
- * imported where the bot is promoted.
+ * imported where the bot is promoted. Before the reports are built, the session's predictions are labelled (plan M9.2),
+ * so each report carries the bot's confidence calibration and the leaderboard its pooled Brier score.
  */
 @Service
 public class SimReports implements BotPromotionEvidence {
@@ -51,17 +53,19 @@ public class SimReports implements BotPromotionEvidence {
     private final ObjectProvider<SimSessionService> sessions;
     private final BotService bots;
     private final BotDecisions decisions;
+    private final CalibrationService calibration;
     private final int minSimSessions;
     /** Report bookkeeping is wall time. */
     private final Clock wall = Clock.systemUTC();
 
     SimReports(SimReportStore store, HarnessService harness, ObjectProvider<SimSessionService> sessions, BotService bots, BotDecisions decisions,
-            @Value("${hejje.bots.min-sim-sessions:20}") int minSimSessions) {
+            CalibrationService calibration, @Value("${hejje.bots.min-sim-sessions:20}") int minSimSessions) {
         this.store = store;
         this.harness = harness;
         this.sessions = sessions;
         this.bots = bots;
         this.decisions = decisions;
+        this.calibration = calibration;
         this.minSimSessions = minSimSessions;
     }
 
@@ -79,6 +83,7 @@ public class SimReports implements BotPromotionEvidence {
         if (session == null) {
             return;
         }
+        calibration.labelDue(); // SIM labels at the end of the session, from the replayed candles
         for (Map<String, Object> entry : session.spec().bots()) {
             try {
                 bots.find(UUID.fromString(String.valueOf(entry.get("botId")))).ifPresent(bot -> store.insert(report(session, bot)));
@@ -112,7 +117,8 @@ public class SimReports implements BotPromotionEvidence {
         List<LocalDate> dates = session.spec().dates().isEmpty() ? List.of(session.sessionDate()) : session.spec().dates().stream().sorted().toList();
         return new SimReport(UUID.randomUUID(), session.id(), bot.name(), bot.version(), bot.kind().name(), dates, paise(tiles.get("capital")), trades.size(),
                 wins, number(tiles.get("expectancyR")), number(tiles.get("profitFactor")), paise(tiles.get("maxDrawdown")), paise(tiles.get("totalPnl")), win,
-                loss, paise(tiles.get("frictionPaid")), rs, decisionsHash(bot, dates), session.resultHash(), snapshot, wall.instant());
+                loss, paise(tiles.get("frictionPaid")), rs, decisionsHash(bot, dates), session.resultHash(), snapshot,
+                calibration.summary(CalibrationService.botPurpose(bot.name()), bot.version(), dates.get(0), dates.get(dates.size() - 1)), wall.instant());
     }
 
     /** SHA-256 over the bot's decisions on the session's days (point, instrument, action, stop, target, outcome). */
@@ -149,9 +155,12 @@ public class SimReports implements BotPromotionEvidence {
         return n;
     }
 
-    /** One leaderboard row: a bot version's reports in the range, aggregated. */
+    /**
+     * One leaderboard row: a bot version's reports in the range, aggregated. {@code brier} is the bot's confidence Brier
+     * score pooled over its labelled entries (plan M9.2), null without any.
+     */
     public record Row(int rank, String bot, String version, String kind, int sessions, int trades, Double winRate, Double expectancyR, Double profitFactor,
-            long maxDrawdownPaise, long netPnlPaise, long frictionPaise) {}
+            long maxDrawdownPaise, long netPnlPaise, long frictionPaise, Double brier, int brierN) {}
 
     /**
      * Bots ranked by expectancy net of costs over their reports whose sessions fall in {@code [from, to]}. With
@@ -191,7 +200,8 @@ public class SimReports implements BotPromotionEvidence {
             rows.add(new Row(0, any.botName(), any.botVersion(), any.botKind(), reports.size(), trades, trades == 0 ? null : round((double) wins / trades),
                     rs.isEmpty() ? null : round(rs.stream().mapToDouble(Double::doubleValue).average().orElse(0)),
                     loss == 0 ? null : round((double) win / Math.abs(loss)), reports.stream().mapToLong(SimReport::maxDrawdownPaise).max().orElse(0),
-                    reports.stream().mapToLong(SimReport::netPnlPaise).sum(), reports.stream().mapToLong(SimReport::frictionPaise).sum()));
+                    reports.stream().mapToLong(SimReport::netPnlPaise).sum(), reports.stream().mapToLong(SimReport::frictionPaise).sum(), pooledBrier(reports),
+                    brierCount(reports)));
         }
         rows.sort(Comparator.comparing((Row r) -> r.expectancyR() == null ? Double.NEGATIVE_INFINITY : r.expectancyR()).reversed()
                 .thenComparing(r -> r.profitFactor() == null ? 0 : r.profitFactor(), Comparator.reverseOrder()));
@@ -199,9 +209,33 @@ public class SimReports implements BotPromotionEvidence {
         for (int i = 0; i < rows.size(); i++) {
             Row r = rows.get(i);
             ranked.add(new Row(i + 1, r.bot(), r.version(), r.kind(), r.sessions(), r.trades(), r.winRate(), r.expectancyR(), r.profitFactor(),
-                    r.maxDrawdownPaise(), r.netPnlPaise(), r.frictionPaise()));
+                    r.maxDrawdownPaise(), r.netPnlPaise(), r.frictionPaise(), r.brier(), r.brierN()));
         }
         return ranked;
+    }
+
+    /** Σ brier × n / Σ n over the reports' confidence calibrations. */
+    static Double pooledBrier(List<SimReport> reports) {
+        double sum = 0;
+        int n = brierCount(reports);
+        for (SimReport r : reports) {
+            Map<String, Object> c = r.confidenceCalibration();
+            if (c != null && c.get("brier") instanceof Number b && c.get("n") instanceof Number k) {
+                sum += b.doubleValue() * k.intValue();
+            }
+        }
+        return n == 0 ? null : round(sum / n);
+    }
+
+    static int brierCount(List<SimReport> reports) {
+        int n = 0;
+        for (SimReport r : reports) {
+            Map<String, Object> c = r.confidenceCalibration();
+            if (c != null && c.get("brier") instanceof Number && c.get("n") instanceof Number k) {
+                n += k.intValue();
+            }
+        }
+        return n;
     }
 
     /** Plan M7.5: PAPER after {@code minSimSessions} SIM sessions with positive expectancy over all their trades. */

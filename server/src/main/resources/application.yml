@@ -9,9 +9,18 @@ spring:
       - optional:file:./config/regime.yaml
       - optional:file:../config/regime.yaml
       - optional:classpath:regime.yaml
+      - optional:file:./config/analogs.yaml
+      - optional:file:../config/analogs.yaml
+      - optional:classpath:analogs.yaml
+      - optional:file:./config/ratings.yaml
+      - optional:file:../config/ratings.yaml
+      - optional:classpath:ratings.yaml
       - optional:file:./config/pulse.yaml
       - optional:file:../config/pulse.yaml
       - optional:classpath:pulse.yaml
+      - optional:file:./config/analytics.yaml
+      - optional:file:../config/analytics.yaml
+      - optional:classpath:analytics.yaml
       - optional:file:./config/events.yaml
       - optional:file:../config/events.yaml
       - optional:classpath:events.yaml
@@ -160,6 +169,30 @@ hejje:
   news:
     enabled: ${HEJJE_NEWS_ENABLED:false}
     poll-minutes: 5
+    classifier: ${HEJJE_NEWS_CLASSIFIER:llm}   # llm | jev | shadow (plan M9.3, docs/news.md)
+  jev:                                 # TypeSafe Jev, typed fast decisions (docs/jev.md); independent of hejje.llm
+    enabled: ${HEJJE_JEV_ENABLED:false}
+    base-url: ${HEJJE_JEV_BASE_URL:https://api.surplusintelligence.ai}
+    api-key-env: HEJJE_JEV_API_KEY
+    model: jev-1.13                    # pinned: calibration (M9.2) is per model version; jev-latest moves on a release
+    timeout: 2500ms                    # whole call, retry included
+    input-per-million: 3.6             # rupees per million input tokens (~$0.042); output tokens are free
+    daily-cost-cap: ${HEJJE_JEV_DAILY_COST_CAP:}   # rupees per IST day; empty = no cap
+    knowledge-cutoff: ${HEJJE_JEV_KNOWLEDGE_CUTOFF:}   # release date of the pinned model (JEV bots' knowledge cutoff)
+    signal-check:                      # plan M9.5, docs/signals.md
+      enabled: ${HEJJE_JEV_SIGNAL_CHECK:false}
+      gate: "off"                      # off | caution | approval; above off needs calibration of signal-check to pass
+  risk:
+    macro-event-size-factor: 1.0       # plan M9.7: share of risk money on a macro-event session (1.0 = off; warrenduffer uses 0.5)
+  calibration:                         # plan M9.2, docs/calibration.md; pre-registered: change only with a note there
+    entry-horizon-minutes: 30
+    direction-horizon-minutes: 60
+    exit-horizon-minutes: 15
+    min-bucket-count: 20
+    min-labelled: 300
+    min-sessions: 15
+    max-ece: 0.07
+    no-data-after-days: 5
   signals:
     enabled: true
     warmup-days: 10
@@ -249,6 +282,15 @@ hejje:
   regime:
     label-on-startup: false
     universe: classpath:regime/universe-test.yaml   # five fixture equities (test resources)
+    market-condition:
+      min-constituents: 4
+  analogs:
+    enabled: true
+    universe: ratings-test             # the same five fixture equities
+    parallelism: 2
+  ratings:
+    enabled: true
+    universe: ratings-test             # five fixture equities with industries (test resources)
   events:
     refresh-on-startup: false
   llm:
@@ -261,6 +303,9 @@ hejje:
       reasoning: { provider: fixture, model: fixture-reasoning }
       research: { provider: fixture, model: fixture-research }
     dev-fixture-endpoint: true
+  jev:
+    enabled: true                      # FixtureJev: scripted answers, no network
+    base-url: fixture
   news:
     enabled: true                      # ingest is driven by tests; the scheduler is a no-op in tests
     aliases: classpath:aliases.yaml

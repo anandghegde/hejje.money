@@ -22,8 +22,10 @@ import org.springframework.stereotype.Component;
 
 /**
  * Appends ticks to a daily Parquet file at {@code <data-dir>/ticks/{yyyy-MM-dd}/ticks.parquet} when
- * {@code hejje.market.record=true}. Ticks buffer in memory and flush periodically; {@link ReplayMarketDataSource} reads
- * the same files back. Active only when recording is enabled.
+ * {@code hejje.market.record=true}. Since plan M9.4 the file has four nullable order-book columns ({@code bid_qty5},
+ * {@code ask_qty5}, {@code total_buy_qty}, {@code total_sell_qty}); an older day file is rewritten with them null.
+ * Ticks buffer in memory and flush periodically; {@link ReplayMarketDataSource} reads the same files back. Active only
+ * when recording is enabled.
  */
 @Component
 @ConditionalOnProperty(name = "hejje.market.record", havingValue = "true")
@@ -72,9 +74,10 @@ public class TickRecorder {
         Path tmp = file.resolveSibling("ticks.tmp.parquet");
         try (Connection conn = DriverManager.getConnection("jdbc:duckdb:")) {
             try (Statement st = conn.createStatement()) {
-                st.execute("CREATE TEMP TABLE t (instrument_id VARCHAR, ts TIMESTAMP, last_price DOUBLE, bid DOUBLE, ask DOUBLE, volume BIGINT, oi BIGINT, mode VARCHAR)");
+                st.execute("CREATE TEMP TABLE t (instrument_id VARCHAR, ts TIMESTAMP, last_price DOUBLE, bid DOUBLE, ask DOUBLE, volume BIGINT, oi BIGINT, mode VARCHAR,"
+                        + " bid_qty5 BIGINT, ask_qty5 BIGINT, total_buy_qty BIGINT, total_sell_qty BIGINT)");
             }
-            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO t VALUES (?,?,?,?,?,?,?,?)")) {
+            try (PreparedStatement ps = conn.prepareStatement("INSERT INTO t VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")) {
                 for (MarketTick tick : ticks) {
                     ps.setString(1, tick.instrumentId().toString());
                     ps.setString(2, DuckIso.of(tick.ts()));
@@ -84,6 +87,10 @@ public class TickRecorder {
                     ps.setLong(6, tick.volume());
                     ps.setLong(7, tick.oi());
                     ps.setString(8, tick.mode().name());
+                    setLong(ps, 9, tick.bidQty5());
+                    setLong(ps, 10, tick.askQty5());
+                    setLong(ps, 11, tick.totalBuyQty());
+                    setLong(ps, 12, tick.totalSellQty());
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -96,6 +103,14 @@ public class TickRecorder {
             Files.move(tmp.toAbsolutePath(), file.toAbsolutePath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } catch (java.io.IOException e) {
             throw new IllegalStateException("Failed to replace " + file, e);
+        }
+    }
+
+    private static void setLong(PreparedStatement ps, int i, Long v) throws SQLException {
+        if (v == null) {
+            ps.setNull(i, java.sql.Types.BIGINT);
+        } else {
+            ps.setLong(i, v);
         }
     }
 }

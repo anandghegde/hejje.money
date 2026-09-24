@@ -301,8 +301,32 @@ public final class KiteMapper {
                 : "quote".equals(t.getMode()) ? MarketTick.Mode.QUOTE : MarketTick.Mode.LTP;
         Instant ts = t.getTickTimestamp() != null ? t.getTickTimestamp().toInstant()
                 : t.getLastTradedTime() != null ? t.getLastTradedTime().toInstant() : fallbackTs;
+        Long bidQty5 = null;
+        Long askQty5 = null;
+        Long totalBuy = null;
+        Long totalSell = null;
+        if (mode == MarketTick.Mode.FULL) { // plan M9.4: depth and day totals only come with FULL mode
+            if (depth != null) {
+                bidQty5 = quantity5(depth.get("buy"));
+                askQty5 = quantity5(depth.get("sell"));
+            }
+            totalBuy = (long) t.getTotalBuyQuantity();
+            totalSell = (long) t.getTotalSellQuantity();
+        }
         return new MarketTick(instrumentId, ts, decimal(t.getLastTradedPrice()), bid, ask, t.getVolumeTradedToday(),
-                (long) t.getOi(), mode);
+                (long) t.getOi(), mode, bidQty5, askQty5, totalBuy, totalSell);
+    }
+
+    /** Sum of the quantities of up to five depth levels; null without levels. */
+    static Long quantity5(List<Depth> levels) {
+        if (levels == null || levels.isEmpty()) {
+            return null;
+        }
+        long sum = 0;
+        for (int i = 0; i < Math.min(5, levels.size()); i++) {
+            sum += Math.max(0, levels.get(i).getQuantity());
+        }
+        return sum;
     }
 
     // --- primitives -----------------------------------------------------------------------------------------------------

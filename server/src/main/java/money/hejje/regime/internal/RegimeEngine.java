@@ -67,7 +67,49 @@ public class RegimeEngine {
             state = last.date().equals(date) ? last : withoutToday(last);
         }
         BreadthInput breadth = inputs.breadthIntraday(date, asOf);
-        return classifier.classify(date, asOf, state, intraday, breadth, environment.environment(date));
+        return classifier.classify(date, asOf, state, intraday, breadth, environment.environment(date), condition(date, asOf, intraday.sessionClosed(), indexDaily));
+    }
+
+    private record PreviousCondition(LocalDate date, Labelled<money.hejje.regime.MarketCondition> condition) {
+    }
+
+    private volatile PreviousCondition previousCondition;
+
+    /**
+     * The market condition is an end-of-day call: after the close it includes the session (constituent turnover from
+     * intraday bars while the D1 candles are not stored yet); an intraday snapshot carries the previous session's, which
+     * is computed once per session.
+     */
+    private Labelled<money.hejje.regime.MarketCondition> condition(LocalDate date, Instant asOf, boolean closed, List<Candle> indexDaily) {
+        PreviousCondition cached = previousCondition;
+        if (!closed && cached != null && cached.date().equals(date)) {
+            return cached.condition();
+        }
+        TreeMap<LocalDate, double[]> turnover = inputs.constituentTurnover(date.minusDays(RegimeInputs.HISTORY_DAYS), date);
+        if (closed) {
+            if (!turnover.containsKey(date)) {
+                turnover.put(date, inputs.constituentTurnoverIntraday(date, asOf));
+            }
+            return condition(indexDaily, indexDaily.size(), turnover);
+        }
+        List<Candle> before = indexDaily.stream().filter(c -> c.openTime().atZone(clock.zone()).toLocalDate().isBefore(date)).toList();
+        Labelled<money.hejje.regime.MarketCondition> condition = condition(before, before.size(), turnover);
+        previousCondition = new PreviousCondition(date, condition);
+        return condition;
+    }
+
+    /** The market condition as of the {@code count}-th index bar: only bars up to it are read. */
+    private Labelled<money.hejje.regime.MarketCondition> condition(List<Candle> indexDaily, int count, TreeMap<LocalDate, double[]> turnover) {
+        RegimeProperties.ConditionRules rules = props.marketCondition();
+        int from = Math.max(0, count - rules.windowSessions() - rules.sma());
+        List<MarketConditionMachine.Day> days = new ArrayList<>(count - from);
+        for (Candle c : indexDaily.subList(from, count)) {
+            LocalDate d = c.openTime().atZone(clock.zone()).toLocalDate();
+            double[] cell = turnover.get(d);
+            days.add(new MarketConditionMachine.Day(d, c.low().doubleValue(), c.close().doubleValue(),
+                    cell == null || cell[1] < rules.minConstituents() ? Double.NaN : cell[0]));
+        }
+        return MarketConditionMachine.evaluate(days, rules);
     }
 
     /** When the daily series ends before the session (no bars today), today's trend/volatility are those of the last bar but the previous close is its close. */
@@ -102,15 +144,19 @@ public class RegimeEngine {
             fillMissingDaily(vixDaily, vix.get(), from, to, new java.util.HashMap<>());
         }
         Map<String, TreeMap<LocalDate, Double>> closes = inputs.constituentDailyCloses(from, to);
+        TreeMap<LocalDate, double[]> turnover = inputs.constituentTurnover(from.minusDays(RegimeInputs.HISTORY_DAYS), to);
         List<RegimeSnapshot> out = new ArrayList<>();
+        int position = 0;
         for (DailyState state : new DailyWalker(props, clock.zone(), vixDaily).walk(indexDaily)) {
             LocalDate date = state.date();
+            position++;
             if (date.isBefore(from) || date.isAfter(to)) {
                 continue;
             }
             Instant close = clock.sessionWindow(date).close().toInstant();
             IntradayInput intraday = intradayByDate.containsKey(date) ? intradayByDate.get(date) : inputs.intraday(index.get(), date, close);
-            out.add(classifier.classify(date, close, state, intraday, inputs.breadthHistorical(date, closes), environment.environment(date)));
+            out.add(classifier.classify(date, close, state, intraday, inputs.breadthHistorical(date, closes), environment.environment(date),
+                    condition(indexDaily, position, turnover)));
         }
         return out;
     }

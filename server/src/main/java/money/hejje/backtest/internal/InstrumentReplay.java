@@ -50,12 +50,19 @@ public final class InstrumentReplay {
     private final InstrumentMeta meta;
     private final CostModel costs;
     private final Money riskPerTrade;
+    private final java.util.Map<java.time.LocalDate, java.math.BigDecimal> sizeFactors;
     private final ZoneId zone;
     private final SessionSplitter splitter;
     private final IndicatorContext ctx;
     private final Side side;
     private final List<BacktestTrade> trades = new ArrayList<>();
     private int skipped;
+    /** Plan M9.8: a resting passive entry (limit at the signal close) and the count of those that never filled. */
+    private PassiveLimit resting;
+    private int passiveFilled;
+    private int passiveNotFilled;
+
+    private record PassiveLimit(Signal signal, BigDecimal limit, Instant expiresAt) {}
 
     private LocalDate session;
     private int tradesToday;
@@ -65,11 +72,17 @@ public final class InstrumentReplay {
 
     public InstrumentReplay(StrategyDefinition def, BacktestSpec spec, InstrumentMeta meta, CostModel costs, Money riskPerTrade, ZoneId zone,
             SessionSplitter splitter) {
+        this(def, spec, meta, costs, riskPerTrade, zone, splitter, java.util.Map.of());
+    }
+
+    public InstrumentReplay(StrategyDefinition def, BacktestSpec spec, InstrumentMeta meta, CostModel costs, Money riskPerTrade, ZoneId zone,
+            SessionSplitter splitter, java.util.Map<java.time.LocalDate, java.math.BigDecimal> sizeFactors) {
         this.def = def;
         this.spec = spec;
         this.meta = meta;
         this.costs = costs;
         this.riskPerTrade = riskPerTrade;
+        this.sizeFactors = sizeFactors == null ? java.util.Map.of() : sizeFactors;
         this.zone = zone;
         this.splitter = splitter;
         this.side = def.direction() == Direction.SHORT ? Side.SELL : Side.BUY;
@@ -86,6 +99,14 @@ public final class InstrumentReplay {
         return skipped;
     }
 
+    public int passiveFilled() {
+        return passiveFilled;
+    }
+
+    public int passiveNotFilled() {
+        return passiveNotFilled;
+    }
+
     public void onCandle(Candle candle) {
         Bar bar = Bar.of(candle, zone);
         if (!bar.session().equals(session)) {
@@ -97,6 +118,10 @@ public final class InstrumentReplay {
         if (pending != null) {
             fill(pending, bar.open(), bar, inRange);
             pending = null;
+        }
+        // 1b. plan M9.8: a resting passive limit fills at its price only when the bar trades strictly through it
+        if (resting != null) {
+            restingLimit(bar, inRange);
         }
         // 2. intrabar stop / target on the open trade
         if (open != null) {
@@ -110,7 +135,7 @@ public final class InstrumentReplay {
             manageAtClose(bar);
         }
         // 5. entry evaluation when flat
-        if (open == null && pending == null && inRange) {
+        if (open == null && pending == null && resting == null && inRange) {
             evaluateEntry(bar);
         }
     }
@@ -121,6 +146,10 @@ public final class InstrumentReplay {
             exit(lastBar.close(), lastBar.closeTime(), ExitReason.END_OF_DATA, true);
         }
         pending = null;
+        if (resting != null) {
+            passiveNotFilled++;
+            resting = null;
+        }
     }
 
     private void rollSession(Bar bar) {
@@ -128,6 +157,10 @@ public final class InstrumentReplay {
             exit(lastBar.close(), lastBar.closeTime(), ExitReason.END_OF_DATA, true);
         }
         pending = null;
+        if (resting != null) {
+            passiveNotFilled++; // a passive entry does not survive the session
+            resting = null;
+        }
         session = bar.session();
         tradesToday = 0;
     }
@@ -140,6 +173,9 @@ public final class InstrumentReplay {
         if (tradesToday >= def.maxTradesPerDay()) {
             return;
         }
+        if (spec.sessionFilter() != null && !spec.sessionFilter().allows(bar.session(), meta.id(), side)) {
+            return; // research-only per-session restriction (plan M8.8)
+        }
         List<EvalResult> results = ConditionEvaluator.evaluateAll(def.entry().conditions(), ctx);
         if (!passes(def.entry(), results)) {
             return;
@@ -150,6 +186,13 @@ public final class InstrumentReplay {
             return;
         }
         Signal signal = new Signal(bar.closeTime(), bar.close(), stop, results);
+        StrategyDefinition.EntryOrder entryOrder = def.entryOrderOrMarket();
+        if (entryOrder.passive()) {
+            // a limit at the signal close (the touch is unknown on candles), rounded away from a fill; no re-quotes on bars
+            BigDecimal limit = Levels.roundToTick(BigDecimal.valueOf(bar.close()), meta.tickSize(), side == Side.BUY ? RoundingMode.FLOOR : RoundingMode.CEILING);
+            resting = new PassiveLimit(signal, limit, bar.closeTime().plusSeconds(entryOrder.cancelAfterSeconds()));
+            return;
+        }
         if (spec.fillModel() == FillModel.BAR_CLOSE) {
             fill(signal, bar.close(), bar, true);
         } else {
@@ -166,11 +209,34 @@ public final class InstrumentReplay {
                 : results.stream().anyMatch(EvalResult::passed);
     }
 
+    private void restingLimit(Bar bar, boolean inRange) {
+        if (!bar.openTime().isBefore(resting.expiresAt())) {
+            passiveNotFilled++;
+            resting = null;
+            return;
+        }
+        double limit = resting.limit().doubleValue();
+        boolean through = side == Side.BUY ? bar.low() < limit : bar.high() > limit;
+        if (through) {
+            PassiveLimit r = resting;
+            resting = null;
+            passiveFilled++;
+            fill(r.signal(), r.limit(), bar, inRange);
+        }
+    }
+
     private void fill(Signal signal, double rawPrice, Bar bar, boolean inRange) {
         if (!inRange) {
             return;
         }
-        BigDecimal entry = slip(rawPrice, side == Side.BUY);
+        fill(signal, slip(rawPrice, side == Side.BUY), bar, inRange);
+    }
+
+    /** Enters at {@code entry} (already slipped, or a passive limit's own price). */
+    private void fill(Signal signal, BigDecimal entry, Bar bar, boolean inRange) {
+        if (!inRange) {
+            return;
+        }
         BigDecimal stop = Levels.roundStop(signal.stop(), side, meta.tickSize());
         boolean stopValid = side == Side.BUY ? stop.compareTo(entry) < 0 : stop.compareTo(entry) > 0;
         if (!stopValid) {
@@ -178,7 +244,10 @@ public final class InstrumentReplay {
             return;
         }
         int maxQty = def.riskOverrides().maxQuantity() == null ? 0 : def.riskOverrides().maxQuantity();
-        int qty = PositionSizer.size(Price.of(entry), Price.of(stop), riskPerTrade, meta.lotSize(), maxQty);
+        // plan M9.7: the risk-event size cut applies to the replayed session as it does live
+        java.math.BigDecimal factor = sizeFactors.get(bar.session());
+        Money risk = factor == null ? riskPerTrade : Money.of(riskPerTrade.toRupees().multiply(factor).setScale(2, java.math.RoundingMode.HALF_UP));
+        int qty = PositionSizer.size(Price.of(entry), Price.of(stop), risk, meta.lotSize(), maxQty);
         if (qty <= 0) {
             skipped++;
             return;
@@ -186,7 +255,7 @@ public final class InstrumentReplay {
         BigDecimal riskPerUnit = entry.subtract(stop).abs();
         BigDecimal target = Levels.target(def, side, entry, riskPerUnit, ctx, meta.tickSize());
         Money entryCost = costs.compute(new CostFill(meta.type(), def.product(), side, qty, entry)).total();
-        Instant entryTime = spec.fillModel() == FillModel.BAR_CLOSE ? signal.time() : bar.openTime();
+        Instant entryTime = spec.fillModel() == FillModel.BAR_CLOSE && !def.entryOrderOrMarket().passive() ? signal.time() : bar.openTime();
         open = new OpenTrade(signal, bar.openTime(), entryTime, entry, stop, stop, target, qty, riskPerUnit, entryCost, bar.session());
         tradesToday++;
     }

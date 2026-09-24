@@ -34,6 +34,7 @@ import money.hejje.risk.PositionSizer;
 import money.hejje.risk.RiskDecision;
 import money.hejje.risk.RiskEngine;
 import money.hejje.signals.internal.SignalStore;
+import money.hejje.strategy.StrategyDefinition;
 import money.hejje.strategy.StrategyDeployment;
 import money.hejje.strategy.StrategyService;
 import money.hejje.strategy.StrategyVersion;
@@ -60,9 +61,14 @@ public class SignalService {
     private final HejjeProperties properties;
     private final HejjeClock clock;
     private final money.hejje.market.MarketService market;
+    private final money.hejje.risk.RiskService riskService;
+    private final money.hejje.signals.internal.PassiveEntries passive;
 
     SignalService(SignalStore store, SignalEngine engine, StrategyService strategies, InstrumentService instruments, RiskEngine risk, ExecutionEngine execution,
-            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options, org.springframework.context.ApplicationEventPublisher events) {
+            AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options, org.springframework.context.ApplicationEventPublisher events,
+            money.hejje.risk.RiskService riskService, money.hejje.signals.internal.PassiveEntries passive) {
+        this.riskService = riskService;
+        this.passive = passive;
         this.events = events;
         this.options = options;
         this.market = market;
@@ -134,11 +140,22 @@ public class SignalService {
     public PreparedOrder dryRun(Signal signal, HejjePrincipal principal) {
         StrategyVersion version = strategies.versionById(signal.versionId()).orElseThrow(() -> new SignalException.NotFound("Version missing"));
         Instrument instrument = instruments.findById(signal.instrumentId()).orElseThrow(() -> new SignalException.NotFound("Instrument missing"));
-        Money riskMoney = signal.deploymentId() == null ? engine.riskPerTrade(null, version)
+        Money baseRisk = signal.deploymentId() == null ? engine.riskPerTrade(null, version)
                 : strategies.deployment(signal.deploymentId()).map(d -> engine.riskPerTrade(d, version)).orElseGet(() -> engine.riskPerTrade(null, version));
+        // plan M9.7: the risk-event size cut on a session with a market-wide macro event
+        money.hejje.risk.RiskService.SizeFactor factor = riskService.sizeFactor(clock.today());
+        Money riskMoney = factor.apply(baseRisk);
         int maxQty = version.definition().riskOverrides().maxQuantity() == null ? 0 : version.definition().riskOverrides().maxQuantity();
         // size on the current quote when there is one (the market has moved since the signal bar closed), else on the signal's reference
         BigDecimal entryReference = market.lastPrice(signal.instrumentId()).filter(q -> q.signum() > 0).orElse(signal.referencePrice());
+        // plan M9.8: a passive entry rests at the touch and is sized from its limit
+        StrategyDefinition.EntryOrder entryOrder = entryOrder(signal, version.definition());
+        BigDecimal passiveLimit = null;
+        if (entryOrder.passive()) {
+            passiveLimit = money.hejje.signals.internal.PassiveEntries.touch(signal.side(), market.quote(signal.instrumentId()).orElse(null), entryReference,
+                    instrument.tickSize());
+            entryReference = passiveLimit;
+        }
         BigDecimal perUnit = entryReference.subtract(signal.stop()).abs();
         List<String> notes = new ArrayList<>();
         boolean stopValid = signal.side() == money.hejje.common.Side.BUY ? signal.stop().compareTo(entryReference) < 0 : signal.stop().compareTo(entryReference) > 0;
@@ -154,12 +171,21 @@ public class SignalService {
         Money maxRisk = Money.of(perUnit.multiply(BigDecimal.valueOf(Math.max(qty, 0))).setScale(2, java.math.RoundingMode.HALF_UP));
         OrderIntentCommand proposal = new OrderIntentCommand(principal == null ? null : principal.id(), "signal:" + signal.id(), ActorType.USER,
                 principal == null ? "system" : principal.name(), signal.strategyId(), signal.id(), signal.instrumentId(), signal.side(), Quantity.of(Math.max(qty, 1)),
-                OrderType.MARKET, version.definition().product(), null, null, Price.of(signal.stop()), signal.target() == null ? null : Price.of(signal.target()),
-                maxRisk, OrderReason.STRATEGY_SIGNAL);
+                passiveLimit == null ? OrderType.MARKET : OrderType.LIMIT, version.definition().product(), passiveLimit == null ? null : Price.of(passiveLimit), null,
+                Price.of(signal.stop()), signal.target() == null ? null : Price.of(signal.target()), maxRisk, OrderReason.STRATEGY_SIGNAL);
         RiskDecision decision = qty <= 0 ? RiskDecision.rejected(List.of(new money.hejje.risk.RiskCheck("positionSize", false, "0", ">= 1 lot", notes.get(0))))
                 : risk.evaluate(toIntent(proposal));
         Map<String, Object> sizing = new LinkedHashMap<>();
         sizing.put("riskRupees", riskMoney.toRupees().toPlainString());
+        if (passiveLimit != null) {
+            sizing.put("entryOrder", "limit_touch");
+            sizing.put("limit", passiveLimit.toPlainString());
+        }
+        if (factor.event() != null) {
+            sizing.put("riskRupeesBeforeSizeFactor", baseRisk.toRupees().toPlainString());
+            sizing.put("sizeFactor", factor.factor().toPlainString());
+            sizing.put("sizeFactorEvent", factor.event());
+        }
         sizing.put("entryReference", entryReference.toPlainString());
         sizing.put("riskPerUnit", perUnit.toPlainString());
         sizing.put("lotSize", instrument.lotSize());
@@ -235,7 +261,34 @@ public class SignalService {
         Signal executed = store.find(signal.id()).orElse(signal).with(SignalStatus.EXECUTED, null, order.intentId(), order.id(), clock.now());
         store.update(executed);
         engine.entrySubmitted(pending, order.id());
+        if (order.orderType() == OrderType.LIMIT && !order.state().isTerminal()) {
+            strategies.versionById(signal.versionId()).map(v -> entryOrder(signal, v.definition())).filter(StrategyDefinition.EntryOrder::passive)
+                    .ifPresent(spec -> passive.track(signal, order, spec, instruments.findById(signal.instrumentId()).map(i -> i.tickSize()).orElse(null)));
+        }
         return order;
+    }
+
+    /**
+     * The entry order of a signal (plan M9.8): a bot's {@code entryOrder} in the signal's evidence, else the definition's
+     * {@code entry_order}, else market.
+     */
+    @SuppressWarnings("unchecked")
+    static StrategyDefinition.EntryOrder entryOrder(Signal signal, StrategyDefinition def) {
+        for (Map<String, Object> e : signal.evidence()) {
+            if (e.get("entryOrder") instanceof Map<?, ?> m) {
+                Map<String, Object> spec = (Map<String, Object>) m;
+                if ("limit_touch".equalsIgnoreCase(String.valueOf(spec.get("type")))) {
+                    return new StrategyDefinition.EntryOrder(StrategyDefinition.EntryOrderType.LIMIT_TOUCH, number(spec.get("maxRequotes"), 3).intValue(),
+                            number(spec.get("cancelAfterSeconds"), 90).intValue(), BigDecimal.valueOf(number(spec.get("maxChaseBps"), 10).doubleValue()));
+                }
+                return StrategyDefinition.EntryOrder.MARKET;
+            }
+        }
+        return def.entryOrderOrMarket();
+    }
+
+    private static Number number(Object v, Number fallback) {
+        return v instanceof Number n ? n : fallback;
     }
 
     /**
@@ -254,6 +307,14 @@ public class SignalService {
                         "source", actorId)));
         events.publishEvent(new SignalGeneratedEvent(money.hejje.common.event.EventMeta.create(clock), signal.id(), signal.versionId(), signal.instrumentId()));
         return signal;
+    }
+
+    /**
+     * Adds an annotation to a signal's evidence (plan M9.5, the Jev signal check). An annotation carries no
+     * {@code status} of a rule, so it never counts as a passed or failed condition.
+     */
+    public void annotate(UUID signalId, Map<String, Object> entry) {
+        store.appendEvidence(signalId, entry);
     }
 
     /** True when the signal's strategy trades option legs (plan M5.4): it executes through {@link #executeOptions}. */

@@ -1,0 +1,22 @@
+# Plan M9.5: the Jev bot's first stage, one call over the universe (docs/jev.md "The Jev bot"). State: `stocks` keyed by
+# symbol (each with named buckets computed by Hejje) and `index`. Per call Hejje adds long_<i> and short_<i> for every
+# symbol from the templates below ({symbol} is replaced). Bump the version on any change here.
+name: bot-stage1
+version: "1"
+params:
+  min-prob: 0.4            # a side's candidates need P >= this
+  top-per-side: 3
+  long-template: Is buying {symbol} now (its data is `stocks.{symbol}`) likely to gain over the next 30 minutes, given `index`?
+  short-template: Is shorting {symbol} now (its data is `stocks.{symbol}`) likely to gain over the next 30 minutes, given `index`?
+questions:
+  regime:
+    type: choice
+    instructions: Given `index`, what kind of market is it right now?
+    criteria:
+      trend_up: The index is rising steadily
+      trend_down: The index is falling steadily
+      range: The index is moving sideways between levels
+      chop: The index is moving back and forth without direction
+  risk_off:
+    type: noul
+    instructions: Given `index`, is the market in risk-off mode (broad selling, fear, a sharp drop)?

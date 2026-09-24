@@ -110,6 +110,85 @@ class RiskControlsTest {
         assertThat(RiskControls.reentryCooldown(inputs(intent(Side.BUY, 1, null, null, null), snapshot(Money.ZERO, Money.ZERO, 0, 0, 0, old), BigDecimal.TEN), NOW).passed()).isTrue();
     }
 
+    static RiskLimits allowanceLimits(RiskLimits.TradesWhenGreen whenGreen) {
+        RiskLimits l = limits();
+        return new RiskLimits(l.mode(), l.maxLossPerDay(), l.maxRealizedLoss(), l.maxTotalLossInclUnrealized(), l.maxCapitalDeployed(),
+                l.maxMarginUtilizationPct(), l.maxOpenPositions(), l.maxGrossExposure(), l.maxTradesPerDay(), l.maxRiskPerTrade(), l.maxQuantity(),
+                l.maxNotional(), l.minRewardRisk(), l.mandatoryStop(), l.maxStopDistancePct(), l.noNewTradesAfter(), l.noAveragingDown(),
+                l.noReentryMinutes(), l.maxConsecutiveLosses(), RiskLimits.LossStreakMode.ALLOWANCE, Money.ofRupees(500), 4, whenGreen);
+    }
+
+    static Instant at(String hhmm) {
+        return java.time.LocalDateTime.parse("2026-09-08T" + hhmm).atZone(java.time.ZoneId.of("Asia/Kolkata")).toInstant();
+    }
+
+    static AccountSnapshot day(List<AccountSnapshot.Close> closes, List<Instant> entries, Money net) {
+        return new AccountSnapshot(net, Money.ZERO, 0, Money.ZERO, entries.size() * 2, 0, Money.ofRupees(100000), Money.ZERO, Map.of(), Map.of(), entries,
+                closes);
+    }
+
+    static AccountSnapshot.Close close(String hhmm, String realized) {
+        return new AccountSnapshot.Close(at(hhmm), new BigDecimal(realized));
+    }
+
+    @Test
+    void allowanceModeLetsExactlyFourMoreEntriesThroughAfterThreeLosses() {
+        List<AccountSnapshot.Close> closes = List.of(close("09:40", "-100"), close("09:55", "-120"), close("10:10", "-90")); // −310: under the drawdown
+        List<Instant> before = List.of(at("09:30"), at("09:45"), at("10:00"));
+        RiskLimits l = allowanceLimits(RiskLimits.TradesWhenGreen.LIMIT);
+        for (int k = 0; k <= 4; k++) {
+            List<Instant> entries = new java.util.ArrayList<>(before);
+            for (int i = 0; i < k; i++) {
+                entries.add(at("10:1" + (i + 5)));
+            }
+            RiskInputs in = new RiskInputs(intent(Side.BUY, 1, null, null, null), day(closes, entries, Money.ofRupees(-310)), l, 1, BigDecimal.TEN, null, false,
+                    true, true, LocalTime.of(10, 30), 0, false, false);
+            money.hejje.risk.RiskCheck c = RiskControls.lossStreak(in);
+            if (k < 4) {
+                assertThat(c.passed()).as("entry %d after the streak", k + 1).isTrue();
+                assertThat(c.message()).contains(k + "/4");
+            } else {
+                assertThat(c.passed()).as("the fifth entry after the streak").isFalse();
+                assertThat(c.name()).isEqualTo("LOSS_STREAK_ALLOWANCE");
+                assertThat(c.message()).contains("3 consecutive losses");
+            }
+        }
+        // a winning trade after the trigger does not give the allowance back
+        List<AccountSnapshot.Close> withWin = new java.util.ArrayList<>(closes);
+        withWin.add(close("10:40", "400"));
+        List<Instant> four = List.of(at("09:30"), at("09:45"), at("10:00"), at("10:15"), at("10:16"), at("10:17"), at("10:18"));
+        assertThat(RiskControls.lossStreak(new RiskInputs(intent(Side.BUY, 1, null, null, null), day(withWin, four, Money.ofRupees(90)), l, 1, BigDecimal.TEN,
+                null, false, true, true, LocalTime.of(10, 45), 0, false, false)).passed()).isFalse();
+        // BLOCK (the default) is the consecutive-loss limit unchanged
+        RiskInputs block = inputs(intent(Side.BUY, 1, null, null, null), snapshot(Money.ZERO, Money.ZERO, 0, 0, 3, null), BigDecimal.TEN);
+        assertThat(RiskControls.lossStreak(block).passed()).isFalse();
+        assertThat(RiskControls.lossStreak(block).name()).isEqualTo("consecutiveLosses");
+    }
+
+    @Test
+    void theDaysDrawdownAlsoTriggersTheAllowance() {
+        // a win, then two losses: no streak of three, but the day's net reaches −500
+        List<AccountSnapshot.Close> closes = List.of(close("09:40", "100"), close("09:55", "-300"), close("10:10", "-300"));
+        RiskControls.Allowance a = RiskControls.allowance(day(closes, List.of(at("09:30"), at("10:20")), Money.ofRupees(-500)),
+                allowanceLimits(RiskLimits.TradesWhenGreen.LIMIT));
+        assertThat(a).isNotNull();
+        assertThat(a.used()).isEqualTo(1);
+        assertThat(a.reason()).startsWith("the day's net at -500.00");
+        assertThat(RiskControls.allowance(day(List.of(close("09:40", "-100")), List.of(), Money.ofRupees(-100)),
+                allowanceLimits(RiskLimits.TradesWhenGreen.LIMIT))).isNull();
+    }
+
+    @Test
+    void noTradesPerDayLimitWhileGreenWhenUnlimited() {
+        RiskLimits unlimited = allowanceLimits(RiskLimits.TradesWhenGreen.UNLIMITED);
+        RiskInputs green = new RiskInputs(intent(Side.BUY, 1, null, null, null), snapshot(Money.ofRupees(10), Money.ZERO, 0, 25, 0, null), unlimited, 1,
+                BigDecimal.TEN, null, false, true, true, LocalTime.of(10, 30), 0, false, false);
+        assertThat(RiskControls.tradesPerDay(green).passed()).isTrue();
+        RiskInputs red = new RiskInputs(intent(Side.BUY, 1, null, null, null), snapshot(Money.ofRupees(-10), Money.ZERO, 0, 25, 0, null), unlimited, 1,
+                BigDecimal.TEN, null, false, true, true, LocalTime.of(10, 30), 0, false, false);
+        assertThat(RiskControls.tradesPerDay(red).passed()).isFalse();
+    }
+
     @Test
     void killSwitchAndBrokerReadiness() {
         RiskInputs stop = new RiskInputs(intent(Side.BUY, 1, null, null, null), snapshot(Money.ZERO, Money.ZERO, 0, 0, 0, null), limits(), 1, BigDecimal.TEN, null, true, true, true, LocalTime.of(10, 30), 0, false, false);

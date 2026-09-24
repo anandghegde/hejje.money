@@ -113,6 +113,26 @@ public class EventService {
         return event;
     }
 
+    /**
+     * An all-day market-wide event detected by another module (plan M9.3: {@code news-jev}), upserted by source and
+     * {@code (type, date, title)} so repeated detections on a day do not duplicate it. Audited when first inserted.
+     *
+     * @return true when the event is new
+     */
+    public boolean addDetected(EventType type, LocalDate date, String title, String source, double confidence, Map<String, Object> raw) {
+        if (!type.isMarketScope()) {
+            throw new IllegalArgumentException(type + " is not a market event type");
+        }
+        MarketEvent event = money.hejje.events.internal.Events.on(type, EventScope.MARKET, null, null, title, date, null, null, source, confidence, raw,
+                clock.zone(), clock.now());
+        boolean inserted = store.upsert(event);
+        if (inserted) {
+            audit.record(AuditEvent.of(AuditEventType.EVENT_ADDED, ActorType.SYSTEM).withActorId(source)
+                    .withPayload(Map.of("type", type.name(), "title", title, "date", date.toString(), "source", source)));
+        }
+        return inserted;
+    }
+
     public record ImportResult(int imported, int updated, List<String> errors) {}
 
     /** CSV import (docs/events.md): rows with errors are reported and skipped, the rest are upserted under source {@code csv}. */

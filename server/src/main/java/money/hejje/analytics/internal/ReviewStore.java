@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import money.hejje.analytics.TradeCause;
 import money.hejje.analytics.TradeReview;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Money;
@@ -54,6 +55,33 @@ public class ReviewStore {
         }
     }
 
+    /** Plan M9.6: the trade's cause and timing (provisional until {@code complete}). */
+    public void updateCause(UUID reviewId, TradeCause c) {
+        try {
+            jdbc.sql("""
+                    UPDATE trade_review SET cause = :cause, entry_timing = :timing, mfe_r = :mfe, mae_r = :mae, cause_evidence = CAST(:evidence AS jsonb),
+                        jev_cause = :jevCause, jev_timing = :jevTiming, cause_complete = :complete
+                    WHERE id = :id
+                    """).param("cause", c.cause().name()).param("timing", c.entryTiming() == null ? null : c.entryTiming().name()).param("mfe", c.mfeR())
+                    .param("mae", c.maeR()).param("evidence", json.writeValueAsString(c.evidence())).param("jevCause", c.jevCause())
+                    .param("jevTiming", c.jevTiming()).param("complete", c.complete()).param("id", reviewId).update();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    /** Reviews whose cause is not complete, closed at or before {@code closedBefore}, oldest first. */
+    public List<TradeReview> causePending(Instant closedBefore, int limit) {
+        return jdbc.sql("SELECT * FROM trade_review WHERE NOT cause_complete AND closed_at <= :before ORDER BY closed_at LIMIT :limit")
+                .param("before", ts(closedBefore)).param("limit", limit).query(this::map).list();
+    }
+
+    /** Completed reviews in {@code [from, to)} (by close) that have both the rules' and Jev's reading. */
+    public List<TradeReview> withJevCause(Instant from, Instant to) {
+        return jdbc.sql("SELECT * FROM trade_review WHERE cause_complete AND jev_cause IS NOT NULL AND closed_at >= :from AND closed_at < :to ORDER BY closed_at")
+                .param("from", ts(from)).param("to", ts(to)).query(this::map).list();
+    }
+
     public Optional<TradeReview> find(UUID id) {
         return jdbc.sql("SELECT * FROM trade_review WHERE id = :id").param("id", id).query(this::map).optional();
     }
@@ -83,10 +111,21 @@ public class ReviewStore {
                     rs.getBigDecimal("exit_price"), instant(rs, "opened_at"), instant(rs, "closed_at"), Money.ofPaise(rs.getLong("gross_paise")),
                     Money.ofPaise(rs.getLong("fees_paise")), Money.ofPaise(rs.getLong("net_paise")), dbl(rs, "outcome_r"), bool(rs, "expected_setup_valid"),
                     dbl(rs, "entry_slippage_bps"), dbl(rs, "exit_slippage_bps"), integer(rs, "rule_adherence_pct"), rs.getString("close_reason"),
-                    json.readValue(rs.getString("context"), MAP), rs.getString("notes"), instant(rs, "created_at"));
+                    json.readValue(rs.getString("context"), MAP), rs.getString("notes"), instant(rs, "created_at"), cause(rs));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private TradeCause cause(ResultSet rs) throws SQLException, com.fasterxml.jackson.core.JsonProcessingException {
+        String cause = rs.getString("cause");
+        if (cause == null) {
+            return null;
+        }
+        String timing = rs.getString("entry_timing");
+        String evidence = rs.getString("cause_evidence");
+        return new TradeCause(TradeCause.Cause.valueOf(cause), timing == null ? null : TradeCause.Timing.valueOf(timing), dbl(rs, "mfe_r"), dbl(rs, "mae_r"),
+                evidence == null ? Map.of() : json.readValue(evidence, MAP), rs.getString("jev_cause"), rs.getString("jev_timing"), rs.getBoolean("cause_complete"));
     }
 
     private static UUID uuid(ResultSet rs, String c) throws SQLException {

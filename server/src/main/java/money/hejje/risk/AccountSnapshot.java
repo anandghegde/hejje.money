@@ -20,6 +20,8 @@ import money.hejje.common.Money;
  * @param usedMargin         broker used margin
  * @param netPositionQty     signed net quantity per instrument (for averaging-down / opposite-side detection)
  * @param lastTradeAt        last fill time per instrument (for the re-entry cooldown)
+ * @param entriesToday       the first fill time of every order that opened or added to a position today (plan M9.7)
+ * @param closesToday        every round trip closed today with its realized P&L, in time order (plan M9.7)
  */
 public record AccountSnapshot(
         Money realizedPnl,
@@ -31,7 +33,23 @@ public record AccountSnapshot(
         Money availableCash,
         Money usedMargin,
         Map<UUID, Integer> netPositionQty,
-        Map<UUID, Instant> lastTradeAt) {
+        Map<UUID, Instant> lastTradeAt,
+        java.util.List<Instant> entriesToday,
+        java.util.List<Close> closesToday) {
+
+    /** A round trip closed today. */
+    public record Close(Instant at, BigDecimal realized) {}
+
+    public AccountSnapshot {
+        entriesToday = entriesToday == null ? java.util.List.of() : java.util.List.copyOf(entriesToday);
+        closesToday = closesToday == null ? java.util.List.of() : java.util.List.copyOf(closesToday);
+    }
+
+    public AccountSnapshot(Money realizedPnl, Money unrealizedPnl, int openPositionCount, Money grossExposure, int tradesToday, int consecutiveLosses,
+            Money availableCash, Money usedMargin, Map<UUID, Integer> netPositionQty, Map<UUID, Instant> lastTradeAt) {
+        this(realizedPnl, unrealizedPnl, openPositionCount, grossExposure, tradesToday, consecutiveLosses, availableCash, usedMargin, netPositionQty,
+                lastTradeAt, null, null);
+    }
 
     public Money totalPnl() {
         return realizedPnl.plus(unrealizedPnl);

@@ -119,6 +119,10 @@ public final class RuleWords {
             case "opening_range_high" -> "the " + (a0.isEmpty() ? "15-minute" : a0) + " opening-range high";
             case "opening_range_low" -> "the " + (a0.isEmpty() ? "15-minute" : a0) + " opening-range low";
             case "relative_volume" -> "relative volume (" + (a0.isEmpty() ? "20" : a0) + " sessions)";
+            case "book_imbalance" -> "the order-book imbalance at the bar's close";
+            case "book_imbalance_mean" -> "the bar's mean order-book imbalance";
+            case "buy_sell_qty_ratio" -> "the day's buy/sell quantity ratio";
+            case "flow_up_share" -> "the up-volume share of the last " + (a0.isEmpty() ? "5" : a0) + " bars";
             case "prev_day_high" -> "the previous day's high";
             case "prev_day_low" -> "the previous day's low";
             case "prev_day_close" -> "the previous day's close";

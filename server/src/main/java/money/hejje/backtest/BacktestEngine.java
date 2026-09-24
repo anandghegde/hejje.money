@@ -60,6 +60,8 @@ public class BacktestEngine {
 
         List<BacktestTrade> trades = new ArrayList<>();
         int skipped = 0;
+        int passiveFilled = 0;
+        int passiveNotFilled = 0;
         TreeSet<LocalDate> sessionsWithData = new TreeSet<>();
         int total = input.candles().values().stream().mapToInt(List::size).sum();
         int done = 0;
@@ -69,7 +71,7 @@ public class BacktestEngine {
             if (meta == null) {
                 throw new BacktestException("No instrument facts for " + entry.getKey());
             }
-            InstrumentReplay replay = new InstrumentReplay(def, spec, meta, costModel, input.riskPerTrade(), zone, splitter);
+            InstrumentReplay replay = new InstrumentReplay(def, spec, meta, costModel, input.riskPerTrade(), zone, splitter, input.sizeFactors());
             for (Candle candle : entry.getValue()) {
                 if (cancelled.getAsBoolean()) {
                     throw new CancelledException();
@@ -89,6 +91,8 @@ public class BacktestEngine {
             replay.finish();
             trades.addAll(replay.trades());
             skipped += replay.skippedSignals();
+            passiveFilled += replay.passiveFilled();
+            passiveNotFilled += replay.passiveNotFilled();
         }
         trades.sort((a, b) -> {
             int c = a.entryTime().compareTo(b.entryTime());
@@ -108,8 +112,13 @@ public class BacktestEngine {
         }
         List<WalkForwardWindow> windows = splitter.windows(trades);
         int expected = expectedSessions(spec);
-        List<QualityWarning> warnings = new QualityChecker().check(def, spec, trades, bySplit, expected, sessions.size(),
-                input.instruments(), input.candles());
+        List<QualityWarning> warnings = new ArrayList<>(new QualityChecker().check(def, spec, trades, bySplit, expected, sessions.size(),
+                input.instruments(), input.candles()));
+        if (def.entryOrderOrMarket().passive()) { // plan M9.8: passive entries that never filled are not trades
+            warnings.add(new QualityWarning("PASSIVE_ENTRY_NOT_FILLED", QualityWarning.Severity.WARN, passiveNotFilled + " of "
+                    + (passiveFilled + passiveNotFilled) + " passive entries did not fill before their cancel time (limit at the signal close, filled only when a bar "
+                    + "traded strictly through it; no re-quotes on candles)", java.util.Map.of("filled", passiveFilled, "notFilled", passiveNotFilled)));
+        }
         return new BacktestResult(overall, bySplit, windows, warnings, trades, expected, sessions.size(), skipped, hash(trades));
     }
 

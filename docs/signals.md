@@ -50,6 +50,28 @@ On every closed candle of the runner's timeframe, in this order:
   the order's intent → signal when the fill beats the write-back.
 - `POST /signals/{id}/skip` marks a signal `SKIPPED`; a scheduled sweep expires stale signals (`SIGNAL_EXPIRED`).
 
+## Jev signal check (plan M9.5)
+
+With `hejje.jev.signal-check.enabled` (and Jev on), every new strategy signal (live, PAPER, SIM; never the
+backtester; not a bot's own entries) gets one Jev call with the stage-2 questions (`bot-stage2`) on its instrument and
+side, on its own thread within the Jev deadline. The answer is appended to the signal's evidence as an annotation
+`{ "condition": "jevCheck", "jevCheck": { "setup", "p", "composite", "version", "agrees", "reason" } }` (it is not a
+rule, so it never counts as passed or failed), and recorded for calibration as `signal-check` (`ENTRY_1R` with the
+signal's stop). Jev **agrees** when the setup matches the side (`long_continuation` / `short_continuation`) and
+P(setup) reaches the set's `min-setup-prob`.
+
+It never creates, sizes or blocks a trade. `hejje.jev.signal-check.gate`:
+
+| Gate | Effect of a disagreement |
+|---|---|
+| `off` (default) | shown only: a `⚠ Jev disagrees …` line in the recommendation's risks (an agreement is a `✓` evidence line) |
+| `caution` | adds `JEV_DISAGREES` to the recommendation's `cautions[]` (TRADE WITH CAUTION) |
+| `approval` | also turns an AUTO execution into an approval (the policy decision becomes REQUIRE_APPROVAL with rule `jev-signal-check`; the approval's rationale carries the check); AUTO waits at most 3 s for a running check and goes ahead unchanged without an answer |
+
+A gate above `off` is **refused at startup** (the application does not start) unless the check is enabled and
+`CalibrationService.passes("signal-check", <set version>)` holds (docs/calibration.md); a runtime change goes through
+the same rule. Hejje has no config reload, so a change of gate is a restart.
+
 ## Restart
 
 `strategy_position` persists every managed position. On startup the engine re-creates the runners, re-attaches open
@@ -67,3 +89,27 @@ reasons. Live fills differ from the replay only by the market fill itself (next 
 
 `signal.to.ack` (execute → broker acknowledgement) and `signal.to.fill` (execute → fill), p50/p95/p99, next to the
 PRD 44 timers on `GET /server/latency` sources.
+
+## Passive entries (plan M9.8)
+
+A definition with `entry_order: { type: limit_touch, ... }` (docs/strategy-dsl.md), or a bot's `ENTER_*` decision with
+`"entryOrder": { "type": "limit_touch", "maxRequotes": 3, "cancelAfterSeconds": 90, "maxChaseBps": 10 }`
+(docs/bots.md), enters with a resting limit instead of a market order:
+
+- **Placement.** The entry is a LIMIT at the touch from the quote cache: the best bid for a long, the best ask for a
+  short, rounded to the tick away from a fill (bid down, ask up); without a bid/ask, the last price. The position is
+  sized from that limit to the stop. Risk is evaluated once, on this intent. The instruments of a `limit_touch`
+  deployment stream in FULL mode so the touch is known.
+- **Re-quotes.** `PassiveEntries` watches the working order on every tick and every second. When the touch moves away
+  (the bid above a long's limit, the ask below a short's), the order is **modified** to the new touch through the
+  execution engine (rate limiter, executor lease), audited `ENTRY_REQUOTED`. At most `max_requotes` times; a new limit
+  never goes beyond the signal's reference price ± `max_chase_bps` (capped there, then it waits). Quantity is never
+  changed.
+- **Giving up.** After `cancel_after_seconds`, or when the touch moves away again with the re-quotes spent, the order
+  is cancelled, the signal ends `EXPIRED` with the note `ENTRY_NOT_FILLED: <why>`, the pending position is dropped
+  (`ENTRY_FAILED`), and `ENTRY_NOT_FILLED` is audited.
+- **Partial fill.** Once part of the order has filled, the rest is cancelled and the position opens with the filled
+  quantity; the protective stop is placed for that quantity (a cancelled entry with fills counts as filled).
+- **Fills in SIM and PAPER.** The paper broker fills a resting limit when a later tick trades at or through its price
+  (a replayed M1 bar's four ticks can therefore fill it inside the bar).
+- The slippage report counts passive entries apart (docs/analytics.md).

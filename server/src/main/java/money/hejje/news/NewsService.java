@@ -27,7 +27,11 @@ import money.hejje.news.internal.Dedupe;
 import money.hejje.news.internal.FeedParser;
 import money.hejje.news.internal.InstrumentMatcher;
 import money.hejje.news.internal.NewsBiasAggregator;
-import money.hejje.news.internal.NewsClassifier;
+import money.hejje.calibration.CalibrationReport;
+import money.hejje.calibration.CalibrationService;
+import money.hejje.news.internal.NewsClassification;
+import money.hejje.news.internal.NewsJev;
+import money.hejje.news.internal.NewsRiskEvents;
 import money.hejje.news.internal.NewsStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,18 +45,22 @@ public class NewsService {
 
     private final NewsStore store;
     private final InstrumentMatcher matcher;
-    private final NewsClassifier classifier;
+    private final NewsClassification classifier;
+    private final NewsRiskEvents riskEvents;
+    private final CalibrationService calibration;
     private final InstrumentService instruments;
     private final MarketService market;
     private final NewsProperties props;
     private final HejjeClock clock;
     private final HttpClient http;
 
-    NewsService(NewsStore store, InstrumentMatcher matcher, NewsClassifier classifier, InstrumentService instruments, MarketService market, NewsProperties props,
-            HejjeClock clock) {
+    NewsService(NewsStore store, InstrumentMatcher matcher, NewsClassification classifier, NewsRiskEvents riskEvents, CalibrationService calibration,
+            InstrumentService instruments, MarketService market, NewsProperties props, HejjeClock clock) {
         this.store = store;
         this.matcher = matcher;
         this.classifier = classifier;
+        this.riskEvents = riskEvents;
+        this.calibration = calibration;
         this.instruments = instruments;
         this.market = market;
         this.props = props;
@@ -119,6 +127,9 @@ public class NewsService {
                 log.warn("News source {} failed: {}", source.name(), msg);
             }
         }
+        if (stored > 0) {
+            riskEvents.check(); // plan M9.3: one Jev call over the day's newest headlines
+        }
         return new PollResult(count, fetched, stored, assessed, errors);
     }
 
@@ -151,9 +162,13 @@ public class NewsService {
             List<InstrumentMatcher.Candidate> candidates = matcher.match(f.title(), f.summary());
             if (!candidates.isEmpty() && classified < props.maxItemsPerPoll()) {
                 classified++;
-                for (NewsAssessment a : classifier.classify(item, source, candidates, now)) {
-                    store.insertAssessment(a);
+                NewsClassification.Result result = classifier.classify(item, source, candidates, now);
+                for (NewsAssessment a : result.primary()) {
+                    store.insertAssessment(a, false);
                     assessed++;
+                }
+                for (NewsAssessment a : result.shadow()) {
+                    store.insertAssessment(a, true);
                 }
             }
         }
@@ -190,7 +205,7 @@ public class NewsService {
             return NewsBias.unavailable(instrumentId, now, "news unavailable (hejje.news.enabled=false)");
         }
         if (!classifier.available()) {
-            return NewsBias.unavailable(instrumentId, now, "news unavailable (LLM disabled)");
+            return NewsBias.unavailable(instrumentId, now, "news unavailable (" + classifier.unavailableReason() + ")");
         }
         try {
             Optional<Instant> lastPoll = store.lastSuccessfulPoll();
@@ -250,6 +265,47 @@ public class NewsService {
         } catch (RuntimeException e) {
             return new NewsBiasAggregator.Reaction("Price reaction unavailable: " + e.getMessage(), 0);
         }
+    }
+
+    /**
+     * Shadow mode (plan M9.3): how Jev's assessments compare with the LLM's on the same (story, instrument) pairs, with the
+     * calibration of Jev's news direction beside it. Direction labels use the bias thresholds: above {@code mild-score}
+     * bullish, below its negative bearish, else neutral.
+     */
+    public record ClassifierComparison(LocalDate from, LocalDate to, String classifier, int pairs, Double directionAgreement, Double materialityMae,
+            Double relevanceMae, Map<String, Map<String, Integer>> directionMatrix, CalibrationReport directionCalibration) {}
+
+    public ClassifierComparison classifierComparison(LocalDate from, LocalDate to) {
+        to = to == null ? clock.today() : to;
+        from = from == null ? to.minusDays(30) : from;
+        ZoneId zone = clock.zone();
+        List<NewsStore.Pair> pairs = store.shadowPairs(from.atStartOfDay(zone).toInstant(), to.plusDays(1).atStartOfDay(zone).toInstant());
+        Map<String, Map<String, Integer>> matrix = new java.util.TreeMap<>();
+        int agree = 0;
+        double materiality = 0;
+        double relevance = 0;
+        for (NewsStore.Pair p : pairs) {
+            String used = directionLabel(p.used().direction());
+            String shadow = directionLabel(p.shadow().direction());
+            matrix.computeIfAbsent(used, k -> new java.util.TreeMap<>()).merge(shadow, 1, Integer::sum);
+            if (used.equals(shadow)) {
+                agree++;
+            }
+            materiality += Math.abs(p.used().materiality() - p.shadow().materiality());
+            relevance += Math.abs(p.used().relevance() - p.shadow().relevance());
+        }
+        int n = pairs.size();
+        CalibrationReport cal = calibration.report(NewsJev.CALIBRATION_PURPOSE, null, from, to);
+        return new ClassifierComparison(from, to, classifier.mode().name().toLowerCase(Locale.ROOT), n, n == 0 ? null : round((double) agree / n),
+                n == 0 ? null : round(materiality / n), n == 0 ? null : round(relevance / n), matrix, cal);
+    }
+
+    private String directionLabel(double direction) {
+        return direction > props.mildScore() ? "bullish" : direction < -props.mildScore() ? "bearish" : "neutral";
+    }
+
+    private static double round(double v) {
+        return Math.round(v * 10_000d) / 10_000d;
     }
 
     /** The sector of a symbol from config/aliases.yaml (for the Context Card's sector row). */

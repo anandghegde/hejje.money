@@ -102,6 +102,8 @@ public final class PerformanceMath {
                 new Dimension("event", buckets(facts, TradeFact::event, totalLoss)),
                 new Dimension("news", buckets(facts, TradeFact::news, totalLoss)),
                 new Dimension("exitReason", buckets(facts, TradeFact::exitReason, totalLoss)),
+                new Dimension("cause", buckets(facts, TradeFact::cause, totalLoss)),
+                new Dimension("entryTiming", buckets(facts, TradeFact::entryTiming, totalLoss)),
                 new Dimension("hour", buckets(facts, f -> String.format("%02d", f.hour()), totalLoss)),
                 new Dimension("instrument", buckets(facts, TradeFact::instrument, totalLoss)));
         List<Bucket> combos = buckets(facts, f -> f.family() + " × " + f.trend(), totalLoss);
@@ -116,6 +118,51 @@ public final class PerformanceMath {
         int losers = (int) facts.stream().filter(f -> f.netPaise() < 0).count();
         return new LossAttribution(facts.size(), winners, losers, rupees(facts.stream().mapToLong(TradeFact::netPaise).sum()), rupees(totalLoss), rupees(totalWin),
                 dims, combos, headline);
+    }
+
+    /**
+     * Plan M9.7: the pace buckets of {@link PaceReport}. Days are IST dates of the entry; a trade's sequence number and its
+     * day's count come from the facts given (so a strategy filter applies to both).
+     */
+    public static PaceReport pace(String mode, java.time.LocalDate from, java.time.LocalDate to, String strategy, List<TradeFact> facts, java.time.ZoneId zone) {
+        Map<java.time.LocalDate, List<TradeFact>> byDay = new java.util.TreeMap<>();
+        for (TradeFact f : facts) {
+            byDay.computeIfAbsent(f.openedAt().atZone(zone).toLocalDate(), k -> new ArrayList<>()).add(f);
+        }
+        Map<String, List<TradeFact>> count = new LinkedHashMap<>();
+        for (String b : List.of("1-4", "5-8", "9-16", "17+")) {
+            count.put(b, new ArrayList<>());
+        }
+        Map<String, List<TradeFact>> sequence = new LinkedHashMap<>();
+        for (String b : List.of("1st", "2nd", "3rd", "4th", "5th", "6th+")) {
+            sequence.put(b, new ArrayList<>());
+        }
+        Map<String, List<TradeFact>> hour = new java.util.TreeMap<>();
+        for (List<TradeFact> day : byDay.values()) {
+            day.sort(Comparator.comparing(TradeFact::openedAt));
+            int n = day.size();
+            String dayBucket = n <= 4 ? "1-4" : n <= 8 ? "5-8" : n <= 16 ? "9-16" : "17+";
+            for (int i = 0; i < n; i++) {
+                TradeFact f = day.get(i);
+                count.get(dayBucket).add(f);
+                sequence.get(i >= 5 ? "6th+" : List.of("1st", "2nd", "3rd", "4th", "5th").get(i)).add(f);
+                hour.computeIfAbsent(String.format("%02d", f.openedAt().atZone(zone).getHour()), k -> new ArrayList<>()).add(f);
+            }
+        }
+        return new PaceReport(mode, from, to, strategy, facts.size(), paceRows(count), paceRows(sequence), paceRows(hour));
+    }
+
+    private static List<PaceReport.Row> paceRows(Map<String, List<TradeFact>> groups) {
+        List<PaceReport.Row> out = new ArrayList<>();
+        groups.forEach((k, list) -> {
+            int wins = (int) list.stream().filter(f -> f.netPaise() > 0).count();
+            List<Double> rs = list.stream().map(TradeFact::outcomeR).filter(Objects::nonNull).toList();
+            long net = list.stream().mapToLong(TradeFact::netPaise).sum();
+            out.add(new PaceReport.Row(k, list.size(), wins, list.isEmpty() ? null : Math.round(1000.0 * wins / list.size()) / 1000.0,
+                    rs.isEmpty() ? null : Math.round(1000.0 * rs.stream().mapToDouble(Double::doubleValue).average().orElse(0)) / 1000.0, rs.size(),
+                    list.isEmpty() ? null : BigDecimal.valueOf(net).divide(BigDecimal.valueOf(100L * list.size()), 2, RoundingMode.HALF_UP), rupees(net)));
+        });
+        return out;
     }
 
     static List<Bucket> buckets(List<TradeFact> facts, Function<TradeFact, String> key, long totalLoss) {

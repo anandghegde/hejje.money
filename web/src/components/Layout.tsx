@@ -7,11 +7,11 @@ import { useEventsSocket } from '../ws/useEventsSocket';
 import { useAuth } from '../auth/AuthContext';
 import { PushedNotification, SEVERITY_COLOR, pushedNotification } from '../lib/notifications';
 
-const ACTIVE = ['Today', 'Approvals', 'Strategies', 'Lab', 'Orders', 'Trades', 'Positions', 'Reviews', 'Analytics', 'Hejje AI', 'Risk', 'Broker', 'Server', 'Settings'];
+const ACTIVE = ['Today', 'Approvals', 'Screener', 'Strategies', 'Lab', 'Orders', 'Trades', 'Positions', 'Reviews', 'Analytics', 'Hejje AI', 'Risk', 'Broker', 'Server', 'Settings'];
 const PLACEHOLDERS = ['Pulse'];
 
 const ROUTES: Record<string, string> = {
-  Today: '/today', Approvals: '/approvals', Pulse: '/pulse', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
+  Today: '/today', Approvals: '/approvals', Pulse: '/pulse', Screener: '/screener', Strategies: '/strategies', Lab: '/lab', Orders: '/orders', Trades: '/trades', Positions: '/positions',
   Reviews: '/reviews', Analytics: '/analytics', Options: '/options', 'Hejje AI': '/agent', Risk: '/risk', Broker: '/broker', Server: '/system', Settings: '/settings',
 };
 

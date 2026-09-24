@@ -19,7 +19,7 @@ Limit checks (skipped for exposure-reducing intents — reason `POSITION_CLOSE`/
 opposite to an open position): `killSwitch`, `dailyLoss`, `realizedLoss`, `totalLoss`, `openPositions`, `tradesPerDay`,
 `riskPerTrade` (|entry−stop|×qty), `quantity`, `notional`, `marginUtilization` (broker `getOrderMargins`, else notional),
 `minRewardRisk` (when a target is set), `mandatoryStop`, `maxStopDistance`, `tradingWindow` (no new trades after 14:45),
-`averagingDown`, `reentryCooldown` (10 min since the last fill on the instrument; waived only for the children of a split order, whose whole intent passed it, M5.3), `consecutiveLosses`.
+`averagingDown`, `reentryCooldown` (10 min since the last fill on the instrument; waived only for the children of a split order, whose whole intent passed it, M5.3), `consecutiveLosses` (or, in ALLOWANCE mode, `LOSS_STREAK_ALLOWANCE`, below).
 
 ## Kill switch
 
@@ -75,3 +75,32 @@ and signal executions keep their own confirmation steps.
 
 `GET /api/v1/risk/policies` (`risk:read`) lists the rules; `PUT /api/v1/risk/policies/{id}` (`risk:write`,
 `{ "enabled", "decision", "priority", "params" }`) edits one (`POLICY_UPDATED` audit).
+
+## Loss-streak allowance and trades while green (Phase 9, M9.7)
+
+Two opt-in limits per mode (`PUT /risk/limits`; defaults keep the behaviour above, audited in `RISK_LIMITS_UPDATED`
+with the new fields):
+
+- `lossStreakMode`: `BLOCK` (default) is the `consecutiveLosses` check: new entries stop at `maxConsecutiveLosses`.
+  `ALLOWANCE` paces instead of stopping: when today's consecutive losing round trips reach `maxConsecutiveLosses` (3)
+  **or** today's realized net falls to −`allowanceDrawdown` (₹500), the day gets `lossStreakAllowance` (4) further
+  **entries** counted from that moment (an entry is an order that opened or added to a position; partial fills of one
+  order count once). After that, new entries are rejected with `LOSS_STREAK_ALLOWANCE`. A winning trade does not give
+  the allowance back. Exits are never limited.
+- `tradesPerDayWhenGreen`: `LIMIT` (default) or `UNLIMITED`: with `UNLIMITED`, `maxTradesPerDay` is not enforced while
+  today's net P&L (realized + unrealized) is at or above zero; every other limit still applies.
+
+The risk dashboard shows `lossStreakMode`, and on an ALLOWANCE day once triggered `allowanceUsed` / `allowance` and
+`allowanceReason` (web Risk page "Loss streak" row; `hejje risk`).
+
+## Risk-event size cut (Phase 9, M9.7)
+
+`hejje.risk.macro-event-size-factor` (1.0 = off; must be in (0, 1]): on a session with a market-wide macro event
+(`RBI_POLICY`, `FED_DECISION`, `INDIA_CPI`, `US_CPI`, `EMPLOYMENT_DATA`, `BUDGET`, `ELECTION`, `GEOPOLITICAL`) in the
+calendar — including the events news detects from headlines (source `news-jev`, docs/news.md) — the risk money that
+`PositionSizer` gets for **new entries of signals and bots** is multiplied by the factor for the whole session. The
+signal's sizing evidence records `sizeFactor`, `sizeFactorEvent` and `riskRupeesBeforeSizeFactor`. The backtester
+applies the same factor on the replayed sessions that have such an event in `market_event`, so backtest and live size
+alike; with the default 1.0 backtests are byte-identical to before. (The events module provides the day's event to
+risk through `SizeFactorSource`, since events already depends on risk.) Manual orders sized by the user are not
+changed.

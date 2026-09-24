@@ -4,7 +4,7 @@
 hejje:
   regime:
     enabled: true
-    classifier-version: "1"
+    classifier-version: "2"           # 2: market condition (plan M8.3)
     label-on-startup: true
     index-symbol: "INDEX:NIFTY 50"
     vix-symbol: "INDEX:INDIA VIX"
@@ -53,3 +53,16 @@ hejje:
       similar-full-points: 7
       similar-full-diff-r: 0.5
       min-similar-trades: 10
+    market-condition:                  # docs/regime.md "Market condition"; index volume = summed constituent turnover
+      distribution-drop-pct: 0.2       # close down at least this much on higher volume = distribution day
+      distribution-window: 25          # sessions a distribution day stays in the count
+      distribution-expiry-gain-pct: 5.0  # ... unless the index closes this far above that day's close first
+      follow-through-min-day: 4
+      follow-through-gain-pct: 1.25
+      pressure-count: 4                # CONFIRMED_UPTREND -> UPTREND_UNDER_PRESSURE
+      downtrend-count: 6               # -> DOWNTREND
+      downtrend-below-sma-count: 5     # -> DOWNTREND together with a close below the moving average
+      recover-count: 3                 # UPTREND_UNDER_PRESSURE -> CONFIRMED_UPTREND
+      sma: 50
+      window-sessions: 200             # the state machine runs over exactly this window ending at the session
+      min-constituents: 45             # fewer constituents with a candle -> no proxy volume -> UNKNOWN

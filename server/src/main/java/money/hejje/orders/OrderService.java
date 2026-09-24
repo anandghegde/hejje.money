@@ -261,7 +261,8 @@ public class OrderService {
         HejjeOrder withFills = new HejjeOrder(order.id(), order.intentId(), order.mode(), order.broker(),
                 update.brokerOrderId() != null ? update.brokerOrderId() : order.brokerOrderId(), order.tag(), order.instrumentId(),
                 order.side(), order.quantity(), update.filledQuantity(), update.averagePrice(), order.orderType(), order.product(),
-                order.limitPrice(), order.triggerPrice(), order.state(), update.rawStatus(),
+                // a modify (plan M9.8 re-quotes, a moved stop) is known from the broker's echo of the working prices
+                positiveOr(update.limitPrice(), order.limitPrice()), positiveOr(update.triggerPrice(), order.triggerPrice()), order.state(), update.rawStatus(),
                 order.placedAt() == null ? update.placedAt() : order.placedAt(), clock.now(), order.parentOrderId(), order.role());
         if (target != null && order.state() != target && OrderStateMachine.isLegal(order.state(), target)) {
             OrderState from = order.state();
@@ -342,5 +343,9 @@ public class OrderService {
         return new HejjeOrder(o.id(), o.intentId(), o.mode(), o.broker(), o.brokerOrderId(), o.tag(), o.instrumentId(), o.side(),
                 o.quantity(), o.filledQuantity(), o.averagePrice(), o.orderType(), o.product(), o.limitPrice(), o.triggerPrice(),
                 state, o.lastBrokerStatus(), o.placedAt(), clock.now(), o.parentOrderId(), o.role());
+    }
+
+    private static BigDecimal positiveOr(BigDecimal fromBroker, BigDecimal current) {
+        return fromBroker != null && fromBroker.signum() > 0 ? fromBroker : current;
     }
 }

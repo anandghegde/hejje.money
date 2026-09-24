@@ -61,17 +61,29 @@ class RiskController {
             BigDecimal maxMarginUtilizationPct, int maxOpenPositions, long maxGrossExposurePaise, int maxTradesPerDay,
             long maxRiskPerTradePaise, int maxQuantity, long maxNotionalPaise, BigDecimal minRewardRisk, boolean mandatoryStop,
             BigDecimal maxStopDistancePct, @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime noNewTradesAfter,
-            boolean noAveragingDown, int noReentryMinutes, int maxConsecutiveLosses) {
+            boolean noAveragingDown, int noReentryMinutes, int maxConsecutiveLosses, RiskLimits.LossStreakMode lossStreakMode,
+            Long allowanceDrawdownPaise, Integer lossStreakAllowance, RiskLimits.TradesWhenGreen tradesPerDayWhenGreen) {
     }
 
     @PutMapping("/limits")
     @PreAuthorize("hasAuthority('SCOPE_risk:write')")
     RiskLimits updateLimits(@RequestBody LimitsRequest r, @AuthenticationPrincipal HejjePrincipal principal) {
+        RiskLimits current = risk.limits(mode());
         RiskLimits limits = new RiskLimits(mode(), Money.ofPaise(r.maxLossPerDayPaise()), Money.ofPaise(r.maxRealizedLossPaise()),
                 Money.ofPaise(r.maxTotalLossPaise()), Money.ofPaise(r.maxCapitalDeployedPaise()), r.maxMarginUtilizationPct(),
                 r.maxOpenPositions(), Money.ofPaise(r.maxGrossExposurePaise()), r.maxTradesPerDay(), Money.ofPaise(r.maxRiskPerTradePaise()),
                 r.maxQuantity(), Money.ofPaise(r.maxNotionalPaise()), r.minRewardRisk(), r.mandatoryStop(), r.maxStopDistancePct(),
-                r.noNewTradesAfter(), r.noAveragingDown(), r.noReentryMinutes(), r.maxConsecutiveLosses());
+                r.noNewTradesAfter(), r.noAveragingDown(), r.noReentryMinutes(), r.maxConsecutiveLosses(), r.lossStreakMode(),
+                r.allowanceDrawdownPaise() == null ? null : Money.ofPaise(r.allowanceDrawdownPaise()),
+                r.lossStreakAllowance() == null ? current.lossStreakAllowance() : r.lossStreakAllowance(), r.tradesPerDayWhenGreen());
+        // plan M9.7 fields left out of a request keep their current values
+        limits = new RiskLimits(limits.mode(), limits.maxLossPerDay(), limits.maxRealizedLoss(), limits.maxTotalLossInclUnrealized(),
+                limits.maxCapitalDeployed(), limits.maxMarginUtilizationPct(), limits.maxOpenPositions(), limits.maxGrossExposure(), limits.maxTradesPerDay(),
+                limits.maxRiskPerTrade(), limits.maxQuantity(), limits.maxNotional(), limits.minRewardRisk(), limits.mandatoryStop(),
+                limits.maxStopDistancePct(), limits.noNewTradesAfter(), limits.noAveragingDown(), limits.noReentryMinutes(), limits.maxConsecutiveLosses(),
+                r.lossStreakMode() == null ? current.lossStreakMode() : r.lossStreakMode(),
+                r.allowanceDrawdownPaise() == null ? current.allowanceDrawdown() : limits.allowanceDrawdown(), limits.lossStreakAllowance(),
+                r.tradesPerDayWhenGreen() == null ? current.tradesPerDayWhenGreen() : r.tradesPerDayWhenGreen());
         return risk.updateLimits(limits, principal.name());
     }
 

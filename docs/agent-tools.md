@@ -16,10 +16,12 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `create_strategy_draft` | `strategies:write` | transactional | Turns a plain-language strategy description into a validated DRAFT strategy definition (YAML plus the rules in words), as a new strategy or, with `strategy`, as that strategy's next version. Hejje validates it and lets the model fix errors up to three times. A draft cannot trade: it still needs a backtest, validation and human status changes. |
 | `get_account_risk` | `risk:read` | read | Account risk dashboard (PRD 54): P&L vs the daily loss limit, exposure, open positions, trades today, consecutive losses, margin use and the kill switch. |
 | `get_audit_trail` | `admin` | read | Audit events, newest first, filtered by order id, event type or start date (at most 50). |
+| `get_bases` | `market:read` | read | Chart bases (flat base, cup with handle, cup, double bottom, moving-average reversal) of a stock, or of the whole universe by status, each with its informational trade plan (pivot, buy zone, stop, goal), lifecycle status and, once closed, the realised outcome in percent and in R. Hejje does not trade these setups. |
 | `get_event_calendar` | `market:read` | read | Market and instrument events (holidays, expiries, results, RBI/FOMC/CPI) between two dates (default the next 7 days, at most 62), plus the instrument's current event risk when an instrument is given. |
 | `get_experiment` | `strategies:read` | read | An experiment with its variants: status, rank, score, verdict (RECOMMENDED, BETTER_OUT_OF_SAMPLE, BETTER_BUT_FRAGILE, NOT_BETTER, BASELINE), metrics per split and overfitting warnings. |
+| `get_historical_analogs` | `market:read` | read | What followed past windows that looked like now. kind DAILY: D1 windows of `lookback` sessions (5,10,15,20,25,30,40,50; default 15) across the NIFTY 500, outcomes over the next 3/5/10/15 sessions. kind SESSION: today's session so far at a checkpoint (09:45, 10:15, 11:15, 13:00; default the latest passed) against past sessions, outcome to 15:10. Each outcome has count, win rate, median, quartiles, MAE/MFE and the tags direction, consistency, reliability, risk, outlier, plus a templated five-sentence read. Always quote the count with a rate; INSUFFICIENT means there is no read. |
 | `get_loss_attribution` | `market:read` | read | Where the period's losses came from (default month to date): totals, and per strategy family, strategy, trend, regime, event risk at entry, news bias at entry, exit reason, hour and instrument each bucket's share of all losses; plus family × trend combinations and a templated headline. |
-| `get_market_regime` | `market:read` | read | Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) with one evidence sentence per dimension, from the deterministic regime classifier. |
+| `get_market_regime` | `market:read` | read | Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment, and the daily market condition: CONFIRMED_UPTREND, UPTREND_UNDER_PRESSURE, RALLY_ATTEMPT or DOWNTREND from distribution and follow-through days) with one evidence sentence per dimension, from the deterministic regime classifier. |
 | `get_market_snapshot` | `market:read` | read | Latest quote (last price, bid/ask, volume, open interest, staleness) for one or up to 20 instruments. |
 | `get_news_context` | `market:read` | read | News bias for an instrument (score -1..1, label, evidence per story) plus the last 24 hours of matched headlines. |
 | `get_orders` | `market:read` | read | Today's orders in the current execution mode, optionally filtered by state (newest first). |
@@ -28,6 +30,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_pulse` | `market:read` | read | Technical Pulse (direction, strength, -100..100 score, per-rule components) and Market Pulse rows (regime, volatility, breadth, sector strength). |
 | `get_rule_adherence` | `market:read` | read | Rule adherence of reviewed trades (mean %, fully adherent, invalid setups, manual exits, net P&L of adherent vs partly adherent trades, per strategy) for the period (default month to date). |
 | `get_slippage_stats` | `market:read` | read | Entry and exit slippage in basis points (mean, median, p90, worst; positive = worse) with its estimated cost in rupees and per strategy, for the period (default month to date). |
+| `get_stock_ratings` | `market:read` | read | Daily price/volume ratings of a NIFTY 500 stock: RS rating 1-99, accumulation/distribution grade A+..E, technical composite 1-99, percent off the 52-week high and low, volume versus its 50-session average, industry group rank, with the evidence (history used, universe size, component percentiles). Technical only: no fundamentals. |
 | `get_strategy` | `strategies:read` | read | One strategy version (default the latest): rules in words (entry/exit conditions, stop, target, trailing, window), regime preferences, event rules, the best instrument's score breakdown and its deployments. |
 | `get_strategy_backtest` | `strategies:read` | read | A backtest by id, or the base backtest of a version: metrics overall and per split (IS / validation / OOS), quality warnings, data coverage and the result hash. |
 | `get_strategy_rankings` | `strategies:read` | read | Today's ranked recommendations as PRD 29 decision objects (score, TRADE / TRADE_WITH_CAUTION / WAIT / AVOID, direction, entry/stop/target, risk, regime, news bias, event risk, hard blocks, cautions) and the best one. |
@@ -39,6 +42,7 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `propose_variants` | `strategies:read` | read | Proposes 3 to 6 variants of a strategy version as deltas (filters or parameter changes) aimed at a goal, preferring out-of-sample robustness and simplicity; Hejje validates every delta. Nothing is run or saved. |
 | `run_counterfactual` | `market:read` | read | SIMULATED what-if over the period's actual trades: remove the trades matching every given category (e.g. families [MEAN_REVERSION] and trends [STRONG_UP]) and recompute net P&L, max drawdown, win rate and profit factor. Returns the actual figures alongside and basis SIMULATED; always present it as hypothetical. |
 | `run_experiment` | `strategies:write` | transactional | Backtests the base version and each variant (delta) on the same data and split, then ranks them deterministically with overfitting warnings. Runs in the background; poll get_experiment. Promoting a variant is a human action. |
+| `screen_stocks` | `market:read` | read | Runs the screener over the latest session: filters of field / operator (gte, lte, gt, lt, eq, ne, in) / value, all of which must hold, a sort field (prefix - for descending) and a limit (default 20, at most 100). The response lists the valid fields. Analog win rates (analogWinRateN) come with their counts (analogCountN); quote both. |
 | `submit_basket_intent` | `orders:prepare` | transactional | Asks a human to approve a basket: up to 20 orders executed together through the normal pipeline, hedge legs first and one at a time, with ALL_OR_NOTHING (stop at the first failed leg; rollback CLOSE_FILLED_LEGS closes the filled ones) or BEST_EFFORT. Every leg is still validated and risk-checked; nothing is placed unless a human approves it. |
 | `submit_order_intent` | `orders:prepare` | transactional | Creates an order proposal (PROPOSED intent) and an approval request for a human; the order is placed only if a human approves it in the Approvals inbox before it expires. Same input as prepare_order plus a rationale. |
 
@@ -678,7 +682,7 @@ Input schema:
     },
     "type" : {
       "type" : "string",
-      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED", "EXPERIMENT_STARTED", "EXPERIMENT_FINISHED", "STRATEGY_DRIFT_CHANGED", "STRATEGY_DRIFT_OVERRIDDEN", "AUTO_EXECUTED", "AUTO_HELD", "APPROVAL_CREATED", "BASKET_CREATED", "BASKET_FINISHED", "SPLIT_STARTED", "SPLIT_FINISHED", "OPTIONS_POSITION_OPENED", "OPTIONS_POSITION_CLOSED", "NOTIFICATION_RULE_UPDATED", "WEBHOOK_CREATED", "WEBHOOK_UPDATED", "WEBHOOK_RECEIVED", "EXECUTOR_FAILOVER", "BROKER_ACCOUNT_REGISTERED", "BROKER_ACCOUNT_ACTIVATED" ]
+      "enum" : [ "SIGNAL_CREATED", "STRATEGY_RECOMMENDED", "AGENT_RECOMMENDED", "USER_APPROVED", "RISK_CHECK_PASSED", "RISK_CHECK_REJECTED", "ORDER_SUBMITTED", "BROKER_ACCEPTED", "ORDER_FILLED", "STOP_MODIFIED", "POSITION_CLOSED", "STRATEGY_PAUSED", "KILL_SWITCH_ENABLED", "AUTH_LOGIN", "AUTH_LOGIN_FAILED", "CLIENT_CREATED", "CLIENT_REVOKED", "EGRESS_IP_STATUS_CHANGED", "INSTRUMENTS_SYNCED", "BROKER_CONNECTED", "BROKER_LOGIN_FAILED", "BROKER_DISCONNECTED", "BROKER_SESSION_EXPIRED", "BROKER_LOGGED_OUT", "ORDER_INTENT_CREATED", "RISK_CHECK_FAILED", "ORDER_CANCELLED", "ORDER_REJECTED", "ORDER_MODIFIED", "ILLEGAL_TRANSITION", "KILL_SWITCH_DISARMED", "RISK_LIMITS_UPDATED", "RECONCILIATION_ISSUE_DETECTED", "RECONCILIATION_ISSUE_RESOLVED", "EXTERNAL_ORDER_IMPORTED", "EXECUTOR_LEASE_ACQUIRED", "EXECUTION_ENABLED", "STRATEGY_CREATED", "STRATEGY_VERSION_CREATED", "STRATEGY_STATUS_CHANGED", "STRATEGY_DEPLOYED", "STRATEGY_DEPLOYMENT_UPDATED", "SIGNAL_EXPIRED", "ENTRY_REQUOTED", "ENTRY_NOT_FILLED", "SIGNAL_SKIPPED", "SIGNAL_PREPARED", "STRATEGY_STOP_PLACED", "STRATEGY_EXIT_TRIGGERED", "STOP_MISSING", "EVENT_ADDED", "EVENTS_IMPORTED", "EVENTS_REFRESHED", "LLM_BUDGET_EXCEEDED", "AGENT_TOOL_CALLED", "USER_REJECTED", "APPROVAL_EXPIRED", "APPROVAL_FAILED", "POLICY_UPDATED", "EXPERIMENT_STARTED", "EXPERIMENT_FINISHED", "STRATEGY_DRIFT_CHANGED", "STRATEGY_DRIFT_OVERRIDDEN", "AUTO_EXECUTED", "AUTO_HELD", "APPROVAL_CREATED", "BASKET_CREATED", "BASKET_FINISHED", "SPLIT_STARTED", "SPLIT_FINISHED", "OPTIONS_POSITION_OPENED", "OPTIONS_POSITION_CLOSED", "NOTIFICATION_RULE_UPDATED", "WEBHOOK_CREATED", "WEBHOOK_UPDATED", "WEBHOOK_RECEIVED", "EXECUTOR_FAILOVER", "BROKER_ACCOUNT_REGISTERED", "BROKER_ACCOUNT_ACTIVATED", "WATCHLIST_UPDATED", "SCREEN_SAVED", "SCREEN_DELETED", "JEV_BUDGET_EXCEEDED", "JEV_CIRCUIT_OPEN" ]
     },
     "from" : {
       "type" : "string",
@@ -754,6 +758,143 @@ Output schema:
     }
   },
   "required" : [ "total" ]
+}
+```
+
+## `get_bases`
+
+Chart bases (flat base, cup with handle, cup, double bottom, moving-average reversal) of a stock, or of the whole universe by status, each with its informational trade plan (pivot, buy zone, stop, goal), lifecycle status and, once closed, the realised outcome in percent and in R. Hejje does not trade these setups.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "status" : {
+      "type" : "string",
+      "enum" : [ "FORMING", "NEAR_PIVOT", "IN_BUY_ZONE", "EXTENDED", "PULLBACK", "HIT_GOAL", "STOPPED", "FAILED", "EXPIRED" ]
+    },
+    "date" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Session date; default the latest computed session"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "available" : {
+      "type" : "boolean"
+    },
+    "note" : {
+      "type" : "string"
+    },
+    "bases" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "instrumentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "CUP_WITH_HANDLE", "CUP", "DOUBLE_BOTTOM", "FLAT_BASE", "MA_REVERSAL" ]
+          },
+          "engineVersion" : {
+            "type" : "string"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "detectedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "depthPct" : {
+            "type" : "number"
+          },
+          "baseLow" : {
+            "type" : "number"
+          },
+          "pivot" : {
+            "type" : "number"
+          },
+          "buyLow" : {
+            "type" : "number"
+          },
+          "buyHigh" : {
+            "type" : "number"
+          },
+          "stop" : {
+            "type" : "number"
+          },
+          "goal" : {
+            "type" : "number"
+          },
+          "evidence" : {
+            "type" : "object"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "FORMING", "NEAR_PIVOT", "IN_BUY_ZONE", "EXTENDED", "PULLBACK", "HIT_GOAL", "STOPPED", "FAILED", "EXPIRED" ]
+          },
+          "statusDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "triggerDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "entry" : {
+            "type" : "number"
+          },
+          "volumeConfirmed" : {
+            "type" : "boolean"
+          },
+          "exit" : {
+            "type" : "number"
+          },
+          "outcomePct" : {
+            "type" : "number"
+          },
+          "outcomeR" : {
+            "type" : "number"
+          }
+        },
+        "required" : [ "depthPct" ]
+      }
+    },
+    "validated" : {
+      "type" : "boolean"
+    }
+  },
+  "required" : [ "available", "validated" ]
 }
 ```
 
@@ -1183,6 +1324,289 @@ Output schema:
 }
 ```
 
+## `get_historical_analogs`
+
+What followed past windows that looked like now. kind DAILY: D1 windows of `lookback` sessions (5,10,15,20,25,30,40,50; default 15) across the NIFTY 500, outcomes over the next 3/5/10/15 sessions. kind SESSION: today's session so far at a checkpoint (09:45, 10:15, 11:15, 13:00; default the latest passed) against past sessions, outcome to 15:10. Each outcome has count, win rate, median, quartiles, MAE/MFE and the tags direction, consistency, reliability, risk, outlier, plus a templated five-sentence read. Always quote the count with a rate; INSUFFICIENT means there is no read.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "kind" : {
+      "type" : "string",
+      "enum" : [ "DAILY", "SESSION" ]
+    },
+    "lookback" : {
+      "type" : "integer",
+      "minimum" : 5,
+      "maximum" : 50
+    },
+    "checkpoint" : {
+      "type" : "string",
+      "pattern" : "^[0-9]{2}:[0-9]{2}$"
+    },
+    "date" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Session date; default the latest computed session"
+    }
+  },
+  "required" : [ "instrument" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "available" : {
+      "type" : "boolean"
+    },
+    "note" : {
+      "type" : "string"
+    },
+    "summary" : {
+      "type" : "object",
+      "properties" : {
+        "sessionDate" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "instrumentId" : {
+          "type" : "string",
+          "format" : "uuid"
+        },
+        "symbol" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string",
+          "enum" : [ "DAILY", "SESSION" ]
+        },
+        "lookback" : {
+          "type" : "integer"
+        },
+        "checkpoint" : {
+          "type" : "string"
+        },
+        "engineVersion" : {
+          "type" : "string"
+        },
+        "candidates" : {
+          "type" : "integer"
+        },
+        "compared" : {
+          "type" : "integer"
+        },
+        "matches" : {
+          "type" : "integer"
+        },
+        "medianQuality" : {
+          "type" : "number"
+        },
+        "qualityTag" : {
+          "type" : "string"
+        },
+        "outcomes" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "forward" : {
+                "type" : "string"
+              },
+              "count" : {
+                "type" : "integer"
+              },
+              "winRate" : {
+                "type" : "number"
+              },
+              "mean" : {
+                "type" : "number"
+              },
+              "median" : {
+                "type" : "number"
+              },
+              "p25" : {
+                "type" : "number"
+              },
+              "p75" : {
+                "type" : "number"
+              },
+              "best" : {
+                "type" : "number"
+              },
+              "worst" : {
+                "type" : "number"
+              },
+              "maeMedian" : {
+                "type" : "number"
+              },
+              "maeP25" : {
+                "type" : "number"
+              },
+              "mfeMedian" : {
+                "type" : "number"
+              },
+              "mfeP75" : {
+                "type" : "number"
+              },
+              "avgPath" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "number"
+                }
+              },
+              "p25Path" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "number"
+                }
+              },
+              "p75Path" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "number"
+                }
+              },
+              "distinctSymbols" : {
+                "type" : "integer"
+              },
+              "distinctYears" : {
+                "type" : "integer"
+              },
+              "direction" : {
+                "type" : "string"
+              },
+              "consistency" : {
+                "type" : "string"
+              },
+              "reliability" : {
+                "type" : "string"
+              },
+              "risk" : {
+                "type" : "string"
+              },
+              "outlier" : {
+                "type" : "boolean"
+              }
+            },
+            "required" : [ "count", "winRate", "mean", "median", "p25", "p75", "best", "worst", "maeMedian", "maeP25", "mfeMedian", "mfeP75", "distinctSymbols", "distinctYears", "outlier" ]
+          }
+        },
+        "splits" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "name" : {
+                "type" : "string"
+              },
+              "forward" : {
+                "type" : "string"
+              },
+              "count" : {
+                "type" : "integer"
+              },
+              "winRate" : {
+                "type" : "number"
+              },
+              "median" : {
+                "type" : "number"
+              },
+              "otherCount" : {
+                "type" : "integer"
+              },
+              "otherWinRate" : {
+                "type" : "number"
+              },
+              "otherMedian" : {
+                "type" : "number"
+              }
+            },
+            "required" : [ "count", "winRate", "median", "otherCount", "otherWinRate", "otherMedian" ]
+          }
+        },
+        "context" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "lookback" : {
+                "type" : "integer"
+              },
+              "volatility" : {
+                "type" : "number"
+              },
+              "trend" : {
+                "type" : "number"
+              },
+              "rangePosition" : {
+                "type" : "number"
+              },
+              "volumeZ" : {
+                "type" : "number"
+              },
+              "maxDrawdown" : {
+                "type" : "number"
+              }
+            },
+            "required" : [ "lookback", "volatility", "trend", "rangePosition", "volumeZ", "maxDrawdown" ]
+          }
+        },
+        "narrative" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string"
+          }
+        },
+        "session" : {
+          "type" : "object",
+          "properties" : {
+            "count" : {
+              "type" : "integer"
+            },
+            "highHeld" : {
+              "type" : "integer"
+            },
+            "lowHeld" : {
+              "type" : "integer"
+            },
+            "medianHighTime" : {
+              "type" : "string"
+            },
+            "medianLowTime" : {
+              "type" : "string"
+            },
+            "medianReturnAtr" : {
+              "type" : "number"
+            }
+          },
+          "required" : [ "count", "highHeld", "lowHeld", "medianReturnAtr" ]
+        }
+      },
+      "required" : [ "lookback", "candidates", "compared", "matches", "medianQuality" ]
+    },
+    "validated" : {
+      "type" : "boolean"
+    }
+  },
+  "required" : [ "available", "validated" ]
+}
+```
+
 ## `get_loss_attribution`
 
 Where the period's losses came from (default month to date): totals, and per strategy family, strategy, trend, regime, event risk at entry, news bias at entry, exit reason, hour and instrument each bucket's share of all losses; plus family × trend combinations and a templated headline.
@@ -1325,7 +1749,7 @@ Output schema:
 
 ## `get_market_regime`
 
-Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment) with one evidence sentence per dimension, from the deterministic regime classifier.
+Current market regime labels (trend, volatility, opening, breadth, intraday structure, event environment, and the daily market condition: CONFIRMED_UPTREND, UPTREND_UNDER_PRESSURE, RALLY_ATTEMPT or DOWNTREND from distribution and follow-through days) with one evidence sentence per dimension, from the deterministic regime classifier.
 
 Scope `market:read`, read-only.
 
@@ -1371,6 +1795,9 @@ Output schema:
       "type" : "string"
     },
     "eventEnvironment" : {
+      "type" : "string"
+    },
+    "marketCondition" : {
       "type" : "string"
     },
     "evidence" : {
@@ -2157,8 +2584,153 @@ Output schema:
           }
         }
       }
+    },
+    "passive" : {
+      "type" : "object",
+      "properties" : {
+        "placed" : {
+          "type" : "integer"
+        },
+        "filled" : {
+          "type" : "integer"
+        },
+        "notFilled" : {
+          "type" : "integer"
+        },
+        "fillRate" : {
+          "type" : "number"
+        },
+        "meanSecondsToFill" : {
+          "type" : "number"
+        },
+        "passiveEntrySlippageBps" : {
+          "type" : "number"
+        },
+        "passiveWithSlippage" : {
+          "type" : "integer"
+        },
+        "marketEntrySlippageBps" : {
+          "type" : "number"
+        },
+        "marketWithSlippage" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [ "placed", "filled", "notFilled", "passiveWithSlippage", "marketWithSlippage" ]
     }
   }
+}
+```
+
+## `get_stock_ratings`
+
+Daily price/volume ratings of a NIFTY 500 stock: RS rating 1-99, accumulation/distribution grade A+..E, technical composite 1-99, percent off the 52-week high and low, volume versus its 50-session average, industry group rank, with the evidence (history used, universe size, component percentiles). Technical only: no fundamentals.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "instrument" : {
+      "type" : "string",
+      "minLength" : 1,
+      "description" : "Hejje symbol such as NSE:RELIANCE or INDEX:NIFTY 50, or an instrument id"
+    },
+    "date" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Session date; default the latest computed session"
+    }
+  },
+  "required" : [ "instrument" ],
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "available" : {
+      "type" : "boolean"
+    },
+    "note" : {
+      "type" : "string"
+    },
+    "rating" : {
+      "type" : "object",
+      "properties" : {
+        "sessionDate" : {
+          "type" : "string",
+          "format" : "date"
+        },
+        "instrumentId" : {
+          "type" : "string",
+          "format" : "uuid"
+        },
+        "engineVersion" : {
+          "type" : "string"
+        },
+        "symbol" : {
+          "type" : "string"
+        },
+        "rsRaw" : {
+          "type" : "number"
+        },
+        "rsRating" : {
+          "type" : "integer"
+        },
+        "adRaw" : {
+          "type" : "number"
+        },
+        "adGrade" : {
+          "type" : "string"
+        },
+        "offHighPct" : {
+          "type" : "number"
+        },
+        "offLowPct" : {
+          "type" : "number"
+        },
+        "volVsAvg50Pct" : {
+          "type" : "number"
+        },
+        "upDownVolRatio" : {
+          "type" : "number"
+        },
+        "avgTurnoverCr" : {
+          "type" : "number"
+        },
+        "close" : {
+          "type" : "number"
+        },
+        "changePct" : {
+          "type" : "number"
+        },
+        "groupId" : {
+          "type" : "string"
+        },
+        "groupRank" : {
+          "type" : "integer"
+        },
+        "techComposite" : {
+          "type" : "integer"
+        },
+        "evidence" : {
+          "type" : "object"
+        }
+      }
+    },
+    "validated" : {
+      "type" : "boolean"
+    }
+  },
+  "required" : [ "available", "validated" ]
 }
 ```
 
@@ -3941,6 +4513,93 @@ Output schema:
       }
     }
   }
+}
+```
+
+## `screen_stocks`
+
+Runs the screener over the latest session: filters of field / operator (gte, lte, gt, lt, eq, ne, in) / value, all of which must hold, a sort field (prefix - for descending) and a limit (default 20, at most 100). The response lists the valid fields. Analog win rates (analogWinRateN) come with their counts (analogCountN); quote both.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "filters" : {
+      "type" : "array",
+      "maxItems" : 12,
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "op" : {
+            "type" : "string",
+            "enum" : [ "gte", "lte", "gt", "lt", "eq", "ne", "in" ]
+          },
+          "value" : { }
+        },
+        "required" : [ "field", "op", "value" ],
+        "additionalProperties" : false
+      }
+    },
+    "sort" : {
+      "type" : "string"
+    },
+    "limit" : {
+      "type" : "integer",
+      "minimum" : 1,
+      "maximum" : 100
+    },
+    "date" : {
+      "type" : "string",
+      "format" : "date",
+      "description" : "Session date; default the latest computed session"
+    }
+  },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "available" : {
+      "type" : "boolean"
+    },
+    "note" : {
+      "type" : "string"
+    },
+    "date" : {
+      "type" : "string"
+    },
+    "universe" : {
+      "type" : "integer"
+    },
+    "matched" : {
+      "type" : "integer"
+    },
+    "fields" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "rows" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object"
+      }
+    }
+  },
+  "required" : [ "available", "universe", "matched" ]
 }
 ```
 

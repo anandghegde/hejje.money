@@ -18,7 +18,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
         "hejje.sim.start=2026-09-08T03:45:00Z",
         "hejje.instruments.sync-on-startup=true",          // the fake broker's fixture master (no exported live master here)
         "hejje.strategy.allow-forced-status=true",
+        "hejje.analogs.enabled=true",                        // SessionAnalogSimIT; every SIM IT shares this one context
+        "hejje.analogs.session.universe=ratings-test",      // five fixture equities (test resources)
         "hejje.sim.decision-timeout=PT0.5S",                // a bot's unanswered decision point is SKIPPED quickly
+        "hejje.jev.enabled=true",                            // FixtureJev for the Jev bot (JevBotSimIT)
+        "hejje.jev.base-url=fixture",
         "hejje.auth.admin-password=sim-admin-password",
         "hejje.auth.jwt-secret=sim-secret-sim-secret-sim-secret-sim-secret",
         "hejje.security.encryption-key=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

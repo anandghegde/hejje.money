@@ -142,6 +142,36 @@ class RegimeInputs {
         return out;
     }
 
+    /**
+     * The index volume proxy (docs/regime.md): per session, the summed D1 turnover ({@code close x volume}) of the
+     * constituents, and how many of them had a candle. {@code INDEX:NIFTY 50} itself carries no volume.
+     */
+    TreeMap<LocalDate, double[]> constituentTurnover(LocalDate from, LocalDate to) {
+        TreeMap<LocalDate, double[]> out = new TreeMap<>();
+        ZoneId zone = clock.zone();
+        for (Instrument i : universe.instruments()) {
+            for (Candle c : daily(i.id(), from, to)) {
+                double[] cell = out.computeIfAbsent(c.openTime().atZone(zone).toLocalDate(), d -> new double[2]);
+                cell[0] += c.close().doubleValue() * c.volume();
+                cell[1]++;
+            }
+        }
+        return out;
+    }
+
+    /** A session's turnover from the constituents' intraday bars (last close x summed volume), for a day without D1 candles yet. */
+    double[] constituentTurnoverIntraday(LocalDate date, Instant asOf) {
+        double[] cell = new double[2];
+        for (Instrument i : universe.instruments()) {
+            List<Bar> bars = intraday(i.id(), date, asOf).bars();
+            if (!bars.isEmpty()) {
+                cell[0] += bars.get(bars.size() - 1).close() * bars.stream().mapToDouble(Bar::volume).sum();
+                cell[1]++;
+            }
+        }
+        return cell;
+    }
+
     BreadthInput breadthHistorical(LocalDate date, Map<String, TreeMap<LocalDate, Double>> closes) {
         List<BreadthInput.Constituent> out = new ArrayList<>();
         for (Map.Entry<String, TreeMap<LocalDate, Double>> e : closes.entrySet()) {

@@ -41,6 +41,10 @@ final class IndicatorFactory {
             case "supertrend" -> new Supertrend(intArg(args, 0), numArg(args, 1));
             case "prev_day_nr" -> SessionIndicators.prevDayNr(session, intArg(args, 0));
             case "opening_return" -> new OpeningReturn(durationArg(args, 0), session);
+            case "book_imbalance" -> MicroIndicators.bookImbalance();
+            case "book_imbalance_mean" -> MicroIndicators.bookImbalanceMean();
+            case "buy_sell_qty_ratio" -> MicroIndicators.buySellQtyRatio();
+            case "flow_up_share" -> MicroIndicators.flowUpShare(intArg(args, 0));
             default -> throw new IllegalArgumentException("Unknown indicator '" + name + "'");
         };
     }

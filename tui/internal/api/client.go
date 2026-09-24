@@ -304,6 +304,11 @@ func (c *Client) Pulse() (PulseSnapshot, error) {
 
 // Hejje AI (M4.3)
 
+func (c *Client) JevStatus() (JevStatus, error) {
+	var s JevStatus
+	return s, c.do(http.MethodGet, "/jev/status", nil, false, &s)
+}
+
 func (c *Client) AiStatus() (AiStatus, error) {
 	var s AiStatus
 	return s, c.do(http.MethodGet, "/agents/ai/status", nil, false, &s)

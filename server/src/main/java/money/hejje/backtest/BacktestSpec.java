@@ -20,9 +20,17 @@ import money.hejje.common.Timeframe;
  * @param splits          split scheme (default FIXED 60/20/20)
  * @param initialCapital  capital for return, Sharpe and percent-of-capital sizing (default 10,00,000)
  * @param riskPerTrade    money risked per trade; null = the definition's position sizing, else the module default
+ * @param sessionFilter   research only (plan M8.8): per-session allowed instruments and sides; null = unrestricted
  */
 public record BacktestSpec(UUID versionId, List<UUID> instrumentIds, Timeframe timeframe, LocalDate from, LocalDate to,
-        FillModel fillModel, int slippageBps, String costModelVersion, Splits splits, Money initialCapital, Money riskPerTrade) {
+        FillModel fillModel, int slippageBps, String costModelVersion, Splits splits, Money initialCapital, Money riskPerTrade,
+        SessionFilter sessionFilter) {
+
+    /** An unrestricted run. */
+    public BacktestSpec(UUID versionId, List<UUID> instrumentIds, Timeframe timeframe, LocalDate from, LocalDate to, FillModel fillModel,
+            int slippageBps, String costModelVersion, Splits splits, Money initialCapital, Money riskPerTrade) {
+        this(versionId, instrumentIds, timeframe, from, to, fillModel, slippageBps, costModelVersion, splits, initialCapital, riskPerTrade, null);
+    }
 
     public BacktestSpec {
         if (versionId == null) {

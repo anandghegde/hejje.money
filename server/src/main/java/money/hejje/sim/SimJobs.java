@@ -33,14 +33,17 @@ public final class SimJobs {
         run(m, "ExecutorBootstrap#retryIfWaitingForLease", "enables execution once the lease is held");
         run(m, "OptionsPositionMonitor#tick", "options exits");
         run(m, "SignalHousekeeping#expire", "signal validity");
+        run(m, "PassiveEntries#sweep", "passive entries re-quote and expire on simulation time");
         run(m, "AutoSignalListener#sweep", "AUTO re-offers actionable signals");
         run(m, "ApprovalExpiry#sweep", "approval expiry");
         run(m, "RegimeRefresh#intradaySnapshot", "regime as of simulation time");
         run(m, "RegimeRefresh#finalLabel", "the session's final regime label");
         run(m, "PulseRefresh#refresh", "Market Pulse as of simulation time");
+        run(m, "SessionAnalogJob#checkpoints", "session analogs at each checkpoint of the simulated session; candidates are sessions before the simulation date");
         run(m, "EventRefresh#daily", "event calendar from config files");
         run(m, "ScoreRefresh#refreshDeployed", "Hejje Score of deployed versions");
         run(m, "DriftSweep#sweep", "live-vs-backtest drift of simulated trades");
+        run(m, "TradeCauseJob#complete", "trade causes of simulated trades once their post-exit window has passed on simulation time");
         run(m, "IdempotencyStore#cleanup", "expired idempotency records");
         skip(m, "MarketDataStreamer#reconnectIfNeeded", "no live market stream: the replay feeds the pipeline");
         skip(m, "BrokerSessionService#dailyExpiry", "no broker session: SIM runs only the fake adapter");
@@ -51,6 +54,10 @@ public final class SimJobs {
         skip(m, "NotifyWatchers#check", "a simulation sends no notifications");
         skip(m, "EgressIpVerifier#scheduledCheck", "network check of the live host");
         skip(m, "ClockDriftChecker#scheduledCheck", "compares the wall clock with NTP; simulation time is not wall time");
+        skip(m, "DailyRefresh#scheduled", "SIM reads the stored daily history; nothing is fetched from a broker");
+        skip(m, "AnalogsNightly#pruneMatches", "housekeeping of the live database");
+        skip(m, "JevRetention#prune", "housekeeping of the live database");
+        skip(m, "CalibrationJob#nightly", "SIM labels predictions at the end of the session (SimReports), from the replayed candles");
         skip(m, "CandleRetentionJob#prune", "the SIM database is not the operational candle store");
         // library jobs (not covered by SimJobsCoverageTest, which scans money.hejje; SimModeIT boots the full context)
         skip(m, "Moments#everyHour", "Spring Modulith time-passage events on the wall clock; nothing in Hejje listens to them");

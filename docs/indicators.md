@@ -36,6 +36,14 @@ has no Supertrend, CPR, NR flag or opening return, so those references are panda
 | `supertrend(n, k)` | bar n+1 (with `atr(n)`) | bands `hl2 ± k × atr(n)`; the final upper band only falls (final lower only rises) unless the previous close broke it; the line is the final lower band in an uptrend, the final upper band in a downtrend; flips on a close through the band; the first value starts in an uptrend; continuous across sessions |
 | `prev_day_nr(n)` | session n+1 | 1 when the previous session's range (H − L) is the smallest of the last n completed sessions' ranges (ties count as smallest), else 0; ranges tracked from the intraday bars like `prev_day_high` |
 | `opening_return(d)` | the bar closing at 09:15 + d, from the second session | (close of that bar − previous close) / previous close × 100; constant for the rest of the session (the first bar closing after 09:15 + d when that bar is missing) |
+| `book_imbalance` | a bar with order-book data | (bid5 − ask5) / (bid5 + ask5) at the bar's last tick with depth (docs/market-data.md "Order book and flow") |
+| `book_imbalance_mean` | a bar with order-book data | the bar's mean imbalance over its ticks with depth |
+| `buy_sell_qty_ratio` | a bar with order-book data | the exchange's total buy / total sell quantity at the bar's last tick carrying both |
+| `flow_up_share(n)` | n bars in a row with order-book data | up volume / (up + down volume) summed over the last n bars (default 5) |
+
+The four order-book and flow indicators (plan M9.4) are **live-only**: they read the bar's micro data, which exists
+only for bars built from live or recorded FULL-mode ticks. On any bar without it they are not ready, so over candle
+history (every backtest) a condition using them is always `NOT_READY` and never passes.
 
 Sessions are IST dates of the candle open time. Warm-up needs one full previous session for the previous-day, gap and
 relative-volume indicators, n completed sessions for `prev_day_nr(n)` (the default 20-calendar-day warm-up of the

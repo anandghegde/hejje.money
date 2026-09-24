@@ -71,6 +71,16 @@ class AnalyticsController {
         return analytics.losses(mode == null ? analytics.mode() : mode, p[0], p[1]);
     }
 
+    /** Plan M9.7: does trading more each day hurt? The period defaults to month to date. */
+    @GetMapping("/analytics/pace")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    money.hejje.analytics.PaceReport pace(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to, @RequestParam(required = false) ExecutionMode mode,
+            @RequestParam(required = false) String strategy) {
+        LocalDate[] p = period(from, to);
+        return analytics.pace(mode == null ? analytics.mode() : mode, p[0], p[1], strategy);
+    }
+
     @GetMapping("/analytics/slippage")
     @PreAuthorize("hasAuthority('SCOPE_market:read')")
     money.hejje.analytics.SlippageReport slippage(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
@@ -104,6 +114,14 @@ class AnalyticsController {
     @PreAuthorize("hasAuthority('SCOPE_market:read')")
     List<TradeReview> reviews(@RequestParam(defaultValue = "100") int limit, @RequestParam(required = false) ExecutionMode mode) {
         return analytics.reviews(mode == null ? analytics.mode() : mode, Math.max(1, Math.min(limit, 500)));
+    }
+
+    /** Plan M9.6: the rules' trade causes against Jev's over completed reviews (default: the last 30 days). */
+    @GetMapping("/reviews/cause-agreement")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    ReviewService.CauseAgreement causeAgreement(@RequestParam(required = false) java.time.LocalDate from, @RequestParam(required = false) java.time.LocalDate to) {
+        java.time.LocalDate end = to == null ? clock.today() : to;
+        return reviews.causeAgreement(from == null ? end.minusDays(30) : from, end);
     }
 
     @GetMapping("/reviews/{id}")

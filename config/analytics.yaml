@@ -1,0 +1,16 @@
+# Analytics thresholds (docs/analytics.md). Imported by the server like regime.yaml; a file next to the jar overrides it.
+hejje:
+  analytics:
+    cause:                       # plan M9.6: trade cause and entry timing of every closed trade
+      extended-atr: 1.5          # BAD_ENTRY: move in the trade's direction over the previous 15 min, in ATR(14) of M1
+      vwap-atr: 2.0              # BAD_ENTRY: entry this many ATR from VWAP in the trade's direction
+      clean-target-mae-r: -0.5   # CLEAN_TARGET: target hit with MAE better than this
+      noise-recovery-r: 1.0      # NOISE_STOP: after the stop the price regained the entry and reached this
+      drift-r: 0.3               # DRIFT: time or force exit with |R| under this
+      early-mae-r: -0.7          # EARLY: MAE reached this before MFE reached early-mfe-r
+      early-mfe-r: 0.5
+      late-mfe-r: 0.3            # LATE: MFE under this and the entry in the top/bottom late-range-share of the previous 30 min
+      late-range-share: 0.2
+      pre-entry-minutes: 15
+      range-minutes: 30
+      post-exit-minutes: 30      # the window after the exit; the review is completed 35 minutes after the close

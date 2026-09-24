@@ -73,3 +73,27 @@ ITM/ATM/OTM, put LTP / delta / IV / OI; the ATM row highlighted; `*` marks a sta
 put/call ratios and max pain, and the options positions (legs, status, exit reason, realized P&L). The Lab's
 "Option legs…" builder composes a `legs:` block (action, option side, strike by ATM / offset / delta, expiry, lots,
 premium stop/target, hedge first) and writes it into the definition being edited.
+
+## Daily context (Phase 8, M8.7)
+
+Two pages over the ratings and analogs modules (`docs/ratings.md`, `docs/analogs.md`). Both say so when a module is
+switched off (the API answers 503) and nothing else changes. Everything on them is labelled **not validated** until the
+pre-registered validation passes (`docs/strategies/context-validation.md`): it is context, it changes no score or decision.
+Every rate is shown with its count (`27 of 40 (68 %)`).
+
+- **Screener** (`/screener`): the market condition banner with its evidence sentence; list tabs (Setups, the default and
+  the combined ordering: in buy zone → triggered → near pivot; In buy zone; Near pivot; Leaders; On the move; Top groups);
+  a **Custom screen** tab with a filter builder over the documented field list (`GET /ratings/screen/fields`), sort, run,
+  save and delete; saved and seeded screens load into the builder. Tables are TanStack Table, sortable client-side; a
+  symbol is one click from its stock page.
+- **Stock** (`/stocks/:symbol`): the ratings block; a D1 `lightweight-charts` candlestick chart with the 20/50/200-DMA
+  and, for the open base, the pivot, buy zone top, stop and goal as price lines and the base start, detection and trigger
+  as markers; the trade plan (informational); the RS/composite and session-analog line; the **analog panel** per lookback
+  (average forward path with the 25–75 band, the outcome table per forward window with counts and tags, the templated
+  read, seasonality, and the match table with quality, similarity, forward returns and a sparkline per match, sorted
+  client-side because the API returns matches unordered); past setups with their outcome in % and R; a watchlist toggle.
+- **Pulse** gains the Market condition row (the evidence sentence is its tooltip). **Today** shows, per candidate, the
+  stock's RS and technical composite and the latest session-analog line with a link to the stock page: display only.
+
+Pure helpers live in `src/lib/context.ts` (`tests/context.test.ts`); the Playwright smoke is `tests-e2e/context.spec.ts`
+(server with `HEJJE_RATINGS_ENABLED=true HEJJE_ANALOGS_ENABLED=true HEJJE_RATINGS_UNIVERSE=nifty50 HEJJE_ANALOGS_UNIVERSE=nifty50`).

@@ -60,7 +60,16 @@ class BacktestController {
 
     /** Either {@code versionId} or {@code strategyId + version}; instruments as Hejje symbols. Money in rupees. */
     record SubmitRequest(UUID versionId, UUID strategyId, Integer version, List<String> instruments, Timeframe timeframe, LocalDate from, LocalDate to,
-            FillModel fillModel, Integer slippageBps, String costModelVersion, Splits splits, Long initialCapitalRupees, Long riskPerTradeRupees) {}
+            FillModel fillModel, Integer slippageBps, String costModelVersion, Splits splits, Long initialCapitalRupees, Long riskPerTradeRupees,
+            FilterRequest sessionFilter) {}
+
+    /**
+     * Research only (plan M8.8): per session date the instruments (Hejje symbols; null = any) and sides ({@code BUY}, {@code SELL}; null = both)
+     * that may be entered. {@code unlistedDates}: {@code BLOCK} (default) or {@code ALLOW} for sessions without a rule.
+     */
+    record FilterRequest(java.util.Map<LocalDate, DayRule> days, String unlistedDates) {}
+
+    record DayRule(List<String> instruments, List<money.hejje.common.Side> sides) {}
 
     @PostMapping
     @PreAuthorize("hasAuthority('SCOPE_strategies:write')")
@@ -78,8 +87,24 @@ class BacktestController {
         BacktestSpec spec = new BacktestSpec(versionId, instrumentIds, r.timeframe(), r.from(), r.to(), r.fillModel(),
                 r.slippageBps() == null ? 5 : r.slippageBps(), r.costModelVersion(), r.splits(),
                 r.initialCapitalRupees() == null ? null : Money.ofRupees(r.initialCapitalRupees()),
-                r.riskPerTradeRupees() == null ? null : Money.ofRupees(r.riskPerTradeRupees()));
+                r.riskPerTradeRupees() == null ? null : Money.ofRupees(r.riskPerTradeRupees()), filter(r.sessionFilter()));
         return backtests.submit(spec, principal.name());
+    }
+
+    private money.hejje.backtest.SessionFilter filter(FilterRequest r) {
+        if (r == null) {
+            return null;
+        }
+        if (r.unlistedDates() != null && !List.of("BLOCK", "ALLOW").contains(r.unlistedDates())) {
+            throw new IllegalArgumentException("sessionFilter.unlistedDates must be BLOCK or ALLOW");
+        }
+        java.util.Map<LocalDate, money.hejje.backtest.SessionFilter.Rule> days = new java.util.TreeMap<>();
+        if (r.days() != null) {
+            r.days().forEach((date, rule) -> days.put(date, new money.hejje.backtest.SessionFilter.Rule(
+                    rule.instruments() == null ? null : rule.instruments().stream().map(this::instrumentIdOf).collect(java.util.stream.Collectors.toSet()),
+                    rule.sides() == null ? null : java.util.Set.copyOf(rule.sides()))));
+        }
+        return new money.hejje.backtest.SessionFilter(days, !"ALLOW".equals(r.unlistedDates()));
     }
 
     @GetMapping

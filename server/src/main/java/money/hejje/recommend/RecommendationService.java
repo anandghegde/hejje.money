@@ -28,6 +28,7 @@ import money.hejje.pulse.PulseService;
 import money.hejje.risk.RiskService;
 import money.hejje.instruments.Instrument;
 import money.hejje.instruments.InstrumentService;
+import money.hejje.jev.SignalCheck;
 import money.hejje.market.MarketProperties;
 import money.hejje.market.MarketService;
 import money.hejje.market.QuoteSnapshot;
@@ -56,6 +57,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class RecommendationService {
 
+    private final SignalCheck jevCheck;
     private final StrategyService strategies;
     private final SignalService signals;
     private final ScoringService scoring;
@@ -76,7 +78,9 @@ public class RecommendationService {
 
     RecommendationService(StrategyService strategies, SignalService signals, ScoringService scoring, BacktestService backtests, InstrumentService instruments,
             MarketService market, MarketProperties marketProperties, RecommendationStore store, RecommendProperties properties, HejjeProperties hejje,
-            RegimeService regime, EventService events, NewsService news, ContextService context, PulseService pulse, RiskService risk, HejjeClock clock) {
+            RegimeService regime, EventService events, NewsService news, ContextService context, PulseService pulse, RiskService risk, HejjeClock clock,
+            SignalCheck jevCheck) {
+        this.jevCheck = jevCheck;
         this.regime = regime;
         this.events = events;
         this.news = news;
@@ -155,6 +159,9 @@ public class RecommendationService {
             risks.add("No active signal: waiting for the setup to form");
         } else {
             for (Map<String, Object> e : signal.evidence()) {
+                if (e.containsKey("jevCheck")) {
+                    continue; // the Jev signal check is an annotation, shown below
+                }
                 evidence.add(("PASSED".equals(e.get("status")) ? "✓ " : "✗ ") + e.get("condition")
                         + (e.get("lhs") == null ? "" : " (" + fmt(e.get("lhs")) + " vs " + fmt(e.get("rhs")) + ")"));
             }
@@ -209,6 +216,17 @@ public class RecommendationService {
                 if (opposing >= properties.caution().newsOpposingScore()) {
                     cautions.add(new Caution("NEWS_OPPOSING", String.format(java.util.Locale.ROOT, "News bias %s %+.2f opposes the %s signal", newsBias.label(),
                             newsBias.score(), signal.side() == Side.BUY ? "long" : "short")));
+                }
+            }
+            // plan M9.5: the Jev signal check, shown when present; a disagreement is a caution from gate=caution up
+            Optional<SignalCheck.Result> jev = SignalCheck.stored(signal);
+            if (jev.isPresent()) {
+                if (jev.get().agrees()) {
+                    evidence.add("✓ " + jev.get().line());
+                } else if (jevCheck.gate() == SignalCheck.Gate.OFF) {
+                    risks.add("⚠ " + jev.get().line());
+                } else {
+                    cautions.add(new Caution(SignalCheck.DISAGREES, jev.get().line()));
                 }
             }
             // stale beyond the readiness threshold is already a hard block; the cache's own staleness flag covers the gap before it

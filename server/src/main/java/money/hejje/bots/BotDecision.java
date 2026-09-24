@@ -21,9 +21,19 @@ public record BotDecision(UUID id, UUID botId, String pointId, String instrument
      */
     public enum Outcome { EXECUTED, APPROVAL, EXITING, MOVED, NOTED, REFUSED, SKIPPED }
 
-    /** A decision as a bot sends it. {@code stop} is required for entries; quantity is always Hejje's. */
+    /**
+     * A decision as a bot sends it. {@code stop} is required for entries; quantity is always Hejje's. {@code entryOrder}
+     * (plan M9.8, optional, entries only): {@code {"type": "limit_touch", "maxRequotes": 3, "cancelAfterSeconds": 90,
+     * "maxChaseBps": 10}}; absent means market.
+     */
     public record Input(String instrument, String action, BigDecimal stop, BigDecimal target, Double confidence, String thesis, String stage,
-            Map<String, Object> scores, List<Object> candidates) {}
+            Map<String, Object> scores, List<Object> candidates, Map<String, Object> entryOrder) {
+
+        public Input(String instrument, String action, BigDecimal stop, BigDecimal target, Double confidence, String thesis, String stage,
+                Map<String, Object> scores, List<Object> candidates) {
+            this(instrument, action, stop, target, confidence, thesis, stage, scores, candidates, null);
+        }
+    }
 
     /**
      * A bot's answer to one decision point (WebSocket reply or {@code POST /bots/{id}/decisions}); {@code usage} is what an

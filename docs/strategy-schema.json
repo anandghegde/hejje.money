@@ -292,6 +292,34 @@
         }
       }
     },
+    "entry_order": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the entry is placed (plan M9.8, docs/signals.md): market (default) or a passive limit at the touch that re-quotes",
+      "properties": {
+        "type": {
+          "enum": [
+            "market",
+            "limit_touch"
+          ]
+        },
+        "max_requotes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "cancel_after_seconds": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 900
+        },
+        "max_chase_bps": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
     "legs": {
       "type": "array",
       "minItems": 1,

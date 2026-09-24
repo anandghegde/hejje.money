@@ -56,6 +56,11 @@ public class SignalStore {
                 .param("updatedAt", ts(s.updatedAt())).param("id", s.id()).update();
     }
 
+    /** Appends one entry to a signal's evidence (plan M9.5: the Jev signal check's annotation). */
+    public void appendEvidence(UUID id, java.util.Map<String, Object> entry) {
+        jdbc.sql("UPDATE signal SET evidence = evidence || CAST(:entry AS jsonb) WHERE id = :id").param("entry", write(List.of(entry))).param("id", id).update();
+    }
+
     public Optional<Signal> find(UUID id) {
         return jdbc.sql("SELECT * FROM signal WHERE id = :id").param("id", id).query(this::mapSignal).optional();
     }

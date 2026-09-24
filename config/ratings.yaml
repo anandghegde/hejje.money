@@ -1,0 +1,57 @@
+# Daily context: ratings, groups, bases and lists (plan Phase 8, docs/ratings.md). Loaded by the server
+# (spring.config.import) when present next to the working directory or one level up; the copy inside the jar is the
+# fallback. Rows are immutable: bump engine-version whenever a formula or threshold below changes.
+hejje:
+  ratings:
+    enabled: false
+    universe: nifty500                  # config/universe/<name>.yaml, D1 only
+    engine-version: "1"
+    refresh-sessions: 5
+    formula:
+      quarter-sessions: 63              # RS horizons are 1..4 quarters
+      rs-weights: [0.4, 0.2, 0.2, 0.2]  # newest quarter first
+      ad-sessions: 65
+      high-low-sessions: 252
+      volume-sessions: 50
+      min-group-members: 3
+      composite-weights: { rs: 0.5, ad: 0.2, group: 0.15, off-high: 0.15 }
+      min-session-coverage: 0.2         # a date is a session when this share of the universe has a candle
+    bases:                              # docs/ratings.md "Bases"; percentages in percent, lengths in sessions
+      prior-uptrend-pct: 25             # advance from the lowest low of prior-uptrend-sessions into the left high
+      prior-uptrend-sessions: 120
+      flat-min-sessions: 25
+      flat-max-sessions: 65
+      flat-max-depth-pct: 15
+      cup-min-sessions: 35
+      cup-max-sessions: 325
+      cup-min-depth-pct: 12
+      cup-max-depth-pct: 35
+      cup-recovery-pct: 90              # right side reaches this share of the left high
+      handle-min-sessions: 5
+      handle-max-sessions: 30
+      handle-max-depth-pct: 12
+      handle-upper-half: true
+      double-bottom-min-sessions: 35
+      double-bottom-max-sessions: 150
+      double-bottom-lows-within-pct: 3
+      double-bottom-require-undercut: false
+      double-bottom-min-separation: 10
+      double-bottom-min-peak-pct: 8
+      double-bottom-max-depth-pct: 35
+      ma-rising-sessions: 10            # 50-DMA above its value this many sessions back
+      ma-touch-pct: 0.5
+      reversal-close-in-range: 0.6      # close in the upper 40 % of the day's range
+      buy-zone-pct: 5
+      stop-pct: 7
+      goal-pct: 20
+      reversal-goal-pct: 8
+      near-pivot-pct: 5
+      breakout-volume: 1.4              # x the 50-session average = volume confirmed
+      expire-sessions: 60
+      max-hold-sessions: 120
+    lists:
+      leader-composite: 85
+      leader-rs: 80
+      min-turnover-cr: 10
+      mover-change-pct: 2
+      mover-volume: 1.5

@@ -250,6 +250,8 @@ type LeaderboardRow struct {
 	MaxDrawdownPaise int64    `json:"maxDrawdownPaise"`
 	NetPnlPaise      int64    `json:"netPnlPaise"`
 	FrictionPaise    int64    `json:"frictionPaise"`
+	Brier            *float64 `json:"brier"`
+	BrierN           int      `json:"brierN"`
 }
 
 type Leaderboard struct {

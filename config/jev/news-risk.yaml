@@ -1,0 +1,20 @@
+# Plan M9.3: index-level risk events from the newest market headlines (docs/news.md "Index risk events"). State
+# { date, headlines: [titles] }. Bump the version on any change to a question or an option.
+name: news-risk
+version: "1"
+questions:
+  risk_event_today:
+    type: noul
+    instructions: Do the `headlines` show that an index-level risk event happens in India on `date` (an RBI policy decision, a Fed decision, the Union budget, a CPI release, or another event that moves the whole market)?
+    criteria:
+      "true": Such an event is scheduled for or happening on `date`
+      "false": No such event on `date`, or it is only discussed as past or future news
+  event_kind:
+    type: choice
+    instructions: Which risk event do the `headlines` point to on `date`?
+    criteria:
+      RBI: Reserve Bank of India monetary policy
+      FED: US Federal Reserve decision
+      BUDGET: Union budget
+      CPI: Inflation (CPI) release
+      OTHER: Another market-wide event

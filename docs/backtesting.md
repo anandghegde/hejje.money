@@ -77,12 +77,25 @@ curves (per closed trade).
 | `UNREALISTIC_FILLS` | WARN | more than 10 % of entries filled at the bar's high or low |
 | `ZERO_VOLUME_BARS` | WARN | entries on zero-volume bars of a tradable instrument |
 | `IS_OOS_GAP` | WARN | out-of-sample expectancy below half of in-sample |
+| `PASSIVE_ENTRY_NOT_FILLED` | WARN | the definition enters with `limit_touch` (plan M9.8): the counts of passive entries that filled and that did not before their cancel time (`evidence.filled`, `evidence.notFilled`) |
+| `MICROSTRUCTURE_NOT_READY` | WARN | the rules use an order-book or flow indicator (`book_imbalance`, `book_imbalance_mean`, `buy_sell_qty_ratio`, `flow_up_share`); candle history has no such data, so those conditions never pass in the backtest (plan M9.4) |
 
 ## Lifecycle evidence
 
 The backtest module supplies `StrategyEvidence`: `DRAFT → BACKTESTED` needs a `DONE` backtest for the version;
 `BACKTESTED → VALIDATED` needs a `DONE` backtest whose split scheme has an out-of-sample slice with at least 30
-trades and no FAIL warning.
+trades and no FAIL warning. A run with a research-only `sessionFilter` (below) never counts as evidence.
+
+## Session filter (research only, plan M8.8)
+
+`BacktestSpec.sessionFilter` restricts entries per session date to a set of instruments and sides, supplied from
+outside the strategy by a validation script (the previous session's RS leaders, the previous session's market
+condition). In the replay it is checked when an entry would be evaluated, after the trade window and the daily trade
+cap and before the entry rules, so a blocked bar costs no trade of the day; stops, targets and force exits run
+unchanged. It only ever removes entries, so a filtered run's trades are a subset of what the rules allowed. Because the
+restriction is not part of the strategy definition, such a run is excluded from lifecycle evidence, from the base
+backtest the Hejje Score reads and from the agent's `get_strategy_backtest`. If a filter proves useful it becomes a real
+DSL feature with replay parity (plan M8.9); until then it is a measuring instrument.
 
 ## Running
 
@@ -121,3 +134,12 @@ Agent tools: `propose_variants` (the LLM, profile `research`, prompt `experiment
 out-of-sample robustness and simplicity; each is validated), `run_experiment`, `get_experiment`. Web Lab lists the
 experiments of the latest version with ranks, verdicts and warnings and offers "Promote to version"; TUI
 `hejje experiments [id]` is read-only.
+
+## Passive entries (plan M9.8)
+
+With `entry_order: { type: limit_touch }` the backtester does not know the touch (candles have no bid/ask), so a
+signal places a limit at the **signal bar's close**, rounded away from a fill (down for a long, up for a short). It
+fills **at the limit, with no slippage**, on the first later bar that trades **strictly through** it (a long needs a
+low below the limit), within `cancel_after_seconds` of the signal; otherwise it is dropped at that time (or at the
+session's end) and counted as not filled, and the rules may signal again. There are no re-quotes on candles. A
+`market` definition (the default) replays exactly as before. The `PASSIVE_ENTRY_NOT_FILLED` warning reports the counts.

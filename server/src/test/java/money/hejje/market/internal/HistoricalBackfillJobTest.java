@@ -27,8 +27,10 @@ class HistoricalBackfillJobTest {
     }
 
     @Test
-    void dailyTimeframeIsOneChunk() {
-        List<Instant[]> chunks = HistoricalBackfillJob.chunks(Timeframe.D1, Instant.parse("2020-01-01T00:00:00Z"), Instant.parse("2026-01-01T00:00:00Z"));
-        assertThat(chunks).hasSize(1);
+    void dailyChunksAreAtMost2000Days() {
+        assertThat(HistoricalBackfillJob.chunks(Timeframe.D1, Instant.parse("2022-01-01T00:00:00Z"), Instant.parse("2026-01-01T00:00:00Z"))).hasSize(1);
+        List<Instant[]> tenYears = HistoricalBackfillJob.chunks(Timeframe.D1, Instant.parse("2016-01-01T00:00:00Z"), Instant.parse("2026-01-01T00:00:00Z"));
+        assertThat(tenYears).hasSize(2);
+        assertThat(Duration.between(tenYears.get(0)[0], tenYears.get(0)[1])).isEqualTo(Duration.ofDays(2000));
     }
 }

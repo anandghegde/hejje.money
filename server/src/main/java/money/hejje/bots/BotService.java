@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import money.hejje.bots.internal.BotStore;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Timeframe;
+import money.hejje.llm.JevProperties;
 import money.hejje.strategy.Strategy;
 import money.hejje.strategy.StrategyDefinition;
 import money.hejje.strategy.StrategyService;
@@ -31,18 +32,35 @@ public class BotService {
 
     private static final Pattern NAME = Pattern.compile("[a-z][a-z0-9_]{1,40}");
 
-    /** What {@code POST /bots} takes. */
+    /**
+     * What {@code POST /bots} takes. {@code exitConfirmVotes} defaults to 1 (2 for a JEV bot); {@code questionSet} is a JEV
+     * bot's question set prefix (default {@code bot}).
+     */
     public record Registration(String name, String version, Bot.Kind kind, LocalDate knowledgeCutoff, Set<ExecutionMode> allowedModes, List<String> universe,
-            String timeframe, Integer decisionEveryMinutes, UUID strategyId) {}
+            String timeframe, Integer decisionEveryMinutes, UUID strategyId, Integer exitConfirmVotes, String questionSet) {
+
+        public Registration(String name, String version, Bot.Kind kind, LocalDate knowledgeCutoff, Set<ExecutionMode> allowedModes, List<String> universe,
+                String timeframe, Integer decisionEveryMinutes, UUID strategyId) {
+            this(name, version, kind, knowledgeCutoff, allowedModes, universe, timeframe, decisionEveryMinutes, strategyId, null, null);
+        }
+    }
 
     private final BotStore store;
     private final StrategyService strategies;
+    private final JevProperties jev;
+    private final List<java.util.function.Consumer<Bot>> registered = new java.util.concurrent.CopyOnWriteArrayList<>();
     /** Registration bookkeeping is wall time. */
     private final Clock wall = Clock.systemUTC();
 
-    BotService(BotStore store, StrategyService strategies) {
+    BotService(BotStore store, StrategyService strategies, JevProperties jev) {
         this.store = store;
         this.strategies = strategies;
+        this.jev = jev;
+    }
+
+    /** Called with every newly registered bot (the in-process Jev bot runner connects its bots this way). */
+    public void onRegistered(java.util.function.Consumer<Bot> listener) {
+        registered.add(listener);
     }
 
     @Transactional
@@ -58,6 +76,20 @@ public class BotService {
         if (r.decisionEveryMinutes() != null && r.decisionEveryMinutes() < 1) {
             throw new IllegalArgumentException("decisionEveryMinutes must be at least 1");
         }
+        if (r.exitConfirmVotes() != null && (r.exitConfirmVotes() < 1 || r.exitConfirmVotes() > 10)) {
+            throw new IllegalArgumentException("exitConfirmVotes must be between 1 and 10");
+        }
+        LocalDate cutoff = r.knowledgeCutoff();
+        String questionSet = null;
+        if (kind == Bot.Kind.JEV) {
+            cutoff = cutoff != null ? cutoff : jev.knowledgeCutoff();
+            if (cutoff == null) {
+                throw new IllegalArgumentException("a JEV bot needs a knowledge cutoff: give knowledgeCutoff or set hejje.jev.knowledge-cutoff to the release date "
+                        + "of " + jev.model());
+            }
+            questionSet = r.questionSet() == null || r.questionSet().isBlank() ? "bot" : r.questionSet().trim();
+        }
+        int exitVotes = r.exitConfirmVotes() != null ? r.exitConfirmVotes() : kind == Bot.Kind.JEV ? 2 : 1;
         UUID strategyId;
         Timeframe timeframe;
         List<String> universe;
@@ -81,9 +113,10 @@ public class BotService {
             strategyId = v.strategyId();
         }
         Instant now = wall.instant();
-        Bot bot = new Bot(UUID.randomUUID(), r.name(), r.version() == null || r.version().isBlank() ? "1" : r.version(), kind, r.knowledgeCutoff(), modes,
-                strategyId, timeframe, r.decisionEveryMinutes(), universe, true, by, now, now);
+        Bot bot = new Bot(UUID.randomUUID(), r.name(), r.version() == null || r.version().isBlank() ? "1" : r.version(), kind, cutoff, modes,
+                strategyId, timeframe, r.decisionEveryMinutes(), universe, true, by, now, now, exitVotes, questionSet);
         store.insert(bot);
+        registered.forEach(l -> l.accept(bot));
         return bot;
     }
 

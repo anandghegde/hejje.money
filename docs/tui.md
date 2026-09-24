@@ -88,5 +88,50 @@ SIM-only replay keys and the kill confirmation.
 
 `hejje harness sessions [--bot <name>]` lists SIM session reports; `hejje harness sessions <report-id>` opens one in the
 same screen read-only (no stream, no controls). `hejje harness leaderboard [--from --to --common]` prints the leaderboard
-(docs/bots.md). Both accept `--json`.
+(docs/bots.md) with each bot's pooled confidence Brier score and its count (M9.2). Both accept `--json`.
 
+
+## Daily context (Phase 8, M8.7)
+
+```bash
+hejje screen                                   # the combined setups list: in buy zone, triggered, near pivot
+hejje screen --list leaders|buyzone|nearpivot|movers|groups
+hejje screen --filter rsRating:gte:80 --filter baseStatus:in:IN_BUY_ZONE,NEAR_PIVOT --sort -techComposite --limit 30
+hejje stock NSE:INFY                           # ratings, braille D1 chart, base and plan, past setups, daily analogs (15 sessions)
+hejje analogs NSE:INFY --lookback 30           # outcome table per forward window, seasonality, the templated read
+hejje analogs NSE:SBIN --session [--checkpoint 10:15]   # today's session so far against past sessions, to 15:10
+hejje watch add NSE:INFY --note "results next week" | hejje watch rm NSE:INFY | hejje watch ls
+```
+
+A filter is `field:op:value` (`gte lte gt lt eq ne in`; `in` takes a comma list); the fields are those of
+`GET /ratings/screen/fields`. Every rate is printed with its count (`27 of 40 (68%)`). The commands print once and exit
+(`--json` for the raw response); with a module switched off the server's 503 message is shown. Golden renders:
+`TestStockPageGolden`, `TestRatingsListGolden`, `TestSessionAnalogsGolden` (`go test ./internal/ui -update` rewrites them).
+
+## Jev (Phase 9, M9.1)
+
+When Jev is enabled, `hejje status` adds one line: the model (or `fixture`), the circuit, today's calls by outcome, p50/p90
+latency of answered calls, and the estimated cost against the daily cap (`docs/jev.md`).
+
+## Calibration (Phase 9, M9.2)
+
+```bash
+hejje calibration                              # purposes and versions with prediction and labelled counts
+hejje calibration signal-check [--version 1] [--from --to]   # bucket table: count, hits, mean p, rate, Wilson 95 %
+hejje calibration --bot momo                   # a bot's entry confidence (purpose bot:momo)
+```
+
+Buckets under `min-bucket-count` show their count and no rate; the last lines give Brier, ECE and whether the
+pre-registered bar passes, with the reasons when it does not (`docs/calibration.md`).
+
+## Reviews (Phase 9, M9.6)
+
+`hejje reviews [--limit 20]` lists recent post-trade reviews: close time, side, quantity, net, R, close reason, the
+trade's **cause** and **entry timing** (a `*` marks a provisional cause, completed 35 minutes after the close), MFE/MAE
+in R, and Jev's reading when there is one (docs/analytics.md "Trade cause"). `--json` prints the raw reviews.
+
+## Analytics (Phase 9, M9.7)
+
+`hejje analytics pace [--from --to --mode --strategy]` prints the pace report: expectancy (R with its count, and
+rupees net of costs), win rate and net P&L by trades that day, by sequence in the day and by entry hour
+(docs/analytics.md). `hejje risk` adds the loss-streak line (the allowance used on an ALLOWANCE day).

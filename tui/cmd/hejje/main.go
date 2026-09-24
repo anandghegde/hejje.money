@@ -46,7 +46,7 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().BoolVar(&jsonOut, "json", false, "output JSON for scripting")
 	root.AddCommand(statusCmd(), positionsCmd(), ordersCmd(), orderCmd(), cancelCmd(), closeCmd(), closeAllCmd(),
 		riskCmd(), brokerCmd(), serverCmd(), logsCmd(), killCmd(), orderPlaceCmd(),
-		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd(), experimentsCmd(), basketsCmd(), splitsCmd(), chainCmd(), notifyCmd(), executorCmd(), failoverCmd(), harnessCmd())
+		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd(), experimentsCmd(), basketsCmd(), splitsCmd(), chainCmd(), notifyCmd(), executorCmd(), failoverCmd(), harnessCmd(), screenCmd(), stockCmd(), analogsCmd(), watchCmd(), calibrationCmd(), reviewsCmd(), analyticsCmd())
 	return root
 }
 
@@ -72,6 +72,9 @@ func statusCmd() *cobra.Command {
 				h.Status, h.Broker.Status, h.MarketData.Status, h.Database.Status, h.ClockSync.Status, h.RiskEngine.Status)
 			if len(h.Reasons) > 0 {
 				fmt.Println("Blocked:", strings.Join(h.Reasons, "; "))
+			}
+			if j, err := client.JevStatus(); err == nil && j.Enabled {
+				fmt.Println(ui.RenderJevLine(j))
 			}
 		})
 		return nil
@@ -189,6 +192,11 @@ func riskCmd() *cobra.Command {
 			fmt.Printf("Realized %s  Unrealized %s  Net %s\n", ui.Rupees(r.RealizedPnl.Paise), ui.Rupees(r.UnrealizedPnl.Paise), ui.Rupees(r.NetPnl.Paise))
 			fmt.Printf("Daily loss limit %s  Open %d/%d  Trades %d/%d  Margin %.1f%%  Kill=%v\n",
 				ui.Rupees(r.DailyLossLimit.Paise), r.OpenPositions, r.MaxOpenPositions, r.TradesToday, r.MaxTradesPerDay, r.MarginUsedPct, r.KillSwitchStopNewOrders)
+			if r.Allowance != nil && r.AllowanceUsed != nil { // plan M9.7
+				fmt.Printf("Loss-streak allowance %d/%d since %s\n", *r.AllowanceUsed, *r.Allowance, deref(r.AllowanceReason))
+			} else if r.LossStreakMode != "" {
+				fmt.Printf("Loss streak %d in a row (%s)\n", r.ConsecutiveLosses, strings.ToLower(r.LossStreakMode))
+			}
 		})
 		return nil
 	}}

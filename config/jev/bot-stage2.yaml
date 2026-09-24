@@ -1,0 +1,41 @@
+# Plan M9.5: the Jev bot's second stage, one call per kept candidate. State: `symbol`, `side` (long or short), `stock`
+# (named buckets), `index`, and `book` only when order-book data exists. Without it Hejje removes the questions listed
+# in params.book-questions (never a fake "balanced"). Scores are read as level / (levels − 1). Bump the version on any
+# change here, including the thresholds.
+name: bot-stage2
+version: "1"
+params:
+  min-setup-prob: 0.55     # P(setup matching the side)
+  min-confidence: 0.4      # the setup answer's confidence
+  min-composite: 0.5       # weighted mean of the scores
+  min-score: 0.25          # no single score below this
+  weights: { trend_quality: 0.35, flow_alignment: 0.2, index_alignment: 0.25, liquidity: 0.2 }
+  book-questions: [flow_alignment, one_sided]
+questions:
+  setup:
+    type: choice
+    instructions: For a `side` trade in `symbol` now, which describes `stock` best, given `index`?
+    criteria:
+      long_continuation: A rising move likely to continue up
+      short_continuation: A falling move likely to continue down
+      chop: Back and forth without direction
+      stretched: The move has gone too far too fast and may reverse
+  trend_quality:
+    type: score
+    instructions: How clean is the trend of `symbol` in `stock` in the direction of `side`?
+    criteria: [Against the side, Unclear, Clean, Very clean]
+  flow_alignment:
+    type: score
+    instructions: Does the order book and trade flow in `book` support a `side` trade in `symbol`?
+    criteria: [Against, Mixed, Supportive, Strongly supportive]
+  index_alignment:
+    type: score
+    instructions: Does `index` support a `side` trade in `symbol`?
+    criteria: [Against, Neutral, Supportive]
+  liquidity:
+    type: score
+    instructions: Is `symbol` liquid enough right now for a quick intraday trade, judging by the volume fields in `stock`?
+    criteria: [Thin, Adequate, Heavy]
+  one_sided:
+    type: noul
+    instructions: Is the order book in `book` one-sided in the direction of `side`?

@@ -94,14 +94,18 @@ func leaderboardCmd() *cobra.Command {
 			}
 			emit(l, func() {
 				w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-				fmt.Fprintln(w, "#\tBOT\tKIND\tSESSIONS\tTRADES\tWIN %\tEXPECTANCY\tPF\tMAX DD ₹\tNET ₹\tFRICTION ₹")
+				fmt.Fprintln(w, "#\tBOT\tKIND\tSESSIONS\tTRADES\tWIN %\tEXPECTANCY\tBRIER (N)\tPF\tMAX DD ₹\tNET ₹\tFRICTION ₹")
 				for _, r := range l.Rows {
 					win := "—"
 					if r.WinRate != nil {
 						win = fmt.Sprintf("%.0f", *r.WinRate*100)
 					}
-					fmt.Fprintf(w, "%d\t%s v%s\t%s\t%d\t%d\t%s\t%s\t%s\t%.2f\t%.2f\t%.2f\n", r.Rank, r.Bot, r.Version, r.Kind, r.Sessions, r.Trades, win,
-						fmtR(r.ExpectancyR), fmtF(r.ProfitFactor), float64(r.MaxDrawdownPaise)/100, float64(r.NetPnlPaise)/100, float64(r.FrictionPaise)/100)
+					brier := "—"
+					if r.Brier != nil {
+						brier = fmt.Sprintf("%.3f (%d)", *r.Brier, r.BrierN)
+					}
+					fmt.Fprintf(w, "%d\t%s v%s\t%s\t%d\t%d\t%s\t%s\t%s\t%s\t%.2f\t%.2f\t%.2f\n", r.Rank, r.Bot, r.Version, r.Kind, r.Sessions, r.Trades, win,
+						fmtR(r.ExpectancyR), brier, fmtF(r.ProfitFactor), float64(r.MaxDrawdownPaise)/100, float64(r.NetPnlPaise)/100, float64(r.FrictionPaise)/100)
 				}
 				_ = w.Flush()
 				fmt.Printf("PAPER needs %d SIM sessions with positive expectancy.\n", l.MinSimSessions)

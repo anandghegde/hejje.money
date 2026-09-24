@@ -55,6 +55,13 @@ public final class QualityChecker {
             }
         }
 
+        java.util.Set<String> micro = microstructure(def);
+        if (!micro.isEmpty()) {
+            out.add(new QualityWarning("MICROSTRUCTURE_NOT_READY", Severity.WARN, "the rules use " + String.join(", ", micro)
+                    + ", which need order-book or tick-flow data; candle history has none, so those conditions never pass in this backtest",
+                    Map.of("indicators", List.copyOf(micro))));
+        }
+
         int parameters = parameterCount(def);
         if (parameters > 0 && n > 0 && (double) n / parameters < 10) {
             out.add(new QualityWarning("OVERFIT_RISK", Severity.WARN,
@@ -125,6 +132,34 @@ public final class QualityChecker {
             count++;
         }
         return count;
+    }
+
+    /** The order-book and tick-flow indicators the rules reference (plan M9.4), sorted. */
+    public static java.util.Set<String> microstructure(StrategyDefinition def) {
+        java.util.Set<String> out = new java.util.TreeSet<>();
+        List<Condition> all = new ArrayList<>(def.entry().conditions());
+        if (def.exit() != null) {
+            all.addAll(def.exit().conditions());
+        }
+        for (Condition c : all) {
+            indicatorNames(c.lhs(), out);
+            indicatorNames(c.rhs(), out);
+        }
+        out.retainAll(money.hejje.strategy.dsl.IndicatorCatalog.MICROSTRUCTURE);
+        return out;
+    }
+
+    private static void indicatorNames(Expr expr, java.util.Set<String> out) {
+        switch (expr) {
+            case Expr.IndicatorCall c -> out.add(c.name());
+            case Expr.Binary b -> {
+                indicatorNames(b.left(), out);
+                indicatorNames(b.right(), out);
+            }
+            case Expr.Negate n -> indicatorNames(n.operand(), out);
+            default -> {
+            }
+        }
     }
 
     private static int literals(Expr expr) {

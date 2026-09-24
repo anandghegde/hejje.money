@@ -17,6 +17,12 @@ public enum NotificationType {
     NEWS_CONTEXT_CHANGED(Severity.INFO),
     APPROVAL_REQUESTED(Severity.INFO),
     LLM_BUDGET_EXCEEDED(Severity.WARNING),
+    MARKET_CONDITION_CHANGED(Severity.INFO),
+    ENTERED_BUY_ZONE(Severity.INFO),
+    NEAR_PIVOT(Severity.INFO),
+    SETUP_STOPPED(Severity.INFO),
+    SETUP_HIT_GOAL(Severity.INFO),
+    DAILY_CONTEXT_DIGEST(Severity.INFO),
     TEST(Severity.INFO);
 
     private final Severity severity;

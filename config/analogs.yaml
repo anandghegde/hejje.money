@@ -1,0 +1,41 @@
+# Historical analogs (plan M8.5, M8.6, docs/analogs.md). Loaded by the server (spring.config.import) when present next to
+# the working directory or one level up; the copy inside the jar is the fallback. Summaries are immutable: bump
+# engine-version whenever a weight, band or threshold below changes.
+hejje:
+  analogs:
+    enabled: false
+    universe: nifty500
+    engine-version: "1"
+    lookbacks: [5, 10, 15, 20, 25, 30, 40, 50]
+    forwards: [3, 5, 10, 15]
+    max-matches: 50
+    max-distance: 1.5                 # similarity score (weighted, scaled distance); lower is closer
+    min-evidence: 10                  # fewer matches -> direction INSUFFICIENT
+    narrative-forward: 5
+    parallelism: 4
+    nightly-budget: PT30M
+    match-retention-days: 30
+    weights: { shape: 0.30, correlation: 0.20, volatility: 0.12, trend: 0.12, range-position: 0.10, volume: 0.08, risk: 0.08 }
+    prefilter: { volatility: 1.0, trend: 1.0, range-position: 1.0 }   # universe standard deviations around the benchmark
+    tags:
+      strong-win-rate: 0.65
+      lean-win-rate: 0.55
+      tight-iqr-pct: 0.8              # x sqrt(forward sessions)
+      wide-iqr-pct: 1.6
+      high-risk-mae-pct: 1.0
+      moderate-risk-mae-pct: 0.5
+      outlier-share: 0.3
+      high-reliability-count: 30
+      high-reliability-symbols: 15
+      high-reliability-years: 4
+      medium-reliability-count: 15
+      medium-reliability-symbols: 8
+      medium-reliability-years: 2
+    session:                          # plan M8.6: today's session so far against past sessions (M5 bars)
+      universe: nifty50
+      extra-symbols: ["INDEX:NIFTY 50", "INDEX:NIFTY BANK"]   # continuous futures series are always included
+      checkpoints: ["09:45", "10:15", "11:15", "13:00"]
+      exit-time: "15:10"              # the forward window: checkpoint -> the strategies' force-exit time
+      context-weight: 0.10            # prior-session return and D1 range position, on top of the weights above
+      percent-scale: 1.0              # multiplier of the percent tag thresholds for the checkpoint-to-exit window
+      volume-sessions: 20

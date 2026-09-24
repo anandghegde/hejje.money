@@ -209,6 +209,24 @@ class AgentToolsIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void dailyContextToolsAnswerEvenWithoutDataAndAreMarkedUnvalidated() {
+        String admin = adminAccessToken();
+        assertThat(rest.exchange("/api/v1/instruments/sync", HttpMethod.POST, new HttpEntity<>(bearer(admin)), Map.class).getStatusCode().is2xxSuccessful()).isTrue();
+        Map<String, Object> rating = output(call(admin, "get_stock_ratings", Map.of("instrument", "NSE:TATAMOTORS")));
+        assertThat(rating).containsEntry("available", true).containsEntry("validated", false);
+        assertThat((String) rating.get("note")).contains("no rating");
+        assertThat(output(call(admin, "get_bases", Map.of("instrument", "NSE:TATAMOTORS")))).containsEntry("validated", false).containsKey("bases");
+        Map<String, Object> screen = output(call(admin, "screen_stocks", Map.of("filters", List.of(Map.of("field", "rsRating", "op", "gte", "value", 80)))));
+        assertThat((List<String>) screen.get("fields")).contains("rsRating", "baseStatus", "analogWinRate5", "analogCount5");
+        assertThat(call(admin, "screen_stocks", Map.of("filters", List.of(Map.of("field", "marketCap", "op", "gte", "value", 1)))).getBody())
+                .containsEntry("toolStatus", "INVALID_INPUT");
+        Map<String, Object> analogs = output(call(admin, "get_historical_analogs", Map.of("instrument", "NSE:TATAMOTORS", "lookback", 15)));
+        assertThat(analogs).containsEntry("available", true).containsEntry("validated", false);
+        assertThat(call(admin, "get_historical_analogs", Map.of("instrument", "NSE:TATAMOTORS", "lookback", 17)).getBody())
+                .containsEntry("toolStatus", "INVALID_INPUT");
+    }
+
+    @Test
     void mcpListsAndCallsToolsWithTheKeysScopes() {
         String research = key(adminAccessToken(), "research");
         HttpHeaders headers = bearer(research);

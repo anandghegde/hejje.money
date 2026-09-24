@@ -16,6 +16,8 @@ Files:
 | `phase-5-automation.md` | Drift, AUTO mode, smart/basket/split orders, options, notifications, webhooks, HA |
 | `phase-6-strategy-research.md` | Data audit and baselines, new price/volume indicators and strategies, 9:20 iron fly, strategy bake-off |
 | `phase-7-bot-harness.md` | SIM mode and clock, historical session replay, bot protocol, harness TUI screen, leaderboard |
+| `phase-8-market-context.md` | NIFTY 500 daily universe, RS/A-D ratings and groups, market condition, bases and pivots, daily and session analogs, screener and stock page, pre-registered validation |
+| `phase-9-jev-and-gaps.md` | Jev typed-decision API, calibration, news and risk events on Jev, order-book/flow features, Jev bot and signal check, trade causes, pace and loss-streak allowance, passive entries |
 
 ---
 

@@ -14,6 +14,9 @@ import money.hejje.agent.ApprovalService;
 import money.hejje.auto.AutoDecision;
 import money.hejje.auto.AutoExecutor;
 import money.hejje.bots.internal.BotStore;
+import money.hejje.calibration.CalibrationService;
+import money.hejje.calibration.LabelRule;
+import money.hejje.calibration.Prediction;
 import money.hejje.common.ActorType;
 import money.hejje.common.ExecutionMode;
 import money.hejje.common.Side;
@@ -44,7 +47,9 @@ import org.springframework.stereotype.Service;
  * become signals of the bot's deployment on the instrument (Hejje sizes them from the risk per trade); SIM and PAPER
  * execute them at once through risk, the kill switch and the gate, CONFIRM asks for an approval, AUTO decides as for any
  * strategy (autonomy 4-5 and eligibility, else an approval). EXIT and TAKE_PROFIT flatten the deployment's position, MOVE_STOP
- * only tightens it, HOLD and NONE are noted.
+ * only tightens it, HOLD and NONE are noted. With {@code exitConfirmVotes} above 1 (plan M9.5) an exit executes only after
+ * that many consecutive decision points voted it for the same position; earlier votes are NOTED
+ * ({@code awaiting_confirmation}). Vote counts live in memory: a restart starts them again.
  */
 @Service
 public class BotDecisions {
@@ -64,9 +69,17 @@ public class BotDecisions {
     private final InstrumentService instruments;
     private final HejjeProperties properties;
     private final HejjeClock clock;
+    private final CalibrationService calibration;
+    /** Per bot: the decision points it was asked about, newest last (for "consecutive"). */
+    private final Map<UUID, java.util.Deque<String>> points = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Per (bot, instrument): the exit votes for the current position. */
+    private final Map<String, Vote> votes = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record Vote(UUID positionId, int count, String pointId) {}
 
     BotDecisions(BotStore store, StrategyService strategies, SignalService signals, SignalEngine engine, ApprovalService approvals, AutoExecutor auto,
-            PolicyEngine policies, RiskService risk, MarketService market, InstrumentService instruments, HejjeProperties properties, HejjeClock clock) {
+            PolicyEngine policies, RiskService risk, MarketService market, InstrumentService instruments, HejjeProperties properties, HejjeClock clock,
+            CalibrationService calibration) {
         this.store = store;
         this.strategies = strategies;
         this.signals = signals;
@@ -79,6 +92,7 @@ public class BotDecisions {
         this.instruments = instruments;
         this.properties = properties;
         this.clock = clock;
+        this.calibration = calibration;
     }
 
     /** How an entry executes in a mode: at once (SIM, PAPER), through AUTO, or as an approval (CONFIRM). */
@@ -97,6 +111,7 @@ public class BotDecisions {
         if (reply.pointId() == null || reply.pointId().isBlank()) {
             throw new IllegalArgumentException("pointId is required");
         }
+        notePoint(bot.id(), reply.pointId());
         List<BotDecision> out = new ArrayList<>();
         for (BotDecision.Input in : reply.decisions()) {
             out.add(applyOne(bot, reply.pointId(), in, latencyMs));
@@ -106,6 +121,7 @@ public class BotDecisions {
 
     /** Records a decision point the bot did not answer in time. */
     public BotDecision skipped(Bot bot, String pointId, long latencyMs, String detail) {
+        notePoint(bot.id(), pointId);
         BotDecision d = new BotDecision(UUID.randomUUID(), bot.id(), pointId, "*", BotDecision.Action.SKIPPED, null, null, null, null, null, null, null,
                 latencyMs, BotDecision.Outcome.SKIPPED, detail, null, null, properties.mode(), clock.now());
         return store.insert(d) ? d : store.find(bot.id(), pointId, "*").orElse(d);
@@ -132,7 +148,7 @@ public class BotDecisions {
             } else if (action == BotDecision.Action.HOLD || action == BotDecision.Action.NONE) {
                 result = recorded;
             } else {
-                result = act(bot, recorded, action);
+                result = act(bot, recorded, action, in.entryOrder());
             }
         } catch (RuntimeException e) {
             log.debug("Bot {} decision refused: {}", bot.name(), e.getMessage());
@@ -141,10 +157,25 @@ public class BotDecisions {
         if (result != recorded) {
             store.update(result);
         }
+        recordConfidence(bot, result);
         return result;
     }
 
-    private BotDecision act(Bot bot, BotDecision d, BotDecision.Action action) {
+    /**
+     * Plan M9.2: an entry's confidence is labelled like an entry setup (+1R before −1R). Only entries that went to the
+     * broker or to an approval count; a refused entry may carry an invalid stop.
+     */
+    private void recordConfidence(Bot bot, BotDecision d) {
+        boolean entry = d.action() == BotDecision.Action.ENTER_LONG || d.action() == BotDecision.Action.ENTER_SHORT;
+        if (!entry || d.confidence() == null || d.stop() == null || (d.outcome() != BotDecision.Outcome.EXECUTED && d.outcome() != BotDecision.Outcome.APPROVAL)) {
+            return;
+        }
+        instruments.resolve(d.instrument()).ifPresent(i -> calibration.record(new Prediction("bot", d.id().toString(), "confidence",
+                CalibrationService.botPurpose(bot.name()), bot.version(), d.confidence(), i.id(), LabelRule.ENTRY_1R,
+                d.action() == BotDecision.Action.ENTER_LONG ? Side.BUY : Side.SELL, d.stop(), d.decidedAt())));
+    }
+
+    private BotDecision act(Bot bot, BotDecision d, BotDecision.Action action, Map<String, Object> entryOrder) {
         if (!bot.enabled()) {
             return refuse(d, "the bot is disabled");
         }
@@ -165,9 +196,15 @@ public class BotDecisions {
         }
         StrategyDeployment dep = deployment.get();
         return switch (action) {
-            case ENTER_LONG, ENTER_SHORT -> enter(bot, d, dep, instrument, action == BotDecision.Action.ENTER_LONG ? Side.BUY : Side.SELL);
-            case EXIT, TAKE_PROFIT -> engine.exitPosition(dep.id(), instrument.id(), action == BotDecision.Action.EXIT ? CloseReason.MANUAL : CloseReason.TARGET)
-                    ? with(d, BotDecision.Outcome.EXITING, "closing at market", null, null) : refuse(d, "no open position on " + d.instrument());
+            case ENTER_LONG, ENTER_SHORT -> enter(bot, d, dep, instrument, action == BotDecision.Action.ENTER_LONG ? Side.BUY : Side.SELL, entryOrder);
+            case EXIT, TAKE_PROFIT -> {
+                String waiting = awaitingConfirmation(bot, d, dep, instrument);
+                if (waiting != null) {
+                    yield with(d, BotDecision.Outcome.NOTED, waiting, null, null);
+                }
+                yield engine.exitPosition(dep.id(), instrument.id(), action == BotDecision.Action.EXIT ? CloseReason.MANUAL : CloseReason.TARGET)
+                        ? with(d, BotDecision.Outcome.EXITING, "closing at market", null, null) : refuse(d, "no open position on " + d.instrument());
+            }
             case MOVE_STOP -> {
                 if (d.stop() == null) {
                     yield refuse(d, "MOVE_STOP needs the new stop");
@@ -179,7 +216,65 @@ public class BotDecisions {
         };
     }
 
-    private BotDecision enter(Bot bot, BotDecision d, StrategyDeployment dep, Instrument instrument, Side side) {
+    /** Records the point as the bot's latest (a repeat of the latest point changes nothing). */
+    private void notePoint(UUID botId, String pointId) {
+        if (pointId == null) {
+            return;
+        }
+        java.util.Deque<String> seen = points.computeIfAbsent(botId, k -> new java.util.ArrayDeque<>());
+        synchronized (seen) {
+            if (!pointId.equals(seen.peekLast())) {
+                seen.addLast(pointId);
+                while (seen.size() > 8) {
+                    seen.removeFirst();
+                }
+            }
+        }
+    }
+
+    /** The point the bot was asked about just before {@code pointId}, or null. */
+    private String previousPoint(UUID botId, String pointId) {
+        java.util.Deque<String> seen = points.get(botId);
+        if (seen == null) {
+            return null;
+        }
+        synchronized (seen) {
+            String previous = null;
+            for (String p : seen) {
+                if (p.equals(pointId)) {
+                    return previous;
+                }
+                previous = p;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Plan M9.5 hysteresis: null when this vote completes {@code exitConfirmVotes} consecutive exit votes for the open
+     * position (or no confirmation is needed), else the reason it waits. A vote at a point that does not follow the last
+     * vote's point, or for another position, starts again at 1.
+     */
+    private String awaitingConfirmation(Bot bot, BotDecision d, StrategyDeployment dep, Instrument instrument) {
+        if (bot.exitConfirmVotes() <= 1) {
+            return null;
+        }
+        UUID positionId = engine.position(dep.id(), instrument.id()).map(p -> p.id()).orElse(null);
+        if (positionId == null) {
+            return null; // nothing to confirm: the exit is refused below
+        }
+        String key = bot.id() + "/" + d.instrument();
+        Vote last = votes.get(key);
+        int count = last != null && positionId.equals(last.positionId()) && last.pointId().equals(previousPoint(bot.id(), d.pointId())) ? last.count() + 1 : 1;
+        if (count >= bot.exitConfirmVotes()) {
+            votes.remove(key);
+            return null;
+        }
+        votes.put(key, new Vote(positionId, count, d.pointId()));
+        return "awaiting_confirmation: exit vote " + count + " of " + bot.exitConfirmVotes();
+    }
+
+    private BotDecision enter(Bot bot, BotDecision d, StrategyDeployment dep, Instrument instrument, Side side, Map<String, Object> entryOrder) {
         if (d.stop() == null) {
             return refuse(d, "an entry needs a stop");
         }
@@ -211,6 +306,9 @@ public class BotDecisions {
         }
         if (d.confidence() != null) {
             evidence.put("confidence", d.confidence());
+        }
+        if (entryOrder != null && !entryOrder.isEmpty()) {
+            evidence.put("entryOrder", entryOrder); // plan M9.8: read by the signal's sizing and execution
         }
         Signal s = signals.createExternal(dep, instrument.id(), side, entry, d.stop(), d.target(), SIGNAL_VALIDITY, "bot:" + bot.name(), evidence);
         return switch (route(properties.mode())) {

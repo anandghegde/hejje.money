@@ -42,14 +42,15 @@ public class PulseStore {
             MarketPulse m = s.market();
             jdbc.sql("""
                     INSERT INTO market_pulse (id, session_date, as_of, direction, strength, score, coverage, regime, volatility, breadth, sectors, global_context,
-                                              components, evidence)
-                    VALUES (:id, :date, :asOf, :direction, :strength, :score, :coverage, :regime, :volatility, :breadth, CAST(:sectors AS jsonb), :global,
+                                              market_condition, market_condition_evidence, components, evidence)
+                    VALUES (:id, :date, :asOf, :direction, :strength, :score, :coverage, :regime, :volatility, :breadth, CAST(:sectors AS jsonb), :global, :condition, :conditionEvidence,
                             CAST(:components AS jsonb), CAST(:evidence AS jsonb))
                     """)
                     .param("id", Ids.newId()).param("date", s.date()).param("asOf", s.asOf().atOffset(ZoneOffset.UTC)).param("direction", t.direction().name())
                     .param("strength", t.strength().name()).param("score", t.score()).param("coverage", t.coverage()).param("regime", m.regime())
                     .param("volatility", m.volatility()).param("breadth", m.breadth()).param("sectors", json.writeValueAsString(m.sectors()))
-                    .param("global", m.globalContext()).param("components", json.writeValueAsString(t.components()))
+                    .param("global", m.globalContext()).param("condition", m.marketCondition())
+                    .param("conditionEvidence", m.marketConditionEvidence()).param("components", json.writeValueAsString(t.components()))
                     .param("evidence", json.writeValueAsString(t.evidence())).update();
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException(e);
@@ -66,7 +67,8 @@ public class PulseStore {
                     rs.getInt("score"), rs.getDouble("coverage"), json.readValue(rs.getString("components"), COMPONENTS),
                     json.readValue(rs.getString("evidence"), STRINGS));
             MarketPulse m = new MarketPulse(rs.getString("regime"), rs.getString("volatility"), rs.getString("breadth"),
-                    json.readValue(rs.getString("sectors"), SECTORS), rs.getString("global_context"));
+                    json.readValue(rs.getString("sectors"), SECTORS), rs.getString("global_context"), rs.getString("market_condition"),
+                    rs.getString("market_condition_evidence"));
             return new PulseSnapshot(rs.getObject("session_date", LocalDate.class), rs.getObject("as_of", OffsetDateTime.class).toInstant(), t, m);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);

@@ -511,7 +511,14 @@ func (m Harness) candidates(_, _ int) []string {
 			if c["sent"] == true {
 				mark = "▶ "
 			}
-			out = append(out, fmt.Sprintf("%s%d. %-14s %.2f", mark, i+1, fmt.Sprint(c["instrument"]), score(c)))
+			line := fmt.Sprintf("%s%d. %-14s %.2f", mark, i+1, fmt.Sprint(c["instrument"]), score(c))
+			if imb, ok := c["imbalance"].(float64); ok { // plan M9.4: order-book imbalance and up-volume share of the last bar
+				line += fmt.Sprintf("  imb %+.2f", imb)
+			}
+			if flow, ok := c["flowShare"].(float64); ok {
+				line += fmt.Sprintf("  flow %.0f%%", flow*100)
+			}
+			out = append(out, line)
 		}
 	}
 	return out

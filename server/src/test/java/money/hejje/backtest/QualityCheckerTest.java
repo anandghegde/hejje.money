@@ -35,6 +35,21 @@ class QualityCheckerTest {
     }
 
     @Test
+    void rulesUsingMicrostructureAreFlaggedAsNeverPassingOnHistory() {
+        StrategyDefinition micro = new DefinitionParser().parse(BacktestEngineTest.ORB.replace("- close > opening_range_high",
+                "- close > opening_range_high\n    - book_imbalance > 0.2\n    - flow_up_share(5) > 0.6"));
+        BacktestSpec spec = new BacktestSpec(java.util.UUID.randomUUID(), List.of(), Timeframe.M5, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30),
+                FillModel.NEXT_OPEN, 5, null, Splits.NONE, Money.ofRupees(100_000), null);
+        List<QualityWarning> warnings = new QualityChecker().check(micro, spec, List.of(), Map.of(), 0, 0, Map.of(), Map.of());
+        assertThat(warnings).filteredOn(w -> w.code().equals("MICROSTRUCTURE_NOT_READY")).singleElement().satisfies(w -> {
+            assertThat(w.message()).contains("book_imbalance, flow_up_share");
+            assertThat(w.severity()).isEqualTo(QualityWarning.Severity.WARN);
+        });
+        assertThat(new QualityChecker().check(def, spec, List.of(), Map.of(), 0, 0, Map.of(), Map.of()))
+                .noneMatch(w -> w.code().equals("MICROSTRUCTURE_NOT_READY"));
+    }
+
+    @Test
     void isOosGap() {
         BacktestSpec spec = new BacktestSpec(java.util.UUID.randomUUID(), List.of(), Timeframe.M5, LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30),
                 FillModel.NEXT_OPEN, 5, null, Splits.DEFAULT_FIXED, Money.ofRupees(100_000), null);

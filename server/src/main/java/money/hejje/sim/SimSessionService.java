@@ -382,7 +382,7 @@ public class SimSessionService {
                 spec.maxPositions() == null ? l.maxOpenPositions() : spec.maxPositions(), l.maxGrossExposure(), l.maxTradesPerDay(),
                 spec.riskPerTradeRupees() == null ? l.maxRiskPerTrade() : Money.ofRupees(spec.riskPerTradeRupees()), l.maxQuantity(), l.maxNotional(),
                 l.minRewardRisk(), l.mandatoryStop(), l.maxStopDistancePct(), l.noNewTradesAfter(), l.noAveragingDown(), l.noReentryMinutes(),
-                l.maxConsecutiveLosses());
+                l.maxConsecutiveLosses(), l.lossStreakMode(), l.allowanceDrawdown(), l.lossStreakAllowance(), l.tradesPerDayWhenGreen());
         if (!updated.equals(l)) {
             risk.updateLimits(updated, actor);
         }

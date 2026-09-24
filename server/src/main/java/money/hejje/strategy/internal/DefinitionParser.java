@@ -56,7 +56,7 @@ public class DefinitionParser {
     private static final List<String> TOP_LEVEL_KEYS = List.of("name", "version", "family", "description", "universe", "timeframe",
             "direction", "entry", "exit", "stop", "target", "trailing_stop", "trade_window", "force_exit_time",
             "max_trades_per_day", "max_holding_minutes", "signal_validity_minutes", "position_sizing", "product",
-            "regime_preferences", "event_rules", "risk_overrides", "legs", "combined_exit");
+            "regime_preferences", "event_rules", "risk_overrides", "legs", "combined_exit", "entry_order");
 
     private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
 
@@ -128,11 +128,12 @@ public class DefinitionParser {
         RiskOverrides overrides = root.has("risk_overrides") ? overrides(root.map("risk_overrides")) : RiskOverrides.NONE;
         List<StrategyDefinition.OptionLeg> legs = root.has("legs") ? legs(root) : List.of();
         StrategyDefinition.CombinedExit combined = root.has("combined_exit") ? combined(root.map("combined_exit")) : null;
+        StrategyDefinition.EntryOrder entryOrder = root.has("entry_order") ? entryOrder(root.map("entry_order")) : null;
         if (!root.errors.list.isEmpty()) {
             return null;
         }
         return new StrategyDefinition(name, family, description, universe, timeframe, direction, entry, exit, stop, target,
-                trailing, window, forceExit, maxTrades, maxHolding, validity, sizing, product, regimes, events, overrides, legs, combined);
+                trailing, window, forceExit, maxTrades, maxHolding, validity, sizing, product, regimes, events, overrides, legs, combined, entryOrder);
     }
 
     private List<UniverseEntry> universe(Node root) {
@@ -375,6 +376,32 @@ public class DefinitionParser {
             node.error("high_risk_event_within_minutes", "is required when action is " + action.name().toLowerCase(Locale.ROOT));
         }
         return new EventRules(minutes, action);
+    }
+
+    /** Plan M9.8: {@code entry_order: { type: market | limit_touch, max_requotes: 3, cancel_after_seconds: 90, max_chase_bps: 10 }}. */
+    private StrategyDefinition.EntryOrder entryOrder(Node node) {
+        if (node == null) {
+            return null;
+        }
+        node.rejectUnknownKeys(List.of("type", "max_requotes", "cancel_after_seconds", "max_chase_bps"));
+        StrategyDefinition.EntryOrderType type = node.enumValue("type", StrategyDefinition.EntryOrderType.class, StrategyDefinition.EntryOrderType.MARKET);
+        Integer requotes = node.integer("max_requotes", 3);
+        Integer cancelAfter = node.integer("cancel_after_seconds", 90);
+        BigDecimal chase = node.decimal("max_chase_bps");
+        if (requotes != null && (requotes < 0 || requotes > 10)) {
+            node.error("max_requotes", "must be between 0 and 10");
+        }
+        if (cancelAfter != null && (cancelAfter < 5 || cancelAfter > 900)) {
+            node.error("cancel_after_seconds", "must be between 5 and 900");
+        }
+        if (chase != null && (chase.signum() < 0 || chase.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            node.error("max_chase_bps", "must be between 0 and 100");
+        }
+        if (type == StrategyDefinition.EntryOrderType.MARKET) {
+            return null; // the default: stored as absent so the definition hashes as before
+        }
+        return new StrategyDefinition.EntryOrder(type, requotes == null ? 3 : requotes, cancelAfter == null ? 90 : cancelAfter,
+                chase == null ? BigDecimal.TEN : chase);
     }
 
     private RiskOverrides overrides(Node node) {

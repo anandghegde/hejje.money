@@ -228,3 +228,18 @@ func TestAStoredReportOpensReadOnly(t *testing.T) {
 		t.Fatal("no kill prompt on a report")
 	}
 }
+
+func TestHarnessCandidatesShowImbalanceAndFlowWhenPresent(t *testing.T) {
+	m := NewHarnessReport(api.HarnessSnapshot{})
+	m.snap.Candidates = []map[string]any{
+		{"instrument": "NSE:INFY", "side": "long", "score": 0.8, "sent": true, "imbalance": 0.31, "flowShare": 0.64},
+		{"instrument": "NSE:TCS", "side": "long", "score": 0.4, "sent": false},
+	}
+	lines := strings.Join(m.candidates(80, 10), "\n")
+	if !strings.Contains(lines, "imb +0.31  flow 64%") {
+		t.Fatalf("micro columns missing:\n%s", lines)
+	}
+	if strings.Count(lines, "imb ") != 1 {
+		t.Fatalf("a candidate without micro data shows it:\n%s", lines)
+	}
+}

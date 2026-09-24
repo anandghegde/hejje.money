@@ -1,0 +1,18 @@
+# Daily-context universe for integration tests: NSE equities present in the fake broker's instrument fixture, plus one
+# symbol the master lacks (reported as unresolved, never dropped silently).
+name: ratings-test
+symbols:
+  - NSE:RELIANCE
+  - NSE:INFY
+  - NSE:TCS
+  - NSE:HDFCBANK
+  - NSE:SBIN
+  - NSE:ITC          # BasesIT only: its candles live in 2017, outside RatingsIT's sessions
+  - NSE:NOSUCHSYMBOL
+industry:
+  "NSE:RELIANCE": "Oil Gas & Consumable Fuels"
+  "NSE:INFY": "Information Technology"
+  "NSE:TCS": "Information Technology"
+  "NSE:HDFCBANK": "Financial Services"
+  "NSE:SBIN": "Financial Services"
+  "NSE:ITC": "Fast Moving Consumer Goods"

@@ -6,6 +6,7 @@ import java.util.Optional;
 import money.hejje.common.event.MarketTick;
 import money.hejje.common.event.TickBus;
 import money.hejje.common.time.HejjeClock;
+import money.hejje.market.BarMicro;
 import money.hejje.market.Candle;
 import money.hejje.market.CandleClosedEvent;
 import org.springframework.beans.factory.ObjectProvider;
@@ -14,7 +15,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * The single entry point every tick flows through, live or replayed: update the quote cache, publish the tick on the
- * bus, build candles, persist and publish closed candles, and optionally record the tick. A scheduled tick every second
+ * bus, build candles and their order-book/flow data (plan M9.4), persist and publish closed candles, and optionally
+ * record the tick. A scheduled tick every second
  * closes minutes whose boundary has passed (so empty minutes still produce synthetic candles).
  */
 @Component
@@ -23,6 +25,7 @@ public class MarketPipeline {
     private final TickBus bus;
     private final QuoteCache quotes;
     private final CandleBuilder candles = new CandleBuilder();
+    private final BarMicroBuilder micro = new BarMicroBuilder();
     private final MarketCandleStore candleStore;
     private final ObjectProvider<TickRecorder> recorder;
     private final HejjeClock clock;
@@ -41,7 +44,9 @@ public class MarketPipeline {
         quotes.accept(tick);
         recorder.ifAvailable(r -> r.record(tick));
         bus.publish(tick);
-        publishClosed(candles.onTick(tick));
+        List<Candle> closed = candles.onTick(tick);
+        micro.onTick(tick); // keyed by the tick's own minute, so the closed minutes above are unaffected
+        publishClosed(closed);
     }
 
     /** Closes minutes up to {@code now} (synthetic fill for empty minutes). Called on a schedule and by replay. */
@@ -61,7 +66,11 @@ public class MarketPipeline {
     private void publishClosed(List<Candle> closed) {
         for (Candle candle : closed) {
             candleStore.save(candle);
-            bus.publish(new CandleClosedEvent(candle));
+            BarMicro m = micro.onCandleClosed(candle);
+            if (m != null) {
+                candleStore.saveMicro(m);
+            }
+            bus.publish(new CandleClosedEvent(candle, m));
         }
     }
 
@@ -72,6 +81,7 @@ public class MarketPipeline {
     public void resetForSimulation() {
         candles.flushAll();
         candles.clearVolumes();
+        micro.clear();
         quotes.clear();
         lastTickAt = null;
     }

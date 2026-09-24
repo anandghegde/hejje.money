@@ -45,6 +45,10 @@ public enum AuditEventType {
     STRATEGY_DEPLOYED,
     STRATEGY_DEPLOYMENT_UPDATED,
     SIGNAL_EXPIRED,
+    /** Plan M9.8: a passive entry moved to the new touch. */
+    ENTRY_REQUOTED,
+    /** Plan M9.8: a passive entry was cancelled unfilled (deadline, re-quotes spent) or with only part filled. */
+    ENTRY_NOT_FILLED,
     SIGNAL_SKIPPED,
     SIGNAL_PREPARED,
     STRATEGY_STOP_PLACED,
@@ -78,5 +82,10 @@ public enum AuditEventType {
     WEBHOOK_RECEIVED,
     EXECUTOR_FAILOVER,
     BROKER_ACCOUNT_REGISTERED,
-    BROKER_ACCOUNT_ACTIVATED
+    BROKER_ACCOUNT_ACTIVATED,
+    WATCHLIST_UPDATED,
+    SCREEN_SAVED,
+    SCREEN_DELETED,
+    JEV_BUDGET_EXCEEDED,
+    JEV_CIRCUIT_OPEN
 }

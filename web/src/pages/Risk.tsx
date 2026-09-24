@@ -33,6 +33,9 @@ export function Risk() {
             <tr><td>Daily loss limit</td><td>{formatPaise(data.dailyLossLimit.paise)}</td></tr>
             <tr><td>Open positions</td><td>{data.openPositions}/{data.maxOpenPositions}</td></tr>
             <tr><td>Trades today</td><td>{data.tradesToday}/{data.maxTradesPerDay}</td></tr>
+            <tr><td>Loss streak</td><td data-testid="risk-allowance">{data.lossStreakMode === 'ALLOWANCE'
+              ? (data.allowance != null ? `allowance ${data.allowanceUsed}/${data.allowance} (${data.allowanceReason})` : `allowance mode, not triggered (${data.consecutiveLosses} in a row)`)
+              : `${data.consecutiveLosses} in a row (block)`}</td></tr>
             <tr><td>Margin used</td><td>{data.marginUsedPct}%</td></tr>
           </tbody>
         </table>

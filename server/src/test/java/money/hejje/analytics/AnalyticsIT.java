@@ -31,6 +31,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 class AnalyticsIT extends AbstractIntegrationTest {
 
+    @org.springframework.beans.factory.annotation.Autowired ReviewService reviewService;
+
     @Autowired ExecutionEngine engine;
     @Autowired InstrumentService instruments;
     @Autowired FakeBrokerAdapter fake;
@@ -83,9 +85,9 @@ class AnalyticsIT extends AbstractIntegrationTest {
 
         // the review is written when the position goes flat (async listener)
         TradeReview review = null;
-        for (int i = 0; i < 100 && review == null; i++) {
+        for (int i = 0; i < 100 && (review == null || review.cause() == null); i++) {
             review = analytics.reviewForEntryOrder(trip.entryOrderId()).orElse(null);
-            if (review == null) {
+            if (review == null || review.cause() == null) {
                 Thread.sleep(100);
             }
         }
@@ -122,5 +124,18 @@ class AnalyticsIT extends AbstractIntegrationTest {
         assertThat(one.getBody().get("side")).isEqualTo("BUY");
         ResponseEntity<Map> byOrder = rest.exchange("/api/v1/reviews/by-order/" + trip.entryOrderId(), HttpMethod.GET, new HttpEntity<>(bearer(token)), Map.class);
         assertThat(byOrder.getBody().get("id")).isEqualTo(review.id().toString());
+
+        // plan M9.6: a provisional cause at the close (a manual exit with no close reason: UNKNOWN), completed after the window
+        assertThat(review.cause()).isNotNull();
+        assertThat(review.cause().complete()).isFalse();
+        assertThat(review.cause().evidence()).containsEntry("r", 10.0);
+        clock.setIst("2026-09-08T11:10:00");
+        reviewService.completeCauses();
+        assertThat(analytics.reviewForEntryOrder(trip.entryOrderId()).orElseThrow().cause().complete()).isTrue();
+        token = adminAccessToken();
+        ResponseEntity<Map> agreement = rest.exchange("/api/v1/reviews/cause-agreement?from=2026-09-08&to=2026-09-08", HttpMethod.GET,
+                new HttpEntity<>(bearer(token)), Map.class);
+        assertThat(agreement.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(agreement.getBody()).containsEntry("trades", 0);
     }
 }

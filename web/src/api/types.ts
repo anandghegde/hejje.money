@@ -50,6 +50,8 @@ export interface RiskDashboard {
   realizedPnl: { paise: number }; unrealizedPnl: { paise: number }; netPnl: { paise: number };
   dailyLossLimit: { paise: number }; openPositions: number; maxOpenPositions: number; tradesToday: number;
   maxTradesPerDay: number; consecutiveLosses: number; marginUsedPct: number; killSwitchStopNewOrders: boolean;
+  /** Plan M9.7: BLOCK or ALLOWANCE, and the day's loss-streak allowance once it triggered. */
+  lossStreakMode?: string; allowanceUsed?: number | null; allowance?: number | null; allowanceReason?: string | null;
 }
 
 export interface KillSwitch { mode: ExecutionMode; stopNewOrders: boolean; reason?: string; }
@@ -166,6 +168,9 @@ export interface TradeReview {
   side: string; quantity: number; entryPrice: number; exitPrice: number; openedAt: string; closedAt: string; grossPnl: Money; fees: Money; netPnl: Money;
   outcomeR?: number; expectedSetupValid?: boolean; entrySlippageBps?: number; exitSlippageBps?: number; ruleAdherencePct?: number; closeReason?: string;
   context: Record<string, string>; notes?: string;
+  /** Plan M9.6: why the trade ended as it did and how its entry was timed (null until classified). */
+  cause?: { cause: string; entryTiming?: string; mfeR?: number; maeR?: number; evidence: Record<string, unknown>; jevCause?: string; jevTiming?: string;
+    complete: boolean } | null;
 }
 
 export interface PnlBucket { key: string; label: string; trades: number; wins: number; grossPnl: Money; fees: Money; netPnl: Money; winRate: number; averageR?: number }
@@ -175,7 +180,7 @@ export interface PnlReport { groupBy: string; mode: string; buckets: PnlBucket[]
 export interface PulseComponent { name: string; weight: number; value?: number; contribution: number; evidence: string }
 export interface TechnicalPulse { direction: string; strength: string; score: number; coverage: number; components: PulseComponent[]; evidence: string[] }
 export interface SectorStrength { name: string; symbol: string; label: string; changePct?: number; relativePct?: number }
-export interface MarketPulse { regime: string; volatility: string; breadth: string; sectors: SectorStrength[]; globalContext: string }
+export interface MarketPulse { regime: string; volatility: string; breadth: string; sectors: SectorStrength[]; globalContext: string; marketCondition?: string; marketConditionEvidence?: string }
 export interface PulseSnapshot { date: string; asOf: string; technical: TechnicalPulse; market: MarketPulse }
 export interface Instrument { id: string; symbol: string; name: string; exchange: string; type: string }
 export interface Candle { instrumentId: string; timeframe: string; openTime: string; open: number; high: number; low: number; close: number; volume: number }
@@ -329,3 +334,40 @@ export interface Webhook {
 }
 export interface WebhookCreated { webhook: Webhook; secret: string; url: string; note: string; }
 export interface WebhookDelivery { id: string; receivedAt: string; status: 'ACCEPTED' | 'REJECTED' | 'REPLAYED'; detail?: string; signalId?: string; approvalId?: string; }
+
+// --- Phase 8 (M8.7): daily context ---
+export interface DailyRating {
+  sessionDate: string; instrumentId: string; symbol: string; rsRaw?: number; rsRating?: number; adRaw?: number; adGrade?: string; offHighPct?: number;
+  offLowPct?: number; volVsAvg50Pct?: number; upDownVolRatio?: number; avgTurnoverCr?: number; close: number | string; changePct?: number; groupId?: string;
+  groupRank?: number; techComposite?: number; evidence: Record<string, unknown>;
+}
+export interface Base {
+  id: string; instrumentId: string; symbol: string; type: string; startDate: string; detectedDate: string; depthPct: number; baseLow: number | string;
+  pivot: number | string; buyLow: number | string; buyHigh: number | string; stop: number | string; goal: number | string; evidence: Record<string, unknown>;
+  status: string; statusDate: string; triggerDate?: string; entry?: number | string; volumeConfirmed?: boolean; exit?: number | string; outcomePct?: number;
+  outcomeR?: number;
+}
+export interface SetupRow { rating?: DailyRating; base?: Base }
+export interface GroupRank { groupId: string; name: string; rank: number; strength: number; members: number }
+export interface RatingsList { name: string; date: string; rows?: SetupRow[]; groups?: GroupRank[] }
+export interface ScreenFilter { field: string; op: 'gte' | 'lte' | 'gt' | 'lt' | 'eq' | 'ne' | 'in'; value: number | string | string[] }
+export interface ScreenDefinition { filters: ScreenFilter[]; sort?: string; limit?: number }
+export type ScreenRow = Record<string, number | string | boolean | null>;
+export interface ScreenResult { date: string; universe: number; matched: number; rows: ScreenRow[] }
+export interface SavedScreen { id: string; name: string; definition: ScreenDefinition; seeded: boolean }
+export interface WatchlistItem { symbol: string; instrumentId: string; note?: string; addedAt: string }
+export interface AnalogOutcome {
+  forward: string; count: number; winRate: number; mean: number; median: number; p25: number; p75: number; best: number; worst: number; maeMedian: number;
+  maeP25: number; mfeMedian: number; mfeP75: number; avgPath: number[]; p25Path: number[]; p75Path: number[]; distinctSymbols: number; distinctYears: number;
+  direction: string; consistency: string; reliability: string; risk: string; outlier: boolean;
+}
+export interface AnalogSplit { name: string; forward: string; count: number; winRate: number; median: number; otherCount: number; otherWinRate: number; otherMedian: number }
+export interface AnalogSummary {
+  sessionDate: string; symbol: string; kind: 'DAILY' | 'SESSION'; lookback: number; checkpoint: string; candidates: number; compared: number; matches: number;
+  medianQuality: number; qualityTag: string; outcomes: AnalogOutcome[]; splits: AnalogSplit[]; narrative: string[];
+  session?: { count: number; highHeld: number; lowHeld: number; medianHighTime?: string; medianLowTime?: string; medianReturnAtr: number } | null;
+}
+export interface AnalogMatch {
+  symbol: string; endDate: string; similarity: number; quality: number; components: Record<string, number>; scores: Record<string, number>;
+  returns: Record<string, number>; path: number[];
+}

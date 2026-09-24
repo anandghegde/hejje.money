@@ -73,21 +73,33 @@ public class ReplayMarketDataSource {
         return readFile(file);
     }
 
+    /** Reads a day file; files written before plan M9.4 have no order-book columns and replay with them null. */
     static List<MarketTick> readFile(Path file) {
         List<MarketTick> out = new ArrayList<>();
-        String sql = "SELECT instrument_id, ts, last_price, bid, ask, volume, oi, mode FROM read_parquet('" + file.toAbsolutePath() + "') ORDER BY ts";
+        String sql = "SELECT * FROM read_parquet('" + file.toAbsolutePath() + "') ORDER BY ts";
         try (Connection conn = DriverManager.getConnection("jdbc:duckdb:"); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            java.util.Set<String> columns = new java.util.HashSet<>();
+            for (int i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
+                columns.add(rs.getMetaData().getColumnName(i).toLowerCase(java.util.Locale.ROOT));
+            }
+            boolean book = columns.containsAll(java.util.List.of("bid_qty5", "ask_qty5", "total_buy_qty", "total_sell_qty"));
             while (rs.next()) {
                 BigDecimal bid = rs.getObject("bid") == null ? null : bd(rs.getDouble("bid"));
                 BigDecimal ask = rs.getObject("ask") == null ? null : bd(rs.getDouble("ask"));
                 out.add(new MarketTick(UUID.fromString(rs.getString("instrument_id")), rs.getObject("ts", java.time.LocalDateTime.class).toInstant(java.time.ZoneOffset.UTC),
                         bd(rs.getDouble("last_price")), bid, ask, rs.getLong("volume"), rs.getLong("oi"),
-                        MarketTick.Mode.valueOf(rs.getString("mode"))));
+                        MarketTick.Mode.valueOf(rs.getString("mode")), book ? optLong(rs, "bid_qty5") : null, book ? optLong(rs, "ask_qty5") : null,
+                        book ? optLong(rs, "total_buy_qty") : null, book ? optLong(rs, "total_sell_qty") : null));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Failed to read ticks from " + file, e);
         }
         return out;
+    }
+
+    private static Long optLong(ResultSet rs, String column) throws SQLException {
+        long v = rs.getLong(column);
+        return rs.wasNull() ? null : v;
     }
 
     private static BigDecimal bd(double value) {

@@ -50,12 +50,14 @@ public class SimReportStore {
         p.put("dhash", r.decisionsHash());
         p.put("rhash", r.resultHash());
         p.put("snapshot", write(r.snapshot()));
+        p.put("calibration", r.confidenceCalibration() == null ? null : write(r.confidenceCalibration()));
         p.put("at", r.createdAt().atOffset(ZoneOffset.UTC));
         return jdbc.sql("""
                 INSERT INTO sim_report (id, session_id, bot_name, bot_version, bot_kind, session_dates, capital_paise, trades, wins, expectancy_r, profit_factor,
-                    max_drawdown_paise, net_pnl_paise, win_paise, loss_paise, friction_paise, trade_rs, decisions_hash, result_hash, snapshot, created_at)
+                    max_drawdown_paise, net_pnl_paise, win_paise, loss_paise, friction_paise, trade_rs, decisions_hash, result_hash, snapshot, confidence_calibration,
+                    created_at)
                 VALUES (:id, :session, :name, :version, :kind, CAST(:dates AS jsonb), :capital, :trades, :wins, :exp, :pf, :dd, :net, :win, :loss, :friction,
-                    CAST(:rs AS jsonb), :dhash, :rhash, CAST(:snapshot AS jsonb), :at)
+                    CAST(:rs AS jsonb), :dhash, :rhash, CAST(:snapshot AS jsonb), CAST(:calibration AS jsonb), :at)
                 ON CONFLICT (session_id, bot_name) DO NOTHING
                 """).params(p).update() == 1;
     }
@@ -81,7 +83,9 @@ public class SimReportStore {
                 exp == null ? null : ((Number) exp).doubleValue(), pf == null ? null : ((Number) pf).doubleValue(), rs.getLong("max_drawdown_paise"),
                 rs.getLong("net_pnl_paise"), rs.getLong("win_paise"), rs.getLong("loss_paise"), rs.getLong("friction_paise"),
                 read(rs.getString("trade_rs"), new TypeReference<List<Double>>() {}), rs.getString("decisions_hash"), rs.getString("result_hash"),
-                read(rs.getString("snapshot"), new TypeReference<Map<String, Object>>() {}), rs.getObject("created_at", OffsetDateTime.class).toInstant());
+                read(rs.getString("snapshot"), new TypeReference<Map<String, Object>>() {}),
+                rs.getString("confidence_calibration") == null ? null : read(rs.getString("confidence_calibration"), new TypeReference<Map<String, Object>>() {}),
+                rs.getObject("created_at", OffsetDateTime.class).toInstant());
     }
 
     private String write(Object v) {

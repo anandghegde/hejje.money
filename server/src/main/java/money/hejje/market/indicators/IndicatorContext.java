@@ -89,13 +89,18 @@ public final class IndicatorContext implements BarContext {
 
     /** Feeds one closed candle. Candles must arrive in time order and match the context's timeframe. */
     public void onCandleClosed(Candle candle) {
+        onCandleClosed(candle, null);
+    }
+
+    /** Feeds one closed candle with its order-book and flow data (plan M9.4; null when the bar has none). */
+    public void onCandleClosed(Candle candle, money.hejje.market.BarMicro micro) {
         if (candle.timeframe() != timeframe) {
             throw new IllegalArgumentException("Context is " + timeframe + " but candle is " + candle.timeframe());
         }
         if (last != null && !candle.openTime().isAfter(last.openTime())) {
             throw new IllegalArgumentException("Candle " + candle.openTime() + " is not after the last bar " + last.openTime());
         }
-        Bar bar = Bar.of(candle, zone);
+        Bar bar = Bar.of(candle, micro, zone);
         session.update(bar);
         series.get("open").push(bar.open());
         series.get("high").push(bar.high());

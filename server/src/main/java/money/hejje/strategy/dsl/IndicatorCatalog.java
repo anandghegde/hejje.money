@@ -62,7 +62,15 @@ public final class IndicatorCatalog {
         add("supertrend", List.of(ArgKind.INT, ArgKind.NUMBER), List.of());
         add("prev_day_nr", List.of(ArgKind.INT), List.of());
         add("opening_return", List.of(ArgKind.DURATION), List.of());
+        // plan M9.4: order-book and trade-flow, live or recorded ticks only (NOT_READY on candle history)
+        add("book_imbalance", List.of(), List.of());
+        add("book_imbalance_mean", List.of(), List.of());
+        add("buy_sell_qty_ratio", List.of(), List.of());
+        add("flow_up_share", List.of(ArgKind.INT), List.of(new Arg.Number(5)));
     }
+
+    /** Indicators that need order-book or tick-flow data, which candle history does not have (plan M9.4). */
+    public static final Set<String> MICROSTRUCTURE = Set.of("book_imbalance", "book_imbalance_mean", "buy_sell_qty_ratio", "flow_up_share");
 
     private IndicatorCatalog() {
     }

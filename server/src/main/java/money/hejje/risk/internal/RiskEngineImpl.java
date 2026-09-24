@@ -92,7 +92,7 @@ public class RiskEngineImpl implements RiskEngine {
             checks.add(RiskControls.tradingWindow(in));
             checks.add(RiskControls.averagingDown(in));
             checks.add(RiskControls.reentryCooldown(in, clock.now()));
-            checks.add(RiskControls.consecutiveLosses(in));
+            checks.add(RiskControls.lossStreak(in));
             for (money.hejje.risk.RiskCheckContributor contributor : contributors) {
                 try {
                     checks.addAll(contributor.contribute(intent));

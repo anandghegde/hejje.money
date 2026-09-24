@@ -83,10 +83,11 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.strategy.allow-forced-status` | — | `false` (`true` in `dev`/`test`) | Honour `force: true` on version status changes (bypasses lifecycle evidence; audited as forced). |
 | `hejje.execution.allow-off-session-paper` | — | `false` (`true` in `dev`) | Let PAPER-mode intents through outside market hours. Live modes are never exempt. |
 | `hejje.regime.enabled` | — | `true` | Regime engine (plan M3.1, `docs/regime.md`). Off: every label `UNKNOWN`, nothing stored, adjuster 0. |
-| `hejje.regime.classifier-version` | — | `1` | Stored with every label; bump after changing a rule or threshold to relabel history. |
+| `hejje.regime.classifier-version` | — | `2` | Stored with every label; bump after changing a rule or threshold to relabel history. |
 | `hejje.regime.label-on-startup` | — | `true` (`false` in `test`) | Label sessions of the daily history that have no label under the current version after boot. |
 | `hejje.regime.index-symbol` / `vix-symbol` | — | `INDEX:NIFTY 50` / `INDEX:INDIA VIX` | Instruments the trend/opening/structure and volatility rules read. |
 | `hejje.regime.universe` | — | `classpath:universe/nifty50.yaml` | YAML with a `symbols:` list for breadth (a `file:` path overrides the bundled copy). |
+| `hejje.regime.market-condition.*` | — | see `config/regime.yaml` | Market condition thresholds (plan M8.3, `docs/regime.md`): `distribution-drop-pct 0.2`, `distribution-window 25`, `distribution-expiry-gain-pct 5`, `follow-through-min-day 4`, `follow-through-gain-pct 1.25`, `pressure-count 4`, `downtrend-count 6`, `downtrend-below-sma-count 5`, `recover-count 3`, `sma 50`, `window-sessions 200`, `min-constituents 45` (`4` in `test`). |
 | `hejje.regime.lookback-sessions` / `min-sessions` | — | `250` / `60` | Percentile window and the minimum history before volatility is labelled. |
 | `hejje.regime.intraday-snapshot` | — | `PT5M` | Snapshot cache lifetime and the interval of stored intraday snapshots during the session. |
 | `hejje.regime.trend.*`, `volatility.*`, `opening.*`, `breadth.*`, `structure.*` | — | see `config/regime.yaml` | Rule thresholds, documented in `docs/regime.md`. |
@@ -97,6 +98,21 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.pulse.interval` | — | `PT1M` | Recompute/store cadence during the session and the cache lifetime of `GET /context/pulse`. |
 | `hejje.pulse.weights.*` | — | see `config/pulse.yaml` | Rule weights (`index_trend 20, index_vs_vwap 15, day_change 10, momentum 10, breadth 15, relative_volume 5, vix 10, sectors 10, futures_basis 5, gap 5`). |
 | `hejje.pulse.thresholds.*` | — | see `config/pulse.yaml` | Rule thresholds and the direction/strength cut-offs (`docs/pulse.md`). |
+| `hejje.ratings.enabled` | — | `false` (`true` in `test`) | Daily context layer (plan Phase 8, `docs/ratings.md`): evening D1 refresh, ratings, groups, bases, lists. Off: nothing is fetched or computed and `/api/v1/ratings/**` answers 503. |
+| `hejje.ratings.universe` | — | `nifty500` | Universe file name under `config/universe` (D1 only). |
+| `hejje.ratings.engine-version` | — | `1` | Stored with every row; bump after changing a formula or threshold (old rows are kept, new rows are written). |
+| `hejje.ratings.daily-refresh-cron` | — | `0 30 18 * * MON-FRI` (IST) | When the evening D1 refresh runs; it publishes `DailyCandlesRefreshed`, which the nightly computations chain off. Skipped in SIM. |
+| `hejje.ratings.refresh-sessions` | — | `5` | Trading days of D1 candles the evening refresh re-fetches (an upsert). |
+| `hejje.ratings.formula.*` | — | see `config/ratings.yaml` | Windows and weights of the ratings (`quarter-sessions 63`, `rs-weights 0.4/0.2/0.2/0.2`, `ad-sessions 65`, `high-low-sessions 252`, `volume-sessions 50`, `min-group-members 3`, `composite-weights`, `min-session-coverage 0.2`). |
+| `hejje.ratings.bases.*` | — | see `config/ratings.yaml` | Base detector, trade plan and lifecycle thresholds (`docs/ratings.md`, "Bases"): prior uptrend 25 % over 120 sessions, flat base 25–65 sessions ≤ 15 %, cup 35–325 sessions 12–35 % with 90 % recovery, handle 5–30 sessions ≤ 12 %, double bottom lows within 3 %, buy zone 5 %, stop 7 %, goal 20 % (reversal 8 %), breakout volume 1.4×, expiry 60 / max hold 120 sessions. |
+| `hejje.ratings.lists.*` | — | see `config/ratings.yaml` | List thresholds: `leader-composite 85`, `leader-rs 80`, `min-turnover-cr 10`, `mover-change-pct 2`, `mover-volume 1.5`. |
+| `hejje.analogs.enabled` | — | `false` (`true` in `test`) | Historical analogs (plan M8.5/M8.6, `docs/analogs.md`). Off: nothing is computed and `/api/v1/analogs/**` answers 503. |
+| `hejje.analogs.universe` / `engine-version` | — | `nifty500` / `1` | Daily universe file; the engine version stored with every summary (bump after changing a weight, band or threshold). |
+| `hejje.analogs.lookbacks` / `forwards` | — | `5,10,15,20,25,30,40,50` / `3,5,10,15` | Window lengths and forward windows in sessions. Cut lookbacks here if the nightly run exceeds its budget. |
+| `hejje.analogs.max-matches` / `max-distance` / `min-evidence` | — | `50` / `1.5` / `10` | Matches kept per symbol and lookback, the similarity cap, and the count below which the direction is `INSUFFICIENT`. |
+| `hejje.analogs.parallelism` / `nightly-budget` / `match-retention-days` | — | `4` / `PT30M` / `30` | Worker threads of a run, the budget a nightly run is measured against (a warning when exceeded), and how long match documents are kept. |
+| `hejje.analogs.weights.*`, `prefilter.*`, `tags.*` | — | see `config/analogs.yaml` | Similarity weights (shape-heavy), prefilter bands in universe standard deviations, and tag thresholds (`docs/analogs.md`). |
+| `hejje.analogs.session.*` | — | see `config/analogs.yaml` | Session analogs: `universe nifty50`, `extra-symbols` (the two indices), `checkpoints 09:45,10:15,11:15,13:00`, `exit-time 15:10`, `context-weight 0.10`, `percent-scale 1.0`, `volume-sessions 20`. |
 | `hejje.market.watchlist` | — | NIFTY 50, NIFTY BANK, INDIA VIX and the sector indices of `config/universe/sectors.yaml` | Symbols streamed in FULL mode (M3.2 added the sector indices). |
 | `hejje.events.enabled` | — | `true` | Event calendar and event risk (plan M3.3, `docs/events.md`). Off: no events, risk `LOW` with an "unavailable" line, rules not applied. |
 | `hejje.events.refresh-on-startup` | — | `true` (`false` in `test`) | Pull every enabled source after boot (also daily at 07:00 IST). |
@@ -114,6 +130,27 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.llm.circuit-breaker.failure-threshold` / `open-for` | — | `5` / `60s` | Consecutive retryable failures (timeouts, 429, 5xx) that open a provider's circuit, and how long it stays open before one trial call. |
 | `hejje.llm.profiles.<name>.fallback` | — | (none) | Profile tried once when this profile's provider fails or its circuit is open (not after streaming has started). |
 | `hejje.llm.dev-fixture-endpoint` | — | `false` (`true` in dev/test) | Enables `POST /agents/llm/dev/fixture` (canned answers on a `type: fixture` provider). |
+| `hejje.jev.enabled` | `HEJJE_JEV_ENABLED` | `false` | Jev typed decisions (`docs/jev.md`), independent of `hejje.llm`. Off: every call answers `DISABLED` and nothing is recorded; callers fall back. |
+| `hejje.jev.base-url` | `HEJJE_JEV_BASE_URL` | `https://api.surplusintelligence.ai` | API root (`/v1/decisions` is appended); `fixture` selects the scripted in-process fixture (the `test` profile). |
+| `hejje.jev.api-key-env` | — | `HEJJE_JEV_API_KEY` | Env var holding the TypeSafe key; the key is only ever put in the Authorization header. |
+| `hejje.jev.model` | — | `jev-1.13` | Pinned model version (calibration is per version; the `jev-latest` alias moves on a release). |
+| `hejje.jev.timeout` | — | `2500ms` | Default deadline of one evaluation, retry included. |
+| `hejje.jev.max-questions-per-call` | — | `120` | A larger question set throws (programming error). |
+| `hejje.jev.input-per-million` | — | `3.6` | Rupees per million input tokens for the cost estimate (output tokens are free). |
+| `hejje.jev.daily-cost-cap` | `HEJJE_JEV_DAILY_COST_CAP` | (none) | Rupees per IST day; reaching it answers `BUDGET` until the next day and records one `JEV_BUDGET_EXCEEDED` audit event. |
+| `hejje.jev.circuit-breaker.failure-threshold` / `open-for` | — | `5` / `60s` | Consecutive retryable failures that open the Jev circuit, and for how long (`JEV_CIRCUIT_OPEN` when it opens). |
+| `hejje.jev.sim-cache` | — | `true` | In SIM, a state already answered with the same question set version is answered from the store (no call, no cost). |
+| `hejje.jev.state-retention-days` | — | `30` | Days the sent state is kept in `jev_state`; answers are kept. |
+| `hejje.jev.knowledge-cutoff` | `HEJJE_JEV_KNOWLEDGE_CUTOFF` | (none) | Release date of the pinned model: the knowledge cutoff of JEV bots (SIM days before it are flagged). A JEV bot registers only with this or an explicit `knowledgeCutoff`. |
+| `hejje.jev.signal-check.enabled` | `HEJJE_JEV_SIGNAL_CHECK` | `false` | Ask Jev about every strategy signal and annotate it (docs/signals.md). |
+| `hejje.jev.signal-check.gate` | — | `off` | `off`, `caution` or `approval`; above `off` the application refuses to start until calibration of `signal-check` passes. |
+| `hejje.jev.signal-check.question-set` | — | `bot-stage2` | The question set the check asks. |
+| `hejje.risk.macro-event-size-factor` | — | `1.0` | Risk-event size cut (docs/risk.md): on a session with a market-wide macro event, new entries of signals and bots risk this share of their risk money (1.0 = off; must be in (0, 1]); the backtester applies it too. |
+| `hejje.analytics.cause.*` | — | `config/analytics.yaml` | Trade-cause thresholds (docs/analytics.md "Trade cause"): `extended-atr` 1.5, `vwap-atr` 2.0, `clean-target-mae-r` −0.5, `noise-recovery-r` 1.0, `drift-r` 0.3, `early-mae-r` −0.7, `early-mfe-r` 0.5, `late-mfe-r` 0.3, `late-range-share` 0.2, `pre-entry-minutes` 15, `range-minutes` 30, `post-exit-minutes` 30. |
+| `hejje.calibration.entry-horizon-minutes` / `direction-horizon-minutes` / `exit-horizon-minutes` | — | `30` / `60` / `15` | Outcome windows of the calibration rules (`docs/calibration.md`); pre-registered, change only with a note there. |
+| `hejje.calibration.min-bucket-count` | — | `20` | A probability bucket with fewer labelled answers shows its count and no rate. |
+| `hejje.calibration.min-labelled` / `min-sessions` / `max-ece` | — | `300` / `15` / `0.07` | The pass bar (with the top/bottom bucket separation) that gates on Jev numbers check. |
+| `hejje.calibration.no-data-after-days` | — | `5` | A prediction still without candles in its window this long after it is labelled NONE. |
 | `hejje.agent.ai.enabled` | — | `true` | Hejje AI chat (also needs `hejje.llm.enabled`). |
 | `hejje.agent.ai.profile` / `follow-up-profile` | — | `reasoning` / `fast` | LLM profile for the first question of a conversation / later questions. |
 | `hejje.agent.ai.max-steps` | — | `8` | LLM steps per question before the tool loop stops. |
@@ -152,6 +189,8 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.news.window` / `half-life` / `stale-after` | — | `24h` / `4h` / `2h` | Bias window, recency decay, and the age of the last successful poll after which the bias is unavailable. |
 | `hejje.news.min-relevance` / `strong-score` / `mild-score` | — | `0.3` / `0.6` / `0.2` | Contribution threshold and label cut-offs. |
 | `hejje.news.max-items-per-poll` / `title-similarity` / `fetch-timeout` | — | `25` / `0.8` / `30s` | Classification cap per poll, dedupe similarity, HTTP timeout. |
+| `hejje.news.classifier` | `HEJJE_NEWS_CLASSIFIER` | `llm` | `llm`, `jev` or `shadow` (LLM used, Jev stored beside it for `GET /news/classifier-comparison`); docs/news.md. |
+| `hejje.news.risk-event-threshold` / `market-headline-count` | — | `0.6` / `15` | Index risk events from headlines (Jev): P(risk event today) that records a market-wide macro event, and how many of the day's newest titles are read. |
 | `hejje.recommend.min-score` | `HEJJE_RECOMMEND_MIN_SCORE` | `70` | (now overridable by env; the e2e stack sets 0 so Today carries a decision without a backtest history). |
 | `hejje.recommend.caution.vix-rise-pct` / `news-opposing-score` | — | `5` / `0.4` | PRD 15 caution thresholds (`docs/decisions.md`); the stale-quote caution uses `hejje.market.quote-stale-after`. |
 | `hejje.notify.enabled` | — | `true` | Notifications (`docs/notifications.md`); off creates none. |

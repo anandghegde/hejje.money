@@ -1,0 +1,18 @@
+# Plan M9.6: Jev's reading of why a closed trade ended as it did, beside Hejje's rules (which stay the source of truth).
+# State: `trade` (side, exit reason and named buckets computed by Hejje). Bump the version on any change here.
+name: trade-cause
+version: "1"
+questions:
+  cause:
+    type: choice
+    instructions: Given `trade`, what best explains how the trade ended?
+    criteria:
+      CLEAN_TARGET: It reached its target without much trouble
+      NOISE_STOP: The stop was hit by noise; the price then went the trade's way
+      THESIS_BREAK: The reason for the trade stopped holding
+      DRIFT: It went nowhere and was closed by time
+      BAD_ENTRY: It was entered after the move had already stretched
+  entry_timing:
+    type: score
+    instructions: Given `trade`, how well was the entry timed?
+    criteria: [Early, Good, Late]

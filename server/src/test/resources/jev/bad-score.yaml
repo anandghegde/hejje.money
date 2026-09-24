@@ -1,0 +1,7 @@
+name: bad-score
+version: "1"
+questions:
+  mood:
+    type: score
+    instructions: How frustrated?
+    criteria: [Calm]

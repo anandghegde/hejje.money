@@ -45,6 +45,7 @@ export function Pulse() {
               <tr><td>Market regime</td><td><b>{m.regime}</b></td></tr>
               <tr><td>Volatility</td><td><b>{m.volatility}</b></td></tr>
               <tr><td>Breadth</td><td><b>{m.breadth}</b></td></tr>
+              <tr><td>Market condition</td><td title={m.marketConditionEvidence ?? ''}><b>{m.marketCondition ?? 'Unknown'}</b></td></tr>
               <tr><td>Global context</td><td><b>{m.globalContext}</b></td></tr>
             </tbody>
           </table>

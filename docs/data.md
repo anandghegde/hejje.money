@@ -11,6 +11,7 @@ Backfill runs on the VM against a live Kite session (tests never touch the broke
 | NIFTY and BANKNIFTY futures, per contract | M1, M5, D1 | Kite historical API per contract instrument |
 | `NFO:NIFTY:FUT:CONT`, `NFO:BANKNIFTY:FUT:CONT` continuous series | M1, M5, D1 | stitched from the contracts (below) |
 | NIFTY 50 constituents (`config/universe/nifty50.yaml`) | M1, M5, D1 | Kite historical API per stock (M1 for SIM replays, plan M7.2) |
+| NIFTY 500 constituents (`config/universe/nifty500.yaml`, with NSE's industry per symbol) | **D1 only**, from 2016 | Kite historical API per stock; the daily context universe (plan Phase 8) |
 
 ## Continuous futures
 
@@ -50,12 +51,45 @@ Progress: `GET /market/history/jobs/{id}`. Minute data is fetched in ≤60-day c
 `hejje.market.historical-per-second` (3/s): three years of M1 for one instrument is ~19 requests; the NIFTY 50 M5
 backfill is ~50 × 7 requests.
 
+## NIFTY 500 daily universe (plan M8.1)
+
+`config/universe/nifty500.yaml` is generated, not edited: `python3 research/tools/gen_universe.py` downloads NSE's
+`ind_nifty500list.csv`, checks every symbol against Kite's NSE instrument dump, reports the ones that do not resolve
+(they stay in the file) and writes the symbols with their industry. Re-run it at the semi-annual index reviews and
+commit the result.
+
+```bash
+# one-off backfill (admin key, CONNECTED Kite session): one parent job, a child per symbol under the 3/s throttle.
+# D1 requests cover at most 2000 days, so ten years are two requests per symbol (~1,000 requests, about six minutes).
+curl -X POST $H/api/v1/market/history/backfill-universe -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
+  -d '{"universe":"nifty500","timeframe":"D1","from":"2016-01-01T00:00:00Z","to":"2026-09-20T00:00:00Z"}'
+curl $H/api/v1/market/history/jobs/<jobId> -H "X-API-Key: $KEY"    # childrenDone / childrenFailed / failed / unresolved
+```
+
+Every evening (`hejje.ratings.daily-refresh-cron`, 18:30 IST on weekdays, only with `hejje.ratings.enabled=true`) the
+last `hejje.ratings.refresh-sessions` (5) sessions of D1 are re-fetched for the universe (an upsert) and
+`DailyCandlesRefreshed(date)` is published; ratings, bases and analogs chain off that event. A universe that is staler
+than five sessions is brought current with `POST /api/v1/ratings/refresh {"sessions": N}`. In SIM the job is skipped.
+
+Known limitations:
+
+- **Survivorship bias.** The file holds today's constituents only. Stocks that were delisted or dropped out of the
+  index are missing from every historical date, which flatters every historical statistic built on this universe
+  (ratings percentiles, base outcomes, analog outcomes). The validation in plan M8.8 measures on recent data for that
+  reason, and every daily-universe result carries the caveat.
+- **Adjustments.** Kite's daily history is adjusted for splits and bonuses, not for dividends. An unadjusted split
+  shows up in the integrity report's `suspectGaps` (below); the fix is to backfill the symbol again, there is no
+  adjustment logic in Hejje.
+- No point-in-time index membership, no BSE, no intraday data for the 500.
+
 ## Integrity report
 
 `GET /api/v1/market/history/integrity?instrumentId=&timeframe=&from=&to=` compares the store with the holiday
 calendar: expected sessions, sessions with data, missing sessions (first 50 listed), and per-session bar counts against
 the expected count (375 for M1, 75 for M5, 25 for M15, 1 for D1) with the short sessions listed. Coverage alone is at
-`GET /api/v1/market/history/coverage`.
+`GET /api/v1/market/history/coverage`. For D1 the report also lists `suspectGaps`: sessions whose open is 35 % or more
+away from the previous close while `INDEX:NIFTY 50` gapped less than 5 % that day (`session`, `previousClose`, `open`,
+`gapPct`; first 50), which is what an unadjusted split or bonus looks like.
 
 ## Baseline backtests
 

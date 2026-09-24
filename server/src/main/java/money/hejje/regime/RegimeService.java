@@ -31,9 +31,12 @@ public class RegimeService {
     private final RegimeStore store;
     private final RegimeProperties props;
     private final HejjeClock clock;
+    private final org.springframework.context.ApplicationEventPublisher events;
     private volatile RegimeSnapshot cached;
 
-    RegimeService(RegimeEngine engine, RegimeStore store, RegimeProperties props, HejjeClock clock) {
+    RegimeService(RegimeEngine engine, RegimeStore store, RegimeProperties props, HejjeClock clock,
+            org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.engine = engine;
         this.store = store;
         this.props = props;
@@ -74,12 +77,29 @@ public class RegimeService {
         cached = snapshot;
         if (persist && !snapshot.isUnknown()) {
             if (snapshot.finalLabel()) {
+                announceConditionChange(snapshot);
                 store.upsertFinal(snapshot, now);
             } else {
                 store.insertIntraday(snapshot, now);
             }
         }
         return snapshot;
+    }
+
+    /** Tells clients and the notification rules when the session's market condition differs from the previous session's. */
+    private void announceConditionChange(RegimeSnapshot snapshot) {
+        List<RegimeSnapshot> earlier = store.finals(snapshot.date().minusDays(10), snapshot.date().minusDays(1), props.classifierVersion());
+        if (earlier.isEmpty()) {
+            return;
+        }
+        MarketCondition previous = earlier.get(earlier.size() - 1).marketCondition();
+        MarketCondition current = snapshot.marketCondition();
+        if (previous == current || previous == MarketCondition.UNKNOWN || current == MarketCondition.UNKNOWN) {
+            return;
+        }
+        String sentence = snapshot.evidence().stream().filter(e -> e.startsWith("Market condition")).findFirst().orElse("");
+        events.publishEvent(new money.hejje.common.ClientNotification("market_condition", java.util.Map.of("date", snapshot.date().toString(),
+                "previous", previous.name(), "current", current.name(), "evidence", sentence)));
     }
 
     /** The stored final label of a session under the current classifier version. */
@@ -124,7 +144,7 @@ public class RegimeService {
         for (RegimeSnapshot s : labelled) {
             store.upsertFinal(s, now);
             lines.add(s.date() + "|" + s.trend() + "|" + s.volatility() + "|" + s.opening() + "|" + s.breadth() + "|" + s.intradayStructure() + "|"
-                    + s.eventEnvironment());
+                    + s.eventEnvironment() + "|" + s.marketCondition());
         }
         return new RegimeLabelResult(from, to, props.classifierVersion(), expected, labelled.size(), hash(lines));
     }

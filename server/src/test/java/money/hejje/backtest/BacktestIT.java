@@ -135,6 +135,31 @@ class BacktestIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aSessionFilteredRunIsResearchOnlyAndNeverTheVersionsEvidence() throws Exception {
+        StrategyVersion v1 = strategies.create(YAML.replace("name: ", "name: filtered_"), null, "admin");
+        // only the first of the two sessions may be entered: the TARGET trade stays, the STOP trade of the second session is gone
+        Map<String, Object> body = new java.util.HashMap<>(submitBody(v1.strategyId()));
+        body.put("sessionFilter", Map.of("unlistedDates", "BLOCK",
+                "days", Map.of(FIRST.plusDays(3).toString(), Map.of("instruments", List.of("NSE:INFY"), "sides", List.of("BUY")))));
+        ResponseEntity<Map> accepted = rest.exchange("/api/v1/backtests", HttpMethod.POST, new HttpEntity<>(body, bearer(token)), Map.class);
+        assertThat(accepted.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        Map<?, ?> done = awaitDone(UUID.fromString((String) accepted.getBody().get("id")));
+        assertThat(done.get("status")).as(String.valueOf(done.get("error"))).isEqualTo("DONE");
+        assertThat(((Map<?, ?>) done.get("metrics")).get("totalTrades")).isEqualTo(1);
+        assertThat(((Map<?, ?>) done.get("spec")).get("sessionFilter")).isNotNull(); // recorded with the run
+
+        // a filtered run is not the backtest the version is judged by: no evidence, so BACKTESTED is still refused
+        assertThat(backtests.baseBacktest(v1.id())).isEmpty();
+        ResponseEntity<Map> refused = rest.exchange("/api/v1/strategies/" + v1.strategyId() + "/versions/1/status", HttpMethod.POST,
+                new HttpEntity<>(Map.of("status", "BACKTESTED"), bearer(token)), Map.class);
+        assertThat(refused.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        ResponseEntity<Map> bad = rest.exchange("/api/v1/backtests", HttpMethod.POST, new HttpEntity<>(Map.of("strategyId", v1.strategyId().toString(),
+                "version", 1, "from", FIRST.toString(), "to", FIRST.plusDays(4).toString(), "sessionFilter", Map.of("unlistedDates", "MAYBE")), bearer(token)), Map.class);
+        assertThat(bad.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
     void sameSpecTwiceYieldsSameHash() {
         StrategyVersion v1 = strategies.create(YAML, null, "admin");
         BacktestSpec spec = new BacktestSpec(v1.id(), List.of(infy), null, FIRST.plusDays(3), FIRST.plusDays(4), FillModel.NEXT_OPEN, 5, null,

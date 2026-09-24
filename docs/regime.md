@@ -99,6 +99,44 @@ and the excursion above/below the open as a share of the day range. Checked in t
 `NORMAL` for every session until the events module (M3.3) registers an `EventEnvironmentSource` bean that maps the
 day's events to `EARNINGS_HEAVY | RBI | FED | BUDGET | MACRO_EVENT_SESSION | EXPIRY_SESSION`.
 
+### Market condition (plan M8.3)
+
+The daily market call, a seventh dimension: `CONFIRMED_UPTREND | UPTREND_UNDER_PRESSURE | RALLY_ATTEMPT | DOWNTREND |
+UNKNOWN`. It is an end-of-day label: the final label of a session includes that session, an intraday snapshot carries
+the previous session's call. Thresholds: `hejje.regime.market-condition.*` in `config/regime.yaml`.
+
+**Index volume proxy.** `INDEX:NIFTY 50` carries no volume, so a session's index volume is the summed D1 turnover
+(`close × volume`) of the `nifty50.yaml` constituents (for a session whose D1 candles are not stored yet: last intraday
+close × summed intraday volume). With fewer than `min-constituents` (45) constituents the session has no proxy volume:
+it can be neither a distribution day nor a follow-through day, and when it is the session being labelled the label is
+`UNKNOWN`.
+
+| Rule | Definition |
+|---|---|
+| Distribution day | index close down ≥ 0.2 % on higher proxy volume than the previous session. It leaves the count after 25 sessions, or once the index closes 5 % above that day's close |
+| `CONFIRMED_UPTREND` → `UPTREND_UNDER_PRESSURE` | ≥ 4 distribution days in the count |
+| `UPTREND_UNDER_PRESSURE` → `CONFIRMED_UPTREND` | the count falls to ≤ 3 |
+| uptrend → `DOWNTREND` | ≥ 6 distribution days, or ≥ 5 together with a close below the 50-session average |
+| `DOWNTREND` → `RALLY_ATTEMPT` | the first up close after a new low is day 1; later sessions count on (a down close that holds the low still counts) |
+| Undercut | a low below the low of the attempt resets the count (day 1 again if that session closes up, else `DOWNTREND`) |
+| Follow-through day | on day 4 or later of the attempt, index up ≥ 1.25 % on higher proxy volume → `CONFIRMED_UPTREND`; the distribution count restarts at 0 |
+
+**Fixed window.** The state machine is path dependent, so it is run over exactly the last `window-sessions` (200)
+index sessions ending at the session being labelled (plus 50 before them for the average). It opens in
+`CONFIRMED_UPTREND` when the index is at or above its average at the window start, else in `DOWNTREND`. A label is
+therefore a function of a fixed window of candles up to the session: no look-ahead, and the evening label equals what a
+relabelling job started years earlier produces for the same session. (The plan carried the state in `DailyState`; a
+state carried from the start of a job would make a label depend on where the job started.) In practice a follow-through
+day or a run of distribution days inside 200 sessions decides the state, not the opening assumption.
+
+Evidence: the sentence (`Market condition UPTREND_UNDER_PRESSURE: 4 distribution days in 25 sessions [dates]`) and the
+features `distributionDays`, `distributionCount`, `rallyDay`, `followThroughDate`, `indexSma50`. The label is part of
+the labelling hash; classifier version 2 introduced it (bumping the version relabels history). A change of the call
+between two final labels publishes the `market_condition` client event and the `MARKET_CONDITION_CHANGED`
+notification (INFO; WARNING into `DOWNTREND`). Surfaces: the regime API (`marketCondition`), the Market Pulse table
+(`market.marketCondition` with `marketConditionEvidence`), the `get_market_regime` tool. It gates nothing until the
+validation of plan M8.8 passes.
+
 ## Snapshots, storage and refresh
 
 - `GET /api/v1/context/regime` returns the current session's snapshot: labels, `features` (the numbers above),
