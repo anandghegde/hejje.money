@@ -6,6 +6,10 @@ import { BrokerAccountsView, canFailover, executorLine, ExecutorStatus } from '.
 
 interface Latency { name: string; op?: string; broker?: string; p50Ms: number; p95Ms: number; p99Ms: number; count: number; }
 interface Issue { id: string; kind: string; severity: string; detail: string; broker?: string; }
+interface JevStatus {
+  enabled: boolean; keyPresent: boolean; model: string; circuit: string; lastError?: string; budgetExceeded: boolean;
+  today: { calls: number; ok: number; cached: number; failed: number; timeouts: number; costPaise: number; p50Ms?: number; p90Ms?: number };
+}
 
 export function System() {
   const qc = useQueryClient();
@@ -15,6 +19,7 @@ export function System() {
   const { data: issues } = useQuery({ queryKey: ['issues'], queryFn: () => request<Issue[]>('/execution/reconciliation-issues'), refetchInterval: 5000 });
   const { data: executor } = useQuery({ queryKey: ['executor'], queryFn: () => request<ExecutorStatus>('/server/executor'), refetchInterval: 5000 });
   const { data: accounts } = useQuery({ queryKey: ['broker-accounts'], queryFn: () => request<BrokerAccountsView>('/broker/accounts') });
+  const { data: jev } = useQuery({ queryKey: ['jev-status'], queryFn: () => request<JevStatus>('/jev/status'), refetchInterval: 15000 });
 
   async function resolve(id: string) {
     await request(`/execution/reconciliation-issues/${id}/resolve`, { method: 'POST', idempotent: true });
@@ -56,6 +61,18 @@ export function System() {
       )}
       {message && <p>{message}</p>}
       <table><tbody>{checks.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+      {jev && (
+        <>
+          <h3>Jev</h3>
+          <table data-testid="jev-status"><tbody>
+            <tr><td>Status</td><td>{!jev.enabled ? 'disabled' : !jev.keyPresent ? 'enabled, no API key' : `enabled, model ${jev.model}, circuit ${jev.circuit}`}</td></tr>
+            <tr><td>Today</td><td>{jev.today.calls} calls ({jev.today.ok} ok, {jev.today.cached} cached, {jev.today.timeouts} timeouts, {jev.today.failed} failed)</td></tr>
+            <tr><td>Latency</td><td>{jev.today.p50Ms != null ? `p50 ${jev.today.p50Ms} ms, p90 ${jev.today.p90Ms} ms` : '—'}</td></tr>
+            <tr><td>Cost today</td><td>₹{(jev.today.costPaise / 100).toFixed(2)}{jev.budgetExceeded ? ' (cap reached)' : ''}</td></tr>
+            {jev.lastError && <tr><td>Last error</td><td>{jev.lastError}</td></tr>}
+          </tbody></table>
+        </>
+      )}
       <h3>Latency (ms)</h3>
       <table><thead><tr><th>Timer</th><th>Broker</th><th>p50</th><th>p95</th><th>p99</th><th>count</th></tr></thead>
         <tbody>{(latency ?? []).map((l) => <tr key={l.name + (l.op ?? '') + (l.broker ?? '')}><td>{l.name}{l.op ? `:${l.op}` : ''}</td><td>{l.broker ?? ''}</td><td>{l.p50Ms}</td><td>{l.p95Ms}</td><td>{l.p99Ms}</td><td>{l.count}</td></tr>)}</tbody>
