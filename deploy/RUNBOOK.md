@@ -73,8 +73,23 @@ See `deploy/.env.example` and `docs/config.md`. In `prod` the server refuses to 
 
 ## 5. Upgrade
 
+The VM always runs GitHub's `main`. From a workstation on `main` with ssh access to the VM:
+
 ```bash
-cd /opt/hejje && git pull
+deploy/deploy.sh          # restart waits until after 15:30 IST on weekdays
+deploy/deploy.sh --now    # restart as soon as the build is done (exchange holidays, weekends are automatic)
+```
+
+It pushes `main` to origin, has the VM `git pull --ff-only origin main` and starts `deploy/upgrade.sh` in a detached
+tmux session `hejje-upgrade`: backup, image build, web build, wait for the market to close, restart, ping for up to
+5 minutes, then the web bundle to `/var/www/hejje`. Logs are in `data/deploy/`; Ctrl-C only stops following. A failed
+ping leaves the web bundle as it was and prints the container log; there is no automatic rollback (migrations have
+run), restore from the backup it just took if needed.
+
+By hand on the VM:
+
+```bash
+cd /opt/hejje && git pull --ff-only origin main
 deploy/backup.sh
 docker compose -f deploy/docker-compose.prod.yml up -d --build
 docker compose -f deploy/docker-compose.prod.yml logs --tail=100 hejje
