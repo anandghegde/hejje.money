@@ -82,7 +82,8 @@ deploy/deploy.sh --now    # restart as soon as the build is done (exchange holid
 
 It pushes `main` to origin, has the VM `git pull --ff-only origin main` and starts `deploy/upgrade.sh` in a detached
 tmux session `hejje-upgrade`: backup, image build, web build, wait for the market to close, restart, ping for up to
-5 minutes, then the web bundle to `/var/www/hejje`. Logs are in `data/deploy/`; Ctrl-C only stops following. A failed
+5 minutes, then the web bundle to `/var/www/hejje`. When the server image is unchanged (a web-only change) the
+server is not restarted, even during market hours; `.env` changes need `up -d hejje` by hand. Logs are in `data/deploy/`; Ctrl-C only stops following. A failed
 ping leaves the web bundle as it was and prints the container log; there is no automatic rollback (migrations have
 run), restore from the backup it just took if needed.
 
