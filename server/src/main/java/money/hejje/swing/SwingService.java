@@ -51,12 +51,17 @@ public class SwingService {
     private final money.hejje.execution.ExecutionEngine engine;
     private final money.hejje.audit.AuditService audit;
     private final String universe;
+    private final SwingEntries entries;
+    private final SwingProperties swingProperties;
 
     SwingService(SwingStore store, MarketService market, InstrumentService instruments, ReconciliationService reconciliation, GttService gtts,
             HejjeClock clock, money.hejje.swing.internal.SwingLimitsStore limitsStore, money.hejje.orders.OrderService orders,
             money.hejje.events.EventService events, money.hejje.ratings.RatingsService ratings, money.hejje.instruments.UniverseCatalog universes,
             money.hejje.broker.BrokerAdapter broker, @org.springframework.context.annotation.Lazy money.hejje.execution.ExecutionEngine engine,
-            money.hejje.audit.AuditService audit, @org.springframework.beans.factory.annotation.Value("${hejje.swing.universe:nifty500}") String universe) {
+            money.hejje.audit.AuditService audit, @org.springframework.beans.factory.annotation.Value("${hejje.swing.universe:nifty500}") String universe,
+            SwingEntries entries, SwingProperties swingProperties) {
+        this.entries = entries;
+        this.swingProperties = swingProperties;
         this.limitsStore = limitsStore;
         this.orders = orders;
         this.events = events;
@@ -150,6 +155,9 @@ public class SwingService {
             BigDecimal close = daily.get(daily.size() - 1).close();
             BigDecimal tick = instruments.findById(p.instrumentId()).map(Instrument::tickSize).orElse(new BigDecimal("0.05"));
             BigDecimal next = SwingTrail.next(p.entryPrice(), p.initialStop(), gtt.get().stop(), close, low20, tick);
+            // Kite refuses a trigger closer than 0.25 % to the last price: a trailed stop stays at least that far below the close
+            BigDecimal ceiling = SwingTrigger.floor(close.multiply(BigDecimal.ONE.subtract(swingProperties.minStopDistancePct().movePointLeft(2))), tick);
+            next = next.min(ceiling);
             if (next.compareTo(gtt.get().stop()) > 0) {
                 try {
                     gtts.moveStop(p.positionId(), next, false, "trail");
@@ -160,6 +168,58 @@ public class SwingService {
             }
         }
         return moved;
+    }
+
+    // --- time exit and weekly review (plan M11.4) ----------------------------------------------------------------------
+
+    /** The holding limit of a swing position: its deployment's {@code max_holding_days}, else {@code hejje.swing.max-holding-days}. */
+    public int maxHoldingDays(SwingPosition p) {
+        return entries.deploymentOfStrategy(p.strategyId()).map(entries::maxHoldingDays).orElse(swingProperties.maxHoldingDays());
+    }
+
+    /** Open positions held past their holding limit without reaching goal or stop: closed at the next open. */
+    public List<SwingBookRow> timeExitsDue(ExecutionMode mode) {
+        List<SwingBookRow> out = new ArrayList<>();
+        for (SwingPosition p : open(mode)) {
+            if (clock.sessionsBetween(p.entryDate(), clock.today()) > maxHoldingDays(p)) {
+                out.add(row(p));
+            }
+        }
+        return out;
+    }
+
+    /** At the open: closes every position due for its time exit (each close cancels its GTT). Returns how many were closed. */
+    public int timeExit(ExecutionMode mode) {
+        int closed = 0;
+        for (SwingPosition p : open(mode)) {
+            if (clock.sessionsBetween(p.entryDate(), clock.today()) <= maxHoldingDays(p)) {
+                continue;
+            }
+            try {
+                engine.closePosition(p.instrumentId(), money.hejje.common.Product.CNC, p.strategyId());
+                closed++;
+                log.info("Swing position {} closed at the open: held {} sessions (limit {})", p.id(), clock.sessionsBetween(p.entryDate(), clock.today()),
+                        maxHoldingDays(p));
+            } catch (RuntimeException e) {
+                log.warn("Time exit of swing position {} failed: {}", p.id(), e.getMessage());
+            }
+        }
+        return closed;
+    }
+
+    /** The weekly review: open positions held at least {@code hejje.swing.review-after-days} sessions and still below their entry. */
+    public List<SwingBookRow> review(ExecutionMode mode) {
+        return book(mode).stream().filter(r -> r.daysHeld() >= swingProperties.reviewAfterDays() && r.lastPrice().compareTo(r.entryPrice()) < 0).toList();
+    }
+
+    /** The weekly review job: lists the positions below entry after {@code review-after-days} sessions (and returns them). */
+    public List<SwingBookRow> weeklyReview(ExecutionMode mode) {
+        List<SwingBookRow> rows = review(mode);
+        if (!rows.isEmpty()) {
+            log.info("Swing weekly review: {} position(s) below entry after {} sessions: {}", rows.size(), swingProperties.reviewAfterDays(),
+                    rows.stream().map(SwingBookRow::symbol).toList());
+        }
+        return rows;
     }
 
     // --- overnight risk (plan M11.3) --------------------------------------------------------------------------------------

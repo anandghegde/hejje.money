@@ -278,6 +278,27 @@ class SwingGttIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void aPositionPastItsHoldingLimitIsClosedAtTheOpenAndTheReviewListsLosersAfterTenSessions() throws Exception {
+        Position p = enter(infy);
+        String gttId = gtts.active(p.id()).orElseThrow().brokerGttId();
+
+        clock.setIst("2026-12-22T16:00:00"); // 10 sessions after the entry, below it
+        price(infy, "97.00");
+        assertThat(swing.review(ExecutionMode.PAPER)).singleElement().satisfies(r -> assertThat(r.daysHeld()).isEqualTo(10));
+        assertThat(swing.timeExitsDue(ExecutionMode.PAPER)).isEmpty();
+
+        clock.setIst("2027-01-21T09:15:30"); // more than 30 sessions later
+        price(infy, "98.00");
+        assertThat(swing.timeExitsDue(ExecutionMode.PAPER)).hasSize(1);
+        assertThat(swing.timeExit(ExecutionMode.PAPER)).isEqualTo(1);
+        fake.flush();
+        awaitAsyncListeners();
+        assertThat(position(infy).netQuantity()).isZero();
+        assertThat(atBroker(gttId).status().isLive()).isFalse();
+        assertThat(swing.open(ExecutionMode.PAPER)).isEmpty();
+    }
+
+    @Test
     void anOrphanGttAtTheBrokerIsFlaggedAndLeftInPlace() {
         fake.injectQuote(infy, "100.00");
         String orphan = fake.placeGtt(new Gtt.Request(infy, Gtt.Type.SINGLE, List.of(new BigDecimal("90.00")), new BigDecimal("100.00"),

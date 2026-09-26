@@ -21,7 +21,10 @@ class SwingController {
     private final SwingService swing;
     private final HejjeProperties properties;
 
-    SwingController(SwingService swing, HejjeProperties properties) {
+    private final money.hejje.swing.SwingEntries entries;
+
+    SwingController(SwingService swing, HejjeProperties properties, money.hejje.swing.SwingEntries entries) {
+        this.entries = entries;
         this.swing = swing;
         this.properties = properties;
     }
@@ -112,6 +115,47 @@ class SwingController {
             throw new IllegalArgumentException("Idempotency-Key header is required");
         }
         return java.util.Map.of("closed", swing.closeBook(properties.mode(), body.confirmation(), principal.name()));
+    }
+
+    // --- swing entries (plan M11.4) ---------------------------------------------------------------------------------------
+
+    record DeployRequest(@jakarta.validation.constraints.NotNull String universe, Integer autonomyLevel, Boolean trail, Integer maxHoldingDays,
+            java.math.BigDecimal volumePace, Integer maxChaseBps) {}
+
+    /** Deploys the swing strategy of a universe in the server's mode (PAPER or SIM only; one per universe). */
+    @PostMapping("/deployments")
+    @PreAuthorize("hasAuthority('SCOPE_strategies:write')")
+    money.hejje.strategy.StrategyDeployment deploy(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody DeployRequest r,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal money.hejje.common.security.HejjePrincipal principal) {
+        return entries.deploy(new money.hejje.swing.SwingEntries.DeployRequest(r.universe(), r.autonomyLevel() == null ? 3 : r.autonomyLevel(), r.trail(),
+                r.maxHoldingDays(), r.volumePace(), r.maxChaseBps()), principal.name());
+    }
+
+    @GetMapping("/deployments")
+    @PreAuthorize("hasAuthority('SCOPE_strategies:read')")
+    List<money.hejje.strategy.StrategyDeployment> deployments() {
+        return entries.deployments();
+    }
+
+    /** The READY setups watched today with the watcher's state (WATCHING, WAIT, ABOVE_BUY_ZONE, NO_VOLUME, STOP_TOO_NEAR, TRIGGERED). */
+    @GetMapping("/setups")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    List<money.hejje.swing.SwingEntries.Watched> setups() {
+        return entries.watched();
+    }
+
+    /** The weekly review: positions held at least 10 sessions and still below their entry. */
+    @GetMapping("/review")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    List<SwingBookRow> review() {
+        return swing.review(properties.mode());
+    }
+
+    /** Positions past their holding limit, closed at the next open. */
+    @GetMapping("/time-exits")
+    @PreAuthorize("hasAuthority('SCOPE_market:read')")
+    List<SwingBookRow> timeExits() {
+        return swing.timeExitsDue(properties.mode());
     }
 
     /** Runs the holdings and GTT reconciliation now (it also runs at startup, before the open and after the close). */

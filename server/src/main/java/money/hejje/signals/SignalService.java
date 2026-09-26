@@ -63,10 +63,13 @@ public class SignalService {
     private final money.hejje.market.MarketService market;
     private final money.hejje.risk.RiskService riskService;
     private final money.hejje.signals.internal.PassiveEntries passive;
+    private final org.springframework.beans.factory.ObjectProvider<DeliverySizer> deliverySizer;
 
     SignalService(SignalStore store, SignalEngine engine, StrategyService strategies, InstrumentService instruments, RiskEngine risk, ExecutionEngine execution,
             AuditService audit, HejjeProperties properties, HejjeClock clock, money.hejje.market.MarketService market, money.hejje.options.OptionsExecutor options, org.springframework.context.ApplicationEventPublisher events,
-            money.hejje.risk.RiskService riskService, money.hejje.signals.internal.PassiveEntries passive) {
+            money.hejje.risk.RiskService riskService, money.hejje.signals.internal.PassiveEntries passive,
+            org.springframework.beans.factory.ObjectProvider<DeliverySizer> deliverySizer) {
+        this.deliverySizer = deliverySizer;
         this.riskService = riskService;
         this.passive = passive;
         this.events = events;
@@ -156,6 +159,13 @@ public class SignalService {
                     instrument.tickSize());
             entryReference = passiveLimit;
         }
+        // plan M11.4: a swing entry is a LIMIT at the touch plus a small cap, never above the buy zone (set by the swing
+        // watcher on the signal), sized from the swing book's gap-adjusted risk budget
+        boolean swing = version.definition().family() == money.hejje.strategy.StrategyFamily.SWING;
+        BigDecimal swingLimit = swing ? swingLimit(signal) : null;
+        if (swingLimit != null) {
+            entryReference = swingLimit;
+        }
         BigDecimal perUnit = entryReference.subtract(signal.stop()).abs();
         List<String> notes = new ArrayList<>();
         boolean stopValid = signal.side() == money.hejje.common.Side.BUY ? signal.stop().compareTo(entryReference) < 0 : signal.stop().compareTo(entryReference) > 0;
@@ -163,15 +173,20 @@ public class SignalService {
         if (!stopValid) {
             notes.add("price " + entryReference.toPlainString() + " is already beyond the stop " + signal.stop().toPlainString());
         } else {
-            qty = PositionSizer.size(Price.of(entryReference), Price.of(signal.stop()), riskMoney, instrument.lotSize(), maxQty);
-            if (qty <= 0) {
+            DeliverySizer sizer = swing ? deliverySizer.getIfAvailable() : null;
+            qty = sizer != null ? sizer.quantity(signal.mode(), entryReference, signal.stop())
+                    : PositionSizer.size(Price.of(entryReference), Price.of(signal.stop()), riskMoney, instrument.lotSize(), maxQty);
+            if (qty <= 0 && sizer != null) {
+                notes.add("the swing limits leave no room for an entry at " + entryReference.toPlainString() + " with the stop " + signal.stop().toPlainString());
+            } else if (qty <= 0) {
                 notes.add("risk budget " + riskMoney.toRupees().toPlainString() + " is below one lot (" + instrument.lotSize() + ") at " + perUnit.toPlainString() + " per unit");
             }
         }
         Money maxRisk = Money.of(perUnit.multiply(BigDecimal.valueOf(Math.max(qty, 0))).setScale(2, java.math.RoundingMode.HALF_UP));
         OrderIntentCommand proposal = new OrderIntentCommand(principal == null ? null : principal.id(), "signal:" + signal.id(), ActorType.USER,
                 principal == null ? "system" : principal.name(), signal.strategyId(), signal.id(), signal.instrumentId(), signal.side(), Quantity.of(Math.max(qty, 1)),
-                passiveLimit == null ? OrderType.MARKET : OrderType.LIMIT, version.definition().product(), passiveLimit == null ? null : Price.of(passiveLimit), null,
+                passiveLimit == null && swingLimit == null ? OrderType.MARKET : OrderType.LIMIT, version.definition().product(),
+                passiveLimit != null ? Price.of(passiveLimit) : swingLimit != null ? Price.of(swingLimit) : null, null,
                 Price.of(signal.stop()), signal.target() == null ? null : Price.of(signal.target()), maxRisk, OrderReason.STRATEGY_SIGNAL);
         RiskDecision decision = qty <= 0 ? RiskDecision.rejected(List.of(new money.hejje.risk.RiskCheck("positionSize", false, "0", ">= 1 lot", notes.get(0))))
                 : risk.evaluate(toIntent(proposal));
@@ -185,6 +200,10 @@ public class SignalService {
             sizing.put("riskRupeesBeforeSizeFactor", baseRisk.toRupees().toPlainString());
             sizing.put("sizeFactor", factor.factor().toPlainString());
             sizing.put("sizeFactorEvent", factor.event());
+        }
+        if (swingLimit != null) {
+            sizing.put("entryOrder", "swing_limit");
+            sizing.put("limit", swingLimit.toPlainString());
         }
         sizing.put("entryReference", entryReference.toPlainString());
         sizing.put("riskPerUnit", perUnit.toPlainString());
@@ -247,7 +266,27 @@ public class SignalService {
         return order;
     }
 
+    /** The LIMIT of a swing signal (plan M11.4): {@code swing.limit} in its evidence, null when absent. */
+    static BigDecimal swingLimit(Signal signal) {
+        for (Map<String, Object> e : signal.evidence()) {
+            if (e.get("swing") instanceof Map<?, ?> m && m.get("limit") != null) {
+                return new BigDecimal(String.valueOf(m.get("limit")));
+            }
+        }
+        return null;
+    }
+
+    private boolean isSwing(Signal signal) {
+        return strategies.versionById(signal.versionId()).map(v -> v.definition().family() == money.hejje.strategy.StrategyFamily.SWING).orElse(false);
+    }
+
     private HejjeOrder submitSignal(Signal signal, Signal consumed, OrderIntentCommand command) {
+        if (isSwing(signal)) {
+            // a swing entry has no intraday runner: the swing book tracks the delivery position and the GTT protects it
+            HejjeOrder order = execution.submit(command);
+            store.update(store.find(signal.id()).orElse(signal).with(SignalStatus.EXECUTED, null, order.intentId(), order.id(), clock.now()));
+            return order;
+        }
         // the pending position exists before the order does, so a fast fill always finds it
         StrategyPosition pending = engine.signalExecuting(consumed);
         HejjeOrder order;

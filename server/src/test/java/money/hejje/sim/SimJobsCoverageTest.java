@@ -35,7 +35,7 @@ class SimJobsCoverageTest {
             }
             ReflectionUtils.doWithMethods(type, m -> found.add(type.getSimpleName() + "#" + m.getName()), m -> m.isAnnotationPresent(Scheduled.class));
         }
-        assertThat(found).hasSize(35);
+        assertThat(found).hasSize(37);
         Set<String> registered = new TreeSet<>(SimJobs.standard().entries().keySet());
         registered.removeIf(k -> k.startsWith("Moments#")); // Spring Modulith's own jobs, checked by SimModeIT
         assertThat(registered).isEqualTo(found);

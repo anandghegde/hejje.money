@@ -29,7 +29,8 @@
         "mean_reversion",
         "index",
         "options",
-        "bot"
+        "bot",
+        "swing"
       ],
       "default": "trend"
     },

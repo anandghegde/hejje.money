@@ -49,6 +49,9 @@ public class BacktestEngine {
         if (def.family() == money.hejje.strategy.StrategyFamily.BOT) {
             throw new BacktestException("a bot's strategy has no entry rules to replay; judge a bot on SIM sessions (plan M7.3)");
         }
+        if (def.family() == money.hejje.strategy.StrategyFamily.SWING) {
+            throw new BacktestException("a swing strategy trades the M8.4 trade plans on daily bars: use the SWING backtest (POST /swing/backtest, plan M11.5)");
+        }
         if (def.direction() == StrategyDefinition.Direction.BOTH) {
             throw new BacktestException("direction: both is not supported by the backtester yet (one entry block cannot pick a side)");
         }

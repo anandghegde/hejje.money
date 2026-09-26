@@ -1635,3 +1635,22 @@ Scope: `risk:read`. Body `{ "entry": "100.00", "stop": "93.00" }` → `{ "quanti
 Scope: `positions:close`; header `Idempotency-Key` required. Body `{ "confirmation": "CLOSE SWING BOOK" }` (anything else
 is 400). Exits every swing position (each with its GTT); returns `{ "closed": n }`. The kill switch's
 `CLOSE_ALL_POSITIONS` and `POST /positions/close-all` leave the swing book alone.
+
+## Swing entries (Phase 11, M11.4)
+
+### `POST /api/v1/swing/deployments` · `GET /api/v1/swing/deployments`
+
+Scope: `strategies:write` / `strategies:read`. Body `{ "universe": "nifty500", "autonomyLevel": 3, "trail": true,
+"maxHoldingDays": 30, "volumePace": 1.4, "maxChaseBps": 20 }` (all but `universe` optional). PAPER or SIM only (400
+otherwise), one enabled deployment per universe. Returns the strategy deployment (`params` carry the settings).
+
+### `GET /api/v1/swing/setups`
+
+Scope: `market:read`. Today's watched READY setups: `[ { deploymentId, baseId, instrumentId, symbol, type, pivot, buyHigh,
+stop, goal, avgVolume50, state, lastClose, pace, signalId } ]`, `state` one of `WATCHING`, `WAIT`, `ABOVE_BUY_ZONE`,
+`NO_VOLUME`, `STOP_TOO_NEAR`, `TRIGGERED`.
+
+### `GET /api/v1/swing/review` · `GET /api/v1/swing/time-exits`
+
+Scope: `market:read`. Rows of `GET /swing/positions`: the positions held at least 10 sessions and below their entry; the
+positions past their holding limit (closed at the next open).

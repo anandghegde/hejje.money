@@ -139,6 +139,9 @@ public class SignalEngine implements money.hejje.common.Drainable {
         List<StrategyDeployment> deployments = strategies.deployments(null, properties.mode(), null);
         Map<String, StrategyDeployment> wanted = new LinkedHashMap<>();
         for (StrategyDeployment d : deployments) {
+            if (strategies.versionById(d.versionId()).map(v -> v.definition().family() == money.hejje.strategy.StrategyFamily.SWING).orElse(false)) {
+                continue; // a swing deployment has no intraday runner (plan M11.4): the swing module watches its setups
+            }
             for (UUID instrumentId : d.instrumentIds()) {
                 wanted.put(key(d.id(), instrumentId), d);
             }

@@ -124,9 +124,12 @@ public class AutoExecutor {
         String budgetBreach = budgetBreach(d, day);
         EventRisk eventRisk = events.risk(s.instrumentId());
         String eventLevel = eventRisk.available() && eventRisk.level() != null ? eventRisk.level().name() : null;
-        Integer score = scoring.latest(version.id(), s.instrumentId()).map(ScoreBreakdown::finalScore).orElse(null);
+        boolean swing = version.definition().family() == money.hejje.strategy.StrategyFamily.SWING;
+        // the Hejje Score rates intraday setups from the intraday backtester; it says nothing about a swing plan (plan M11.4)
+        Integer score = swing ? null : scoring.latest(version.id(), s.instrumentId()).map(ScoreBreakdown::finalScore).orElse(null);
         // an options strategy cannot be backtested, so it never has a score; its PAPER rehearsal may still run AUTO (plan M6.4)
-        boolean unscoredPaper = mode.simulated() && !version.definition().legs().isEmpty();
+        // likewise a swing strategy (plan M11.4): the intraday backtester never scores it, and swing is PAPER/SIM only
+        boolean unscoredPaper = mode.simulated() && (!version.definition().legs().isEmpty() || swing);
         PolicyResult policy = policies.decide(new PolicyRequest(PolicyAction.ORDER_NEW, ActorType.STRATEGY, mode, d.autonomyLevel(), eventLevel, score,
                 newVersion, s.strategyId(), s.instrumentId(), qualified, budgetBreach, unscoredPaper));
         int entriesOnInstrument = signals.entriesSince(d.id(), s.instrumentId(), dayStart);

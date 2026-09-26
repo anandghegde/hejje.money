@@ -49,14 +49,18 @@ public class StrategyLifecycle {
      */
     public String reject(money.hejje.strategy.StrategyVersion version, VersionStatus to) {
         VersionStatus from = version.status();
-        if (version.definition().family() == money.hejje.strategy.StrategyFamily.BOT) {
+        money.hejje.strategy.StrategyFamily family = version.definition().family();
+        if (family == money.hejje.strategy.StrategyFamily.BOT || family == money.hejje.strategy.StrategyFamily.SWING) {
             // a bot's backing strategy has no rules to backtest (plan M7.3): DRAFT → PAPER directly; its record comes from
-            // simulation sessions and paper trades
+            // simulation sessions and paper trades. A swing deployment's (plan M11.4) is judged by the SWING backtest (M11.5)
+            // and its PAPER run (M11.7), never by the intraday backtester.
             if (from == to) {
                 return "version is already " + to;
             }
             if (to == VersionStatus.BACKTESTED || to == VersionStatus.VALIDATED) {
-                return "a bot's strategy cannot be backtested (its entries are the bot's decisions); move it from DRAFT to PAPER";
+                return family == money.hejje.strategy.StrategyFamily.SWING
+                        ? "a swing strategy is not backtested by the intraday backtester (use the SWING backtest); move it from DRAFT to PAPER"
+                        : "a bot's strategy cannot be backtested (its entries are the bot's decisions); move it from DRAFT to PAPER";
             }
             return from == VersionStatus.DRAFT && to == VersionStatus.PAPER ? null
                     : isTransitionAllowed(from, to) ? null : "transition " + from + " -> " + to + " is not allowed";

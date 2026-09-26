@@ -118,7 +118,9 @@ with `POST /api/v1/swing/reconcile`. It lists the broker's GTTs and matches them
 | `GTT_MISMATCH` | the broker's GTT has another quantity or stop | notified (`GTT_MISMATCH`) |
 | `GTT_ORPHAN` | an active GTT at the broker protects no open position (at a real broker only GTTs Hejje placed count; the account's own are left alone) | notified; **never deleted automatically** |
 
-All are WARN reconciliation issues: they do not trip the intraday kill switch.
+All are WARN reconciliation issues: they do not trip the intraday kill switch. Placing the protection again
+(`GttService.protect`, which replaces a `MISSING` GTT) resolves `GTT_MISSING`. Audit events: `GTT_PLACED`,
+`GTT_MODIFIED`, `GTT_TRIGGERED`, `GTT_CANCELLED`, `GTT_MISSING`.
 
 ## Overnight risk (M11.3)
 
@@ -162,6 +164,50 @@ swing position, each close cancelling its GTT in the same operation (audited `SW
 
 `GET /api/v1/risk` carries `overnightRisk` (the book's gap-adjusted total), `overnightRiskBudget` and `swingPositions`;
 `GET /api/v1/swing/risk` has the per-position breakdown with the capital deployed. (The web Risk page and `hejje risk`
-do not show them yet: a surfaces follow-up for M11.6.) Placing the protection again
-(`GttService.protect`, which replaces a `MISSING` GTT) resolves `GTT_MISSING`. Audit events: `GTT_PLACED`,
-`GTT_MODIFIED`, `GTT_TRIGGERED`, `GTT_CANCELLED`, `GTT_MISSING`.
+do not show them yet: a surfaces follow-up for M11.6.)
+
+## Swing entries from the base setups (M11.4)
+
+### The swing deployment
+
+`POST /api/v1/swing/deployments {universe, autonomyLevel, trail, maxHoldingDays, volumePace, maxChaseBps}` deploys the
+swing strategy of a universe in the server's mode: **PAPER or SIM only**, one enabled deployment per universe. Its
+backing strategy `swing_<universe>` (family `swing`, product `CNC`, created on first use and moved DRAFT → PAPER) has
+no rules of its own and **no intraday runner**: the signal engine skips it, the intraday backtester refuses it (the
+SWING backtest judges it, M11.5), and its signals never create a `strategy_position` (there is no intraday stop order
+or 15:10 force exit; the GTT protects the delivery position). The deployment's params carry `universe`, `trail`
+(default on), `max_holding_days` (30), `volume_pace` (1.4) and `max_chase_bps` (20).
+
+### Watched setups and the trigger
+
+Before the open (and at startup, after a deployment change, and lazily on the first bar of a session) the
+`SwingWatcher` loads the session's **READY** setups: the M8.4 bases and reversals whose status as of the previous
+session is `FORMING` or `NEAR_PIVOT` (detected, not triggered, not closed), on an instrument of an enabled swing
+deployment, with no open swing position. Their instruments are subscribed. `GET /api/v1/swing/setups` lists them with
+the watcher's state.
+
+Every closed M1 bar of a watched instrument goes through `SwingTrigger`:
+
+| State | When |
+|---|---|
+| `WAIT` | the close is below the pivot |
+| `ABOVE_BUY_ZONE` | the close is more than 5 % above the pivot (above the plan's `buy_high`): no entry on that bar |
+| `STOP_TOO_NEAR` | the stop is less than `hejje.swing.min-stop-distance-pct` (0.25 %) below the price: Kite would refuse the GTT |
+| `NO_VOLUME` | a base whose volume pace is below the deployment's `volume_pace`: the session's volume so far projected to a full session (375 minutes) over the 50-session average daily volume (the M8.4 breakout volume); no average → no entry. Reversal setups have no volume condition |
+| `TRIGGER` | otherwise: one signal per setup and session |
+
+A trigger creates a signal on the normal path (`SignalGeneratedEvent`: Today, confirmation, or AUTO for an autonomy 4-5
+deployment in PAPER/SIM; the Hejje Score does not apply to swing signals, which count as unscored paper rehearsals) with
+the plan's stop and goal, and `swing` evidence: `baseId`, `type`, `pivot`, `buyHigh`, `pace`, `avgVolume50` and the entry
+`limit` = the trigger price plus `max_chase_bps`, never above the buy zone, on the tick grid. The entry is that LIMIT
+(product CNC), sized from the swing limits' gap-adjusted budget (`POST /swing/size`), and checked by the swing limits.
+Its fill places the OCO GTT (M11.2); its trailing follows the deployment's `trail` (breakeven at +1R, then a tick under
+the 20-day low, never nearer than 0.25 % to the close).
+
+### Time exit and weekly review
+
+A position that has made neither goal nor stop after its deployment's `max_holding_days` sessions (manual positions:
+`hejje.swing.max-holding-days`) is closed at the next open (`hejje.swing.time-exit-cron`, 09:15:30; the close cancels
+its GTT). `GET /api/v1/swing/time-exits` lists the positions due. The weekly review (`hejje.swing.review-cron`, Friday
+15:50; `GET /api/v1/swing/review`) lists the positions held at least `hejje.swing.review-after-days` (10) sessions and
+still below their entry.

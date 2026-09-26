@@ -28,15 +28,15 @@ public class SwingStore {
     public void insertOpen(SwingPosition p, Instant now) {
         jdbc.sql("""
                 INSERT INTO swing_position (id, mode, position_id, instrument_id, strategy_id, entry_order_id, opened_at, entry_date, quantity, entry_price,
-                    initial_stop, goal, status, updated_at)
+                    initial_stop, goal, status, updated_at, trail)
                 VALUES (:id, :mode, :positionId, :instrumentId, :strategyId, :entryOrderId, :openedAt, :entryDate, :quantity, :entryPrice, :initialStop, :goal,
-                    'OPEN', :now)
+                    'OPEN', :now, :trail)
                 ON CONFLICT (position_id) WHERE status = 'OPEN' DO NOTHING
                 """)
                 .param("id", p.id()).param("mode", p.mode().name()).param("positionId", p.positionId()).param("instrumentId", p.instrumentId())
                 .param("strategyId", p.strategyId(), Types.OTHER).param("entryOrderId", p.entryOrderId()).param("openedAt", ts(p.openedAt()))
                 .param("entryDate", p.entryDate()).param("quantity", p.quantity()).param("entryPrice", p.entryPrice())
-                .param("initialStop", p.initialStop(), Types.NUMERIC).param("goal", p.goal(), Types.NUMERIC).param("now", ts(now)).update();
+                .param("initialStop", p.initialStop(), Types.NUMERIC).param("goal", p.goal(), Types.NUMERIC).param("now", ts(now)).param("trail", p.trail()).update();
     }
 
     public void updateOpen(UUID id, int quantity, java.math.BigDecimal entryPrice, Instant now) {

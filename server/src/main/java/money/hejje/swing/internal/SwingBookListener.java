@@ -39,7 +39,10 @@ class SwingBookListener {
     private final SwingStore store;
     private final HejjeClock clock;
 
-    SwingBookListener(OrderService orders, SwingStore store, HejjeClock clock) {
+    private final money.hejje.swing.SwingEntries entries;
+
+    SwingBookListener(OrderService orders, SwingStore store, HejjeClock clock, money.hejje.swing.SwingEntries entries) {
+        this.entries = entries;
         this.orders = orders;
         this.store = store;
         this.clock = clock;
@@ -72,9 +75,11 @@ class SwingBookListener {
             Optional<OrderIntent> intent = orders.findById(entry.orderId()).flatMap(o -> o.intentId() == null ? Optional.empty() : orders.findIntent(o.intentId()));
             BigDecimal stop = intent.map(OrderIntent::stopPrice).map(s -> s.value()).orElse(null);
             BigDecimal goal = intent.map(OrderIntent::targetPrice).map(t -> t.value()).orElse(null);
+            // a swing deployment's positions trail when its params say so (plan M11.4); manual ones do not
+            boolean trail = entries.deploymentOfStrategy(p.strategyId()).map(entries::trail).orElse(false);
             store.insertOpen(new SwingPosition(Ids.newId(), p.mode(), p.id(), p.instrumentId(), p.strategyId(), entry.orderId(), entry.ts(),
                     entry.ts().atZone(clock.zone()).toLocalDate(), p.netQuantity(), p.averagePrice(), stop, goal, SwingPosition.Status.OPEN, null, null, null,
-                    null, false), now);
+                    null, trail), now);
         } else if (open.isPresent()) {
             SwingPosition s = open.get();
             // the exit: the delivery sells since the entry

@@ -67,6 +67,10 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.costs.*` | — | see config/costs.yaml | Transaction cost rates (brokerage, STT, exchange txn, GST, SEBI, stamp duty) per segment. |
 | `hejje.costs.dp-charge` | — | `15.34` | Depository charge in rupees (GST included) of a delivery sell, once per scrip and day (plan M11.1, docs/costs.md). |
 | `hejje.swing.before-open-cron` / `after-close-cron` | — | `0 0 9 * * MON-FRI` / `0 45 15 * * MON-FRI` | IST crons of the swing book's holdings and GTT reconciliation; after the close also the trailing of stops (docs/swing.md). |
+| `hejje.swing.volume-pace` / `max-chase-bps` / `signal-validity-minutes` | — | `1.4` / `20` / `30` | Swing entry defaults (a deployment's params override the first two): the volume pace a base needs, the LIMIT cap above the trigger price, how long a swing signal waits (plan M11.4, docs/swing.md). |
+| `hejje.swing.max-holding-days` / `review-after-days` | — | `30` / `10` | Sessions after which a swing position is closed at the next open (deployment param `max_holding_days`), and after which the weekly review lists it when below its entry. |
+| `hejje.swing.min-stop-distance-pct` | — | `0.25` | Kite refuses a GTT trigger nearer the last price: a setup with a nearer stop is not entered and a trailed stop never comes nearer. |
+| `hejje.swing.time-exit-cron` / `review-cron` | — | `30 15 9 * * MON-FRI` / `0 50 15 * * FRI` | IST crons of the time exit at the open and the weekly review. |
 | `hejje.swing.universe` | — | `nifty500` | Universe (`config/universe/<name>.yaml`) whose industry map the swing limit on positions per industry uses (plan M11.3). The swing limits themselves live in `swing_limits` (`PUT /swing/limits`). |
 | `hejje.strategy.load-bundled` | — | `true` | Load `strategies/*.yaml` at startup (new slugs created, changed definitions become new versions). |
 | `hejje.strategy.bundled-dirs` | — | `./strategies, ../strategies` | Directories searched for bundled definitions; the first that exists wins, otherwise the copies packaged in the jar (`classpath:strategies/`). |

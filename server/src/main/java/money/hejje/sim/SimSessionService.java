@@ -61,7 +61,7 @@ public class SimSessionService {
     private static final Logger log = LoggerFactory.getLogger(SimSessionService.class);
     /** Ledger tables of simulated trading, cleared when a session starts (the SIM database only). */
     static final String LEDGER = "options_position, basket_leg, basket, split_order, trade, order_event, hejje_order, risk_decision, order_intent, "
-            + "position, idempotency_record, strategy_position, signal";
+            + "position, idempotency_record, strategy_position, signal, swing_position, gtt";
     static final Duration SETTLE_TIMEOUT = Duration.ofSeconds(5);
 
     private final SimTime time;
