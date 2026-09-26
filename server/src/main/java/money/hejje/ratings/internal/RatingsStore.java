@@ -111,7 +111,7 @@ class RatingsStore {
                     rs.getObject("off_low_pct", Double.class), rs.getObject("vol_vs_avg50_pct", Double.class),
                     rs.getObject("up_down_vol_ratio", Double.class), rs.getObject("avg_turnover_cr", Double.class), rs.getBigDecimal("close"),
                     rs.getObject("change_pct", Double.class), rs.getString("group_id"), integer(rs, "group_rank"), integer(rs, "tech_composite"),
-                    json.readValue(rs.getString("evidence"), EVIDENCE));
+                    json.readValue(rs.getString("evidence"), EVIDENCE), null);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }

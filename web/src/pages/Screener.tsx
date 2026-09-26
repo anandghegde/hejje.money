@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { ApiError, request } from '../api/client';
 import { RatingsList, SavedScreen, ScreenFilter, ScreenResult, ScreenRow } from '../api/types';
-import { LISTS, LIST_LABEL, OPS, buildFilter, conditionColor, describeFilter, directionColor, rateWithCount, signedPct } from '../lib/context';
+import { LISTS, LIST_LABEL, OPS, buildFilter, conditionColor, describeFilter, directionColor, rateWithCount, signedPct, surveillanceLabel } from '../lib/context';
 
 interface Regime { marketCondition?: string; evidence?: string[] }
 
@@ -26,6 +26,17 @@ export function Disabled({ what, error }: { what: string; error: unknown }) {
   return <p data-testid="context-disabled">{off ? `${what} are switched off on this server (${(error as Error).message}).` : `${what} unavailable: ${(error as Error).message}`}</p>;
 }
 
+/** NSE's ASM/GSM measure as a badge; nothing when the stock is not under surveillance. Display only: it changes no score. */
+export function SurveillanceBadge({ flag, code, asOf, stale }: { flag?: string | null; code?: string | null; asOf?: string; stale?: boolean }) {
+  const label = surveillanceLabel(flag);
+  if (!label) return null;
+  const title = `NSE ${code ?? flag}${asOf ? `, lists of ${asOf}` : ''}${stale ? ' (stale: not refreshed for this session)' : ''}. Display only.`;
+  return (
+    <span data-testid="surveillance-badge" title={title} style={{ fontSize: 12, fontWeight: 700, color: '#fff', borderRadius: 4, padding: '1px 6px',
+      background: label.startsWith('GSM') ? '#c0392b' : '#b7791f', opacity: stale ? 0.6 : 1 }}>{label}{stale ? ' (stale)' : ''}</span>
+  );
+}
+
 /** One flat row per stock: a list row and a screen row share the columns. */
 function toRows(list: RatingsList): ScreenRow[] {
   return (list.rows ?? []).map((r) => ({
@@ -33,12 +44,13 @@ function toRows(list: RatingsList): ScreenRow[] {
     rsRating: r.rating?.rsRating ?? null, adGrade: r.rating?.adGrade ?? null, techComposite: r.rating?.techComposite ?? null,
     offHighPct: r.rating?.offHighPct ?? null, volVsAvg50Pct: r.rating?.volVsAvg50Pct ?? null, groupRank: r.rating?.groupRank ?? null,
     baseType: r.base?.type ?? null, baseStatus: r.base?.status ?? null, pivot: r.base ? Number(r.base.pivot) : null,
-    volumeConfirmed: r.base?.volumeConfirmed ?? null,
+    volumeConfirmed: r.base?.volumeConfirmed ?? null, surveillance: r.rating?.surveillance?.flag ?? null,
   }));
 }
 
 const COLUMNS: ColumnDef<ScreenRow>[] = [
   { accessorKey: 'symbol', header: 'Symbol', cell: (c) => <Link to={`/stocks/${encodeURIComponent(String(c.getValue()))}`}>{String(c.getValue())}</Link> },
+  { accessorKey: 'surveillance', header: 'Surv.', cell: (c) => <SurveillanceBadge flag={c.getValue() as string | null} /> },
   { accessorKey: 'close', header: 'Close' },
   { accessorKey: 'changePct', header: 'Chg', cell: (c) => signedPct(c.getValue() as number | null, 1) },
   { accessorKey: 'rsRating', header: 'RS' },

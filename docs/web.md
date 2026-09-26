@@ -85,8 +85,10 @@ Every rate is shown with its count (`27 of 40 (68 %)`).
   the combined ordering: in buy zone → triggered → near pivot; In buy zone; Near pivot; Leaders; On the move; Top groups);
   a **Custom screen** tab with a filter builder over the documented field list (`GET /ratings/screen/fields`), sort, run,
   save and delete; saved and seeded screens load into the builder. Tables are TanStack Table, sortable client-side; a
-  symbol is one click from its stock page.
-- **Stock** (`/stocks/:symbol`): the ratings block; a D1 `lightweight-charts` candlestick chart with the 20/50/200-DMA
+  symbol is one click from its stock page. The **Surv.** column shows NSE's ASM/GSM badge (`ASM LT 2`, `GSM 0`; nothing
+  for a stock on no list), display only.
+- **Stock** (`/stocks/:symbol`): the NSE surveillance badge next to the symbol when the stock is on an ASM/GSM list
+  (dimmed and marked stale when the lists were not refreshed for the session; NSE's code in the tooltip); the ratings block; a D1 `lightweight-charts` candlestick chart with the 20/50/200-DMA
   and, for the open base, the pivot, buy zone top, stop and goal as price lines and the base start, detection and trigger
   as markers; the trade plan (informational); the RS/composite and session-analog line; the **analog panel** per lookback
   (average forward path with the 25–75 band, the outcome table per forward window with counts and tags, the templated

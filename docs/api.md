@@ -1324,6 +1324,12 @@ under the engine version (synchronously) and returns `{ "from", "to", "engineVer
 Scope: `admin`. Body `{ "sessions": 30 }` (default 5, 1..2000). Runs the evening D1 refresh now over that many sessions,
 waits for it, publishes `DailyCandlesRefreshed` and returns the universe job (`docs/api.md`, history jobs).
 
+### `POST /api/v1/ratings/surveillance/refresh`
+
+Scope: `admin`. Fetches NSE's ASM/GSM lists now and stores them as today's snapshot (`docs/ratings.md`, "Surveillance").
+Never fails the request: `{ "date": "2026-09-25", "ok": true, "flags": 292, "error": null }`, or `ok: false` with the
+error (the previous snapshot stays).
+
 ### `GET /api/v1/ratings?date=&sort=&minRs=&group=&limit=`
 
 `sort` is one of `composite` (default), `rs`, `ad`, `volume`, `change`, `offHigh`; `limit` 1..1000 (default 50).
@@ -1331,8 +1337,12 @@ waits for it, publishes `DailyCandlesRefreshed` and returns the universe job (`d
 "NSE:INFY", "rsRaw": 0.1312, "rsRating": 87, "adRaw": 0.21, "adGrade": "B+", "offHighPct": 3.2, "offLowPct": 41.0,
 "volVsAvg50Pct": 38.5, "upDownVolRatio": 1.4, "avgTurnoverCr": 812.4, "close": "1495.00", "changePct": 1.2, "groupId":
 "information-technology", "groupRank": 4, "techComposite": 91, "evidence": { "sessions": 2630, "rsQuarters": 4,
-"partial": false, "universe": 497, "rsPct": 0.87, "adPct": 0.71, "groupPct": 0.84, "offHighPct": 0.66 } } ] }`.
-`universe` is the count the percentiles were taken over.
+"partial": false, "universe": 497, "rsPct": 0.87, "adPct": 0.71, "groupPct": 0.84, "offHighPct": 0.66 },
+"surveillance": { "flag": "NONE", "code": null, "asOf": "2026-09-18", "stale": false } } ] }`.
+`universe` is the count the percentiles were taken over. `surveillance` is NSE's ASM/GSM measure as of the session
+(`flag` `NONE`, `ASM_LT_n`, `ASM_ST_n` or `GSM_n`, NSE's `code`, the snapshot's session `asOf`, `stale` when that is
+older than the session); null before the first fetch. Display only. The rows of `GET /api/v1/ratings/lists/{name}`
+carry it too.
 
 ### `GET /api/v1/ratings/{symbol}?date=`
 
@@ -1433,7 +1443,8 @@ Body `{ "date": null, "filters": [ { "field": "rsRating", "op": "gte", "value": 
 descending; `limit` 1..1000. Returns `{ "date", "universe": 497, "matched": 12, "rows": [ { ...one flat object of fields... } ] }`.
 An unknown field, operator or sort is 400. `GET /api/v1/ratings/screen/fields` lists the fields: `symbol, close,
 changePct, rsRating, rsRaw, adGrade, adRaw, techComposite, offHighPct, offLowPct, volVsAvg50Pct, upDownVolRatio,
-avgTurnoverCr, groupId, groupRank, baseType, baseStatus, pivot, distanceToPivotPct, volumeConfirmed, watchlist`, plus from
+avgTurnoverCr, groupId, groupRank, baseType, baseStatus, pivot, distanceToPivotPct, volumeConfirmed, watchlist,
+surveillance` (`NONE`, `ASM_LT_n`, `ASM_ST_n`, `GSM_n`; missing before the first surveillance fetch), plus from
 the analogs module (15-session lookback, present when the session has summaries) `analogDirection, analogReliability,
 analogQuality, analogMatches` and per forward window `analogWinRateN, analogMedianN, analogCountN` (N = 3, 5, 10, 15).
 There is no market cap: Kite has no fundamentals.

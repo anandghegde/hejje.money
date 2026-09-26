@@ -79,17 +79,33 @@ func setup(base *api.Base) string {
 func RenderScreen(r api.ScreenResult) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("SCREEN  %s  %d of %d stocks match\n\n", dash(r.Date), r.Matched, r.Universe))
-	b.WriteString(fmt.Sprintf("%-16s %9s %7s %4s %3s %4s %-22s %-16s %s\n", "SYMBOL", "CLOSE", "CHG", "RS", "A/D", "COMP", "BASE", "ANALOG (5d)", "WIN RATE"))
+	b.WriteString(fmt.Sprintf("%-16s %9s %7s %4s %3s %4s %-22s %-16s %-12s %s\n", "SYMBOL", "CLOSE", "CHG", "RS", "A/D", "COMP", "BASE", "ANALOG (5d)", "WIN RATE",
+		"SURV"))
 	for _, row := range r.Rows {
 		base := strings.TrimSpace(fmt.Sprintf("%s %s", text(row["baseType"]), text(row["baseStatus"])))
 		win := "—"
 		if rate, ok := row["analogWinRate5"].(float64); ok {
 			win = fmt.Sprintf("%.0f%% of %s", rate*100, text(row["analogCount5"]))
 		}
-		b.WriteString(fmt.Sprintf("%-16s %9s %7s %4s %3s %4s %-22s %-16s %s\n", text(row["symbol"]), text(row["close"]), signedPct(row["changePct"]),
-			text(row["rsRating"]), text(row["adGrade"]), text(row["techComposite"]), dash(base), dash(text(row["analogDirection"])), win))
+		line := fmt.Sprintf("%-16s %9s %7s %4s %3s %4s %-22s %-16s %-12s %s", text(row["symbol"]), text(row["close"]), signedPct(row["changePct"]),
+			text(row["rsRating"]), text(row["adGrade"]), text(row["techComposite"]), dash(base), dash(text(row["analogDirection"])), win,
+			SurveillanceBadge(text(row["surveillance"]), false))
+		b.WriteString(strings.TrimRight(line, " ") + "\n")
 	}
 	return b.String()
+}
+
+// SurveillanceBadge is "[ASM LT 2]" or "[GSM 0]" for a stock under NSE surveillance, "" otherwise. Display only.
+func SurveillanceBadge(flag string, stale bool) string {
+	parts := strings.Split(flag, "_")
+	if flag == "" || flag == "NONE" || len(parts) < 2 {
+		return ""
+	}
+	badge := "[" + strings.Join(parts, " ") + "]"
+	if stale {
+		badge += " (stale)"
+	}
+	return badge
 }
 
 func text(v any) string {
@@ -116,7 +132,14 @@ func signedPct(v any) string {
 // RenderStock renders the stock page: ratings, the open base with its plan, a braille D1 chart and the daily analogs.
 func RenderStock(r api.DailyRating, bases []api.Base, closes []float64, analogs *api.AnalogSummary) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("%s  %.2f  %s   (session %s)\n\n", r.Symbol, float64(r.Close), optPct(r.ChangePct), r.SessionDate))
+	badge := ""
+	if r.Surveillance != nil {
+		badge = SurveillanceBadge(r.Surveillance.Flag, r.Surveillance.Stale)
+	}
+	if badge != "" {
+		badge = "   NSE " + badge
+	}
+	b.WriteString(fmt.Sprintf("%s  %.2f  %s   (session %s)%s\n\n", r.Symbol, float64(r.Close), optPct(r.ChangePct), r.SessionDate, badge))
 	b.WriteString(fmt.Sprintf("RS %s   A/D %s   Technical composite %s   Group %s (rank %s)\n", optInt(r.RsRating), dash(r.AdGrade), optInt(r.TechComposite),
 		dash(r.GroupID), optInt(r.GroupRank)))
 	b.WriteString(fmt.Sprintf("Off high %s   Off low %s   Volume vs 50d %s   Turnover %s cr\n\n", optPct(negate(r.OffHighPct)), optPct(r.OffLowPct),

@@ -1,0 +1,142 @@
+{
+ "longterm": {
+  "data": [
+   {
+    "asmSurvIndicator": "Stage I",
+    "asmTime": "25-Sep-2026",
+    "companyName": "A2Z Infra Engineering Limited",
+    "isin": "INE619I01012",
+    "series": null,
+    "survCode": "LTASM - I (13)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+    "symbol": "A2ZINFRA",
+    "srno": 1
+   },
+   {
+    "asmSurvIndicator": "Stage I",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Aarey Drugs & Pharmaceuticals Limited",
+    "isin": "INE198H01019",
+    "series": null,
+    "survCode": "LTASM - I (13)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage I",
+    "symbol": "AAREYDRUGS",
+    "srno": 2
+   },
+   {
+    "asmSurvIndicator": "Stage II",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Arvee Laboratories (India) Limited",
+    "isin": "INE006Z01016",
+    "series": null,
+    "survCode": "LTASM - II (14)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
+    "symbol": "ARVEE",
+    "srno": 13
+   },
+   {
+    "asmSurvIndicator": "Stage IV",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Bliss GVS Pharma Limited",
+    "isin": "INE416D01022",
+    "series": null,
+    "survCode": "LTASM - IV (16)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
+    "symbol": "BLISSGVS",
+    "srno": 21
+   },
+   {
+    "asmSurvIndicator": "Stage IV",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Bodal Chemicals Limited",
+    "isin": "INE338D01028",
+    "series": null,
+    "survCode": "LTASM - IV (16)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage IV",
+    "symbol": "BODALCHEM",
+    "srno": 23
+   },
+   {
+    "asmSurvIndicator": "Stage II",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Kabra Extrusion Technik Limited",
+    "isin": "INE900B01029",
+    "series": null,
+    "survCode": "LTASM - II (14)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage II",
+    "symbol": "KABRAEXTRU",
+    "srno": 57
+   },
+   {
+    "asmSurvIndicator": "Stage III",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Polysil Irrigation Systems Limited",
+    "isin": "INE517M01028",
+    "series": null,
+    "survCode": "LTASM - III (15)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
+    "symbol": "POLYSIL",
+    "srno": 82
+   },
+   {
+    "asmSurvIndicator": "Stage III",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Venus Remedies Limited",
+    "isin": "INE411B01019",
+    "series": null,
+    "survCode": "LTASM - III (15)",
+    "survDesc": "Long Term Additional Surveillance Measure (LTASM) - Stage III",
+    "symbol": "VENUSREM",
+    "srno": 124
+   }
+  ]
+ },
+ "shortterm": {
+  "data": [
+   {
+    "asmSurvIndicator": "Stage I",
+    "asmTime": "25-Sep-2026",
+    "companyName": "ABH Healthcare Limited",
+    "isin": "INE1R2M01019",
+    "series": null,
+    "survCode": "STASM - I (11)",
+    "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+    "symbol": "ABH",
+    "srno": 1
+   },
+   {
+    "asmSurvIndicator": "Stage I",
+    "asmTime": "25-Sep-2026",
+    "companyName": "ABS Marine Services Limited",
+    "isin": "INE0QRV01016",
+    "series": null,
+    "survCode": "STASM - I (11)",
+    "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage I",
+    "symbol": "ABSMARINE",
+    "srno": 2
+   },
+   {
+    "asmSurvIndicator": "Stage II",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Anlon Healthcare Limited",
+    "isin": "INE0Y8W01025",
+    "series": null,
+    "survCode": "STASM - II (12)",
+    "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage II",
+    "symbol": "AHCL",
+    "srno": 4
+   },
+   {
+    "asmSurvIndicator": "Stage II",
+    "asmTime": "25-Sep-2026",
+    "companyName": "Dhariwalcorp Limited",
+    "isin": "INE0YRN01025",
+    "series": null,
+    "survCode": "STASM - II (12)",
+    "survDesc": "Short Term Additional Surveillance Measure (STASM) - Stage II",
+    "symbol": "DHARIWAL",
+    "srno": 21
+   }
+  ]
+ }
+}

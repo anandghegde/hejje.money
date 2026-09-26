@@ -55,6 +55,12 @@ export function describeFilter(f: ScreenFilter): string {
   return `${f.field} ${symbol[f.op]} ${Array.isArray(f.value) ? f.value.join(', ') : f.value}`;
 }
 
+/** The badge text of an NSE surveillance flag ("ASM LT 2", "GSM 0"); null when the stock is not under surveillance or the flag is unknown. */
+export function surveillanceLabel(flag?: string | null): string | null {
+  const m = /^(ASM_LT|ASM_ST|GSM)_(\d+)$/.exec(flag ?? '');
+  return m ? `${m[1].replace('_', ' ')} ${m[2]}` : null;
+}
+
 export function isClosed(status: string): boolean {
   return ['HIT_GOAL', 'STOPPED', 'FAILED', 'EXPIRED'].includes(status);
 }

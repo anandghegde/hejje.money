@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AnalogMatch, AnalogOutcome, Base } from '../src/api/types';
-import { bandPoints, buildFilter, chartBase, describeFilter, pathPoints, rateWithCount, sessionLine, signedPct, sma, sortMatches } from '../src/lib/context';
+import { bandPoints, buildFilter, chartBase, describeFilter, pathPoints, rateWithCount, sessionLine, signedPct, sma, sortMatches, surveillanceLabel } from '../src/lib/context';
 
 const outcome = (over: Partial<AnalogOutcome>): AnalogOutcome => ({
   forward: '5', count: 40, winRate: 0.675, mean: 1, median: 1.24, p25: -0.8, p75: 2.1, best: 6, worst: -4, maeMedian: -1.1, maeP25: -2.3, mfeMedian: 1.9,
@@ -12,6 +12,15 @@ describe('daily context helpers', () => {
   it('never shows a rate without its count', () => {
     expect(rateWithCount(0.675, 40)).toBe('27 of 40 (68 %)');
     expect(rateWithCount(0, 0)).toBe('no matches');
+  });
+
+  it('labels NSE surveillance flags and shows nothing for NONE or unknown flags', () => {
+    expect(surveillanceLabel('ASM_LT_2')).toBe('ASM LT 2');
+    expect(surveillanceLabel('ASM_ST_1')).toBe('ASM ST 1');
+    expect(surveillanceLabel('GSM_0')).toBe('GSM 0');
+    expect(surveillanceLabel('NONE')).toBeNull();
+    expect(surveillanceLabel(null)).toBeNull();
+    expect(surveillanceLabel('ESM_1')).toBeNull();
   });
 
   it('formats signed percentages and missing values', () => {

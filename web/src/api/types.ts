@@ -339,8 +339,10 @@ export interface WebhookDelivery { id: string; receivedAt: string; status: 'ACCE
 export interface DailyRating {
   sessionDate: string; instrumentId: string; symbol: string; rsRaw?: number; rsRating?: number; adRaw?: number; adGrade?: string; offHighPct?: number;
   offLowPct?: number; volVsAvg50Pct?: number; upDownVolRatio?: number; avgTurnoverCr?: number; close: number | string; changePct?: number; groupId?: string;
-  groupRank?: number; techComposite?: number; evidence: Record<string, unknown>;
+  groupRank?: number; techComposite?: number; evidence: Record<string, unknown>; surveillance?: Surveillance | null;
 }
+/** NSE surveillance as of the session: flag NONE, ASM_LT_n, ASM_ST_n or GSM_n; stale when the lists are older than the session. */
+export interface Surveillance { flag: string; code?: string | null; asOf: string; stale: boolean }
 export interface Base {
   id: string; instrumentId: string; symbol: string; type: string; startDate: string; detectedDate: string; depthPct: number; baseLow: number | string;
   pivot: number | string; buyLow: number | string; buyHigh: number | string; stop: number | string; goal: number | string; evidence: Record<string, unknown>;

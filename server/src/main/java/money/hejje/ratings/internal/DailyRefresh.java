@@ -13,7 +13,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * The evening D1 refresh (plan M8.1): brings the universe's daily candles current, then publishes
+ * The evening D1 refresh (plan M8.1): brings the universe's daily candles current, fetches NSE's surveillance lists
+ * ({@link NseSurveillance}; a failure there is logged and changes nothing else), then publishes
  * {@link DailyCandlesRefreshed}. The event is published even when some symbols failed (their rows are simply missing
  * that day), but not when nothing at all could be fetched.
  */
@@ -26,8 +27,10 @@ class DailyRefresh {
     private final UniverseHistory history;
     private final HejjeClock clock;
     private final ApplicationEventPublisher events;
+    private final NseSurveillance surveillance;
 
-    DailyRefresh(RatingsProperties props, UniverseHistory history, HejjeClock clock, ApplicationEventPublisher events) {
+    DailyRefresh(RatingsProperties props, UniverseHistory history, HejjeClock clock, ApplicationEventPublisher events, NseSurveillance surveillance) {
+        this.surveillance = surveillance;
         this.props = props;
         this.history = history;
         this.clock = clock;
@@ -51,6 +54,7 @@ class DailyRefresh {
         UniverseBackfill result = history.refreshDaily(props.universe(), sessions);
         log.info("D1 refresh of {}: {} of {} symbols, {} candles, {} failed, {} unresolved", result.universe(), result.childrenDone(),
                 result.childrenTotal(), result.candlesWritten(), result.childrenFailed(), result.unresolved().size());
+        surveillance.refresh();
         if (result.childrenDone() > 0) {
             events.publishEvent(new DailyCandlesRefreshed(date));
         }

@@ -70,6 +70,13 @@ class RatingsController {
         return refresh.refresh(sessions);
     }
 
+    /** Fetches NSE's ASM/GSM lists now; a failure is returned (and the previous lists stay), never thrown. */
+    @PostMapping("/surveillance/refresh")
+    @PreAuthorize("hasAuthority('SCOPE_admin')")
+    NseSurveillance.Result refreshSurveillance() {
+        return ratings.refreshSurveillance();
+    }
+
     @GetMapping
     Map<String, Object> list(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(required = false) String sort, @RequestParam(required = false) Integer minRs,

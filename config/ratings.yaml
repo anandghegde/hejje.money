@@ -55,3 +55,7 @@ hejje:
       min-turnover-cr: 10
       mover-change-pct: 2
       mover-volume: 1.5
+    surveillance:                       # NSE's ASM/GSM lists, fetched with the evening refresh; display only (docs/ratings.md)
+      enabled: true                     # only while the ratings are enabled
+      asm-url: https://www.nseindia.com/api/reportASM
+      gsm-url: https://www.nseindia.com/api/reportGSM

@@ -21,8 +21,16 @@ import java.util.UUID;
  * @param changePct       close versus the previous close
  * @param techComposite   1-99 technical composite (RS, A/D, group, off-high); not O'Neil's Composite, which needs EPS and SMR
  * @param evidence        partial-history flags and the component percentiles
+ * @param surveillance    the NSE surveillance measure as of the session, attached when read (not stored with the row, not
+ *                        in the hash); null when no surveillance list has been fetched yet
  */
 public record DailyRating(LocalDate sessionDate, UUID instrumentId, String engineVersion, String symbol, Double rsRaw, Integer rsRating,
         Double adRaw, String adGrade, Double offHighPct, Double offLowPct, Double volVsAvg50Pct, Double upDownVolRatio, Double avgTurnoverCr,
-        BigDecimal close, Double changePct, String groupId, Integer groupRank, Integer techComposite, Map<String, Object> evidence) {
+        BigDecimal close, Double changePct, String groupId, Integer groupRank, Integer techComposite, Map<String, Object> evidence,
+        Surveillance surveillance) {
+
+    public DailyRating withSurveillance(Surveillance s) {
+        return new DailyRating(sessionDate, instrumentId, engineVersion, symbol, rsRaw, rsRating, adRaw, adGrade, offHighPct, offLowPct, volVsAvg50Pct,
+                upDownVolRatio, avgTurnoverCr, close, changePct, groupId, groupRank, techComposite, evidence, s);
+    }
 }

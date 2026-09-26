@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param universe         universe file name under {@code config/universe} (D1 only)
  * @param engineVersion    stored with every row; bump when a formula or threshold changes (old rows are kept)
  * @param refreshSessions  trading days of D1 candles the evening refresh re-fetches (an idempotent upsert)
+ * @param surveillance     NSE's ASM/GSM lists, fetched with the evening refresh (display only)
  */
 @ConfigurationProperties("hejje.ratings")
 public record RatingsProperties(
@@ -20,7 +21,8 @@ public record RatingsProperties(
         @DefaultValue("5") int refreshSessions,
         @DefaultValue Formula formula,
         @DefaultValue Bases bases,
-        @DefaultValue Lists lists) {
+        @DefaultValue Lists lists,
+        @DefaultValue SurveillanceLists surveillance) {
 
     /**
      * @param quarterSessions    sessions per RS horizon step; the horizons are 1 to {@code rsWeights.size()} quarters
@@ -77,5 +79,17 @@ public record RatingsProperties(
      */
     public record Lists(@DefaultValue("85") int leaderComposite, @DefaultValue("80") int leaderRs, @DefaultValue("10") double minTurnoverCr,
             @DefaultValue("2") double moverChangePct, @DefaultValue("1.5") double moverVolume) {
+    }
+
+    /**
+     * NSE surveillance lists (docs/ratings.md, "Surveillance"). Fetched only while the ratings are enabled.
+     *
+     * @param enabled  fetch the lists with the evening refresh
+     * @param asmUrl   the ASM report (long and short term), JSON
+     * @param gsmUrl   the GSM report, JSON
+     */
+    public record SurveillanceLists(@DefaultValue("true") boolean enabled,
+            @DefaultValue("https://www.nseindia.com/api/reportASM") String asmUrl,
+            @DefaultValue("https://www.nseindia.com/api/reportGSM") String gsmUrl) {
     }
 }

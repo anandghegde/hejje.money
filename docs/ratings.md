@@ -122,10 +122,50 @@ Leaders: the nightly setup alerts, and the instruments whose session analogs are
 The evening **digest** (`DAILY_CONTEXT_DIGEST`, one in-app line per evening): the market condition, the session's new
 buy-zone entries, and the top five of the ranked analog list, each with its count.
 
+## Surveillance (NSE ASM/GSM)
+
+Whether a stock is under one of NSE's surveillance measures: **ASM** long term (stages I–IV) or short term (stages I–II)
+and **GSM** (stages 0–IV and VI). **Display only**: the flag is on the ratings, the lists and the screener, and it changes
+no score, list, universe or decision.
+
+**Sources (checked with live calls on 2026-09-26).** NSE's reports pages (`https://www.nseindia.com/reports/asm`, `.../gsm`)
+are fed by two JSON endpoints, which Hejje calls:
+
+| Endpoint | Shape |
+|---|---|
+| `GET https://www.nseindia.com/api/reportASM` | `{ "longterm": { "data": [row] }, "shortterm": { "data": [row] } }`; row `{ srno, symbol, companyName, isin, series (null), asmSurvIndicator ("Stage I"), survCode ("LTASM - I (13)", "STASM - II (12)"), survDesc, asmTime ("25-Sep-2026") }` |
+| `GET https://www.nseindia.com/api/reportGSM` | `[row]`; row `{ srno, symbol, companyName, isin, gsmStage (a roman numeral of the code number, e.g. "LXII"), survCode ("GSM - VI (6)", "IBC - Receipt & GSM 0 (62)", "GSM IV & IBC - Receipt (66)"), survDesc, gsmTime ("25-Sep-2026 08:08:02") }` |
+
+The same reports as CSV: append `?csv=true` (columns `SR. NO, SYMBOL, COMPANY NAME, ISIN, ASM STAGE` / `GSM STAGE`, the
+ASM file with "Long Term" / "Short Term" section rows and no date); Hejje uses the JSON because it carries the date. On
+the day checked: 138 long-term ASM (stage I 121, II 4, III 2, IV 11), 77 short-term ASM (I 74, II 3) and 77 GSM rows;
+the three lists were disjoint. **Access:** no cookie or session is needed, but NSE's edge drops a request without a
+browser-like `User-Agent` (curl's default times out); Java's `HttpClient` with the User-Agent Hejje sends answered 200 over
+HTTP/2. Not checked from the VM: a datacenter address may be treated differently, which the failure mode below covers.
+
+**Stage.** Read from `survCode`, not `gsmStage`: `LTASM - II (14)` is `ASM_LT_2`, `STASM - I (11)` is `ASM_ST_1`, and a GSM
+code names its stage after "GSM" wherever it stands (`IBC - Receipt & GSM 0 (62)` is `GSM_0`, `GSM IV & IBC - Receipt (66)`
+is `GSM_4`). A row whose code does not parse is skipped with a warning. One flag per symbol; should a symbol ever appear on
+more than one list, GSM wins over long-term ASM over short-term ASM. NSE's full code is kept as `code` (it shows the IBC /
+ESM / LTASM part of a combined GSM code).
+
+**Fetch and storage.** The evening D1 refresh fetches both reports after the candles (and `POST /api/v1/ratings/surveillance/refresh`
+on demand) and stores them as the snapshot of that day's session (`surveillance_snapshot`, `surveillance_flag`; the dates
+NSE prints are kept as `asm_date`, `gsm_date`); a re-fetch the same day replaces the snapshot. Only while the ratings are
+enabled, and `hejje.ratings.surveillance.enabled` (default true) switches the fetch off on its own. A failed fetch (HTTP
+error, block page, other shape, both lists empty) is logged and stores nothing; the ratings run carries on.
+
+**Reads.** A rating of session `D` carries `surveillance: { flag, code, asOf, stale }` from the newest snapshot on or
+before `D`: `flag` is `NONE` for a stock on no list, `asOf` the snapshot's session, `stale` true when that is before `D`
+(the day's fetch failed or has not run). Before the first snapshot `surveillance` is null (unknown, not `NONE`). The
+screener field `surveillance` is the flag. The flag is attached when read: it is not part of the stored rating row or its
+hash. SIM never fetches (the evening refresh is skipped there) and reads only snapshots on or before the simulated
+session.
+
 ## Jobs
 
-- Evening: `DailyCandlesRefreshed(date)` (after the D1 refresh, `docs/data.md`) computes the day's ratings, advances and
-  detects bases, then publishes the setup alerts.
+- Evening: the D1 refresh (`docs/data.md`) fetches NSE's surveillance lists, then `DailyCandlesRefreshed(date)` computes
+  the day's ratings, advances and detects bases, then publishes the setup alerts.
 - History: `POST /api/v1/ratings/compute {from, to}`. Sessions that already have rows under the engine version are
   skipped, so re-running is a no-op; the returned hash covers every row of the range, stored or new.
 - Bases history: `POST /api/v1/ratings/bases/compute {from, to}`; the hash covers every base detected up to `to` with its
