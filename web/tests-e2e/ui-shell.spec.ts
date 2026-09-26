@@ -1,0 +1,66 @@
+import { test, expect, Page } from '@playwright/test';
+
+const PASSWORD = process.env.HEJJE_ADMIN_PASSWORD ?? 'admin-password';
+const VIEWPORTS = [{ width: 360, height: 780 }, { width: 768, height: 1024 }, { width: 1440, height: 900 }];
+
+async function login(page: Page) {
+  await page.goto('/login');
+  await page.getByLabel('username').fill('admin');
+  await page.getByLabel('password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Log in' }).click();
+  await expect(page.getByTestId('mode-banner')).toBeVisible();
+}
+
+/**
+ * Phase 10 app shell (M10.2): at phone, tablet and desktop widths the mode banner and kill-switch state are visible and
+ * the page never scrolls sideways; `/design` renders every component. Screenshots land in test-results/.
+ * The file sorts after the trading specs on purpose: its many page loads use up the admin's request burst, which
+ * paper-flow and smoke (one login each, then many calls) need.
+ */
+test('the shell and /design at 360, 768 and 1440 px', async ({ page }, info) => {
+  await login(page);
+  for (const vp of VIEWPORTS) {
+    await page.setViewportSize(vp);
+    for (const path of ['/today', '/design']) {
+      await page.goto(path);
+      await expect(page.getByTestId('mode-banner')).toBeVisible();
+      await expect(page.getByTestId('kill-state')).toBeVisible();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow, `${path} scrolls sideways at ${vp.width} px`).toBeLessThanOrEqual(0);
+    }
+    await page.screenshot({ path: info.outputPath(`shell-${vp.width}.png`) }); // the viewport: banner, nav or tab bar
+    await expect(page.getByTestId('design-light')).toBeVisible();
+    await expect(page.getByTestId('design-dark')).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`design-${vp.width}.png`), fullPage: true });
+  }
+});
+
+test('phone: the tab bar and the menu reach every page', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await login(page);
+  const main = page.getByRole('navigation', { name: 'Main' });
+  await expect(main).toBeHidden();
+  await page.getByRole('navigation', { name: 'Quick links' }).getByRole('link', { name: 'Positions', exact: true }).click();
+  await expect(page).toHaveURL(/\/positions$/);
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(main).toBeVisible();
+  await main.getByRole('link', { name: 'Settings', exact: true }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(main).toBeHidden();
+});
+
+test('the theme switch applies at once and follows the OS by default', async ({ page }, info) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await login(page);
+  await page.goto('/settings');
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const dark = await bg();
+  await page.screenshot({ path: info.outputPath('settings-dark.png'), fullPage: true });
+  await page.getByTestId('theme-select').selectOption('light');
+  await expect.poll(bg).not.toBe(dark);
+  await page.screenshot({ path: info.outputPath('settings-light.png'), fullPage: true });
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.getByTestId('theme-select').selectOption('system');
+  await expect.poll(bg).toBe(dark);
+});

@@ -23,6 +23,7 @@ import { ReviewDetail, Reviews } from './pages/Reviews';
 import { Analytics } from './pages/Analytics';
 import { Agent } from './pages/Agent';
 import { Approvals } from './pages/Approvals';
+import { Design } from './pages/Design';
 import { ReactNode } from 'react';
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -61,6 +62,7 @@ export function App() {
             <Route path="/broker" element={<Protected><Broker /></Protected>} />
             <Route path="/system" element={<Protected><System /></Protected>} />
             <Route path="/settings" element={<Protected><Settings /></Protected>} />
+            <Route path="/design" element={<Protected><Design /></Protected>} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </BrowserRouter>

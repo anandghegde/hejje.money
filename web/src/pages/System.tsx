@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
 import { Health } from '../api/types';
 import { BrokerAccountsView, canFailover, executorLine, ExecutorStatus } from '../lib/executor';
+import { Button, Dialog } from '../ui';
 
 interface Latency { name: string; op?: string; broker?: string; p50Ms: number; p95Ms: number; p99Ms: number; count: number; }
 interface Issue { id: string; kind: string; severity: string; detail: string; broker?: string; }
@@ -14,6 +15,7 @@ interface JevStatus {
 export function System() {
   const qc = useQueryClient();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmFailover, setConfirmFailover] = useState(false);
   const { data: health } = useQuery({ queryKey: ['health'], queryFn: () => request<Health>('/server/health'), refetchInterval: 5000 });
   const { data: latency } = useQuery({ queryKey: ['latency'], queryFn: () => request<Latency[]>('/server/latency'), refetchInterval: 5000 });
   const { data: issues } = useQuery({ queryKey: ['issues'], queryFn: () => request<Issue[]>('/execution/reconciliation-issues'), refetchInterval: 5000 });
@@ -27,7 +29,7 @@ export function System() {
   }
 
   async function failover() {
-    if (!window.confirm('Release the executor lease on this instance? The standby takes over and this instance stops sending orders.')) return;
+    setConfirmFailover(false);
     try {
       const r = await request<{ message: string }>('/server/failover', { method: 'POST', body: { confirmation: 'FAILOVER' } });
       setMessage(r.message);
@@ -56,7 +58,7 @@ export function System() {
       {executor && (
         <p data-testid="executor-role">
           Executor: {executorLine(executor)}{' '}
-          {canFailover(executor) && <button onClick={failover}>Fail over to the standby</button>}
+          {canFailover(executor) && <button onClick={() => setConfirmFailover(true)}>Fail over to the standby</button>}
         </p>
       )}
       {message && <p>{message}</p>}
@@ -89,6 +91,17 @@ export function System() {
           ))}</tbody></table>
         </>
       )}
+      <Dialog
+        open={confirmFailover}
+        title="Fail over to the standby?"
+        onClose={() => setConfirmFailover(false)}
+        actions={<>
+          <Button onClick={() => setConfirmFailover(false)}>Cancel</Button>
+          <Button variant="danger" onClick={failover}>Release the lease</Button>
+        </>}
+      >
+        Release the executor lease on this instance? The standby takes over and this instance stops sending orders.
+      </Dialog>
     </div>
   );
 }

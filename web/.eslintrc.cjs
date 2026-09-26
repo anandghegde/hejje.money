@@ -10,7 +10,6 @@ const INLINE_STYLE_ALLOW_LIST = [
   'src/components/DriftPanel.tsx',
   'src/components/EquityChart.tsx',
   'src/components/Experiments.tsx',
-  'src/components/Layout.tsx',
   'src/components/LegBuilder.tsx',
   'src/components/LossInvestigation.tsx',
   'src/components/NewsBiasPanel.tsx',

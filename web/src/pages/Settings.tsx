@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { request } from '../api/client';
 import { Health } from '../api/types';
 import { ApiKeysPanel } from '../components/ApiKeysPanel';
@@ -29,6 +30,7 @@ export function Settings() {
         </label>{' '}
         <small>Stored in this browser only.</small>
       </p>
+      <p><Link to="/design">Design system</Link>: every component in both themes.</p>
       <ApiKeysPanel />
       <NotificationsPanel />
       <WebhooksPanel />
