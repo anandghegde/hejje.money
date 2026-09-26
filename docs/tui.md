@@ -109,7 +109,9 @@ hejje watch add NSE:INFY --note "results next week" | hejje watch rm NSE:INFY | 
 ```
 
 A filter is `field:op:value` (`gte lte gt lt eq ne in`; `in` takes a comma list); the fields are those of
-`GET /ratings/screen/fields`. Every rate is printed with its count (`27 of 40 (68%)`). The commands print once and exit
+`GET /ratings/screen/fields` (`--filter surveillance:ne:NONE` lists the stocks on an NSE ASM/GSM list). `hejje stock`
+prints the NSE surveillance badge after the session (`NSE [ASM LT 2]`, `(stale)` when the lists are older than the
+session) and `hejje screen` has a `SURV` column; nothing is printed for a stock on no list. Every rate is printed with its count (`27 of 40 (68%)`). The commands print once and exit
 (`--json` for the raw response); with a module switched off the server's 503 message is shown. Golden renders:
 `TestStockPageGolden`, `TestRatingsListGolden`, `TestSessionAnalogsGolden` (`go test ./internal/ui -update` rewrites them).
 

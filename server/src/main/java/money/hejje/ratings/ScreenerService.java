@@ -34,7 +34,7 @@ public class ScreenerService {
     /** Fields of the ratings module, in display order. */
     public static final List<String> FIELDS = List.of("symbol", "close", "changePct", "rsRating", "rsRaw", "adGrade", "adRaw", "techComposite",
             "offHighPct", "offLowPct", "volVsAvg50Pct", "upDownVolRatio", "avgTurnoverCr", "groupId", "groupRank", "baseType", "baseStatus", "pivot",
-            "distanceToPivotPct", "volumeConfirmed", "watchlist");
+            "distanceToPivotPct", "volumeConfirmed", "watchlist", "surveillance");
     private static final List<String> OPS = List.of("gte", "lte", "gt", "lt", "eq", "ne", "in");
 
     private final RatingsService ratings;
@@ -125,6 +125,7 @@ public class ScreenerService {
                     : Math.round((r.close().doubleValue() / b.pivot().doubleValue() - 1.0) * 10000.0) / 100.0);
             row.put("volumeConfirmed", b == null ? null : b.volumeConfirmed());
             row.put("watchlist", watched.contains(r.instrumentId()));
+            row.put("surveillance", r.surveillance() == null ? null : r.surveillance().flag());
             contributed.forEach(values -> row.putAll(values.getOrDefault(r.symbol(), Map.of())));
             rows.add(row);
         }

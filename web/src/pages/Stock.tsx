@@ -5,7 +5,7 @@ import { createChart } from 'lightweight-charts';
 import { request } from '../api/client';
 import { AnalogMatch, AnalogOutcome, AnalogSummary, Base, Candle, DailyRating, Instrument, ScreenResult, WatchlistItem } from '../api/types';
 import { LOOKBACKS, bandPoints, chartBase, directionColor, isClosed, num, pathPoints, rateWithCount, sessionLine, signedPct, sma, sortMatches } from '../lib/context';
-import { Disabled } from './Screener';
+import { Disabled, SurveillanceBadge } from './Screener';
 
 const NOT_VALIDATED = 'Not validated: shown as context, it changes no score or decision (docs/strategies/context-validation.md).';
 
@@ -222,6 +222,7 @@ export function Stock() {
       <h2 style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
         <span>{symbol}</span>
         {rating && <span style={{ fontSize: 16, fontWeight: 400 }}>{String(rating.close)} · {signedPct(rating.changePct, 1)} · session {rating.sessionDate}</span>}
+        {rating?.surveillance && <SurveillanceBadge {...rating.surveillance} />}
         <button data-testid="watch-toggle" onClick={() => toggle.mutate()}>{watched ? '★ Watching' : '☆ Watch'}</button>
         <Link to="/screener" style={{ fontSize: 14 }}>← Screener</Link>
       </h2>

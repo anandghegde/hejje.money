@@ -122,7 +122,7 @@ final class RatingsEngine {
                     BigDecimal.valueOf(s.close()[i]).setScale(2, RoundingMode.HALF_UP),
                     i == 0 || s.close()[i - 1] == 0 ? null : round6((s.close()[i] / s.close()[i - 1] - 1.0) * 100.0),
                     industry == null ? null : groupId(industry), industry == null ? null : rankOf.get(groupId(industry)),
-                    rating(compositePct[k]), evidence));
+                    rating(compositePct[k]), evidence, null));
         }
         return new Result(ratings, groups);
     }

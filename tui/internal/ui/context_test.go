@@ -42,6 +42,22 @@ func TestStockPageGolden(t *testing.T) {
 	teatest.RequireEqualOutput(t, []byte(RenderStock(sampleRating(), bases, closes, &analogs)))
 }
 
+func TestStockPageShowsTheSurveillanceBadge(t *testing.T) {
+	r := sampleRating()
+	r.Surveillance = &api.Surveillance{Flag: "ASM_LT_2", Code: "LTASM - II (14)", AsOf: "2026-09-17", Stale: true}
+	first := strings.SplitN(RenderStock(r, nil, nil, nil), "\n", 2)[0]
+	if first != "NSE:INFY  1495.00  +1.2%   (session 2026-09-18)   NSE [ASM LT 2] (stale)" {
+		t.Fatalf("header: %q", first)
+	}
+	r.Surveillance = &api.Surveillance{Flag: "NONE", AsOf: "2026-09-18"}
+	if strings.Contains(RenderStock(r, nil, nil, nil), "NSE [") {
+		t.Fatal("no badge for NONE")
+	}
+	if SurveillanceBadge("GSM_0", false) != "[GSM 0]" || SurveillanceBadge("", false) != "" {
+		t.Fatal("badge text")
+	}
+}
+
 func TestRatingsListGolden(t *testing.T) {
 	r := sampleRating()
 	l := api.RatingsList{Name: "setups", Date: "2026-09-18", Rows: []api.SetupRow{
@@ -65,8 +81,8 @@ func TestSessionAnalogsGolden(t *testing.T) {
 func TestScreenAndWatchlistRenderCountsNextToRates(t *testing.T) {
 	out := RenderScreen(api.ScreenResult{Date: "2026-09-18", Universe: 497, Matched: 1, Rows: []map[string]any{{"symbol": "NSE:INFY", "close": "1495.00",
 		"changePct": 1.2, "rsRating": 87.0, "adGrade": "B+", "techComposite": 91.0, "baseType": "FLAT_BASE", "baseStatus": "IN_BUY_ZONE",
-		"analogDirection": "BULLISH", "analogWinRate5": 0.62, "analogCount5": 50.0}}})
-	for _, want := range []string{"1 of 497 stocks match", "NSE:INFY", "FLAT_BASE IN_BUY_ZONE", "BULLISH", "62% of 50"} {
+		"analogDirection": "BULLISH", "analogWinRate5": 0.62, "analogCount5": 50.0, "surveillance": "GSM_2"}}})
+	for _, want := range []string{"1 of 497 stocks match", "NSE:INFY", "FLAT_BASE IN_BUY_ZONE", "BULLISH", "62% of 50", "SURV", "[GSM 2]"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("missing %q in\n%s", want, out)
 		}

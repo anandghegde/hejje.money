@@ -2723,6 +2723,25 @@ Output schema:
         },
         "evidence" : {
           "type" : "object"
+        },
+        "surveillance" : {
+          "type" : "object",
+          "properties" : {
+            "flag" : {
+              "type" : "string"
+            },
+            "code" : {
+              "type" : "string"
+            },
+            "asOf" : {
+              "type" : "string",
+              "format" : "date"
+            },
+            "stale" : {
+              "type" : "boolean"
+            }
+          },
+          "required" : [ "stale" ]
         }
       }
     },

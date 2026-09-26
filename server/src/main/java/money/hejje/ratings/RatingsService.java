@@ -8,15 +8,18 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import money.hejje.common.time.HejjeClock;
 import money.hejje.ratings.internal.BasesComputer;
+import money.hejje.ratings.internal.NseSurveillance;
 import money.hejje.ratings.internal.RatingsComputer;
 import money.hejje.ratings.internal.RatingsLists;
 import org.springframework.stereotype.Service;
 
 /**
  * Public API of the ratings module: stored ratings and group ranks per session, and the job that computes them. Reads
- * never see a session that has not closed on the Hejje clock, so a SIM replay cannot read its own future.
+ * never see a session that has not closed on the Hejje clock, so a SIM replay cannot read its own future. Ratings read
+ * here carry the stock's NSE surveillance measure as of their session ({@link DailyRating#surveillance()}).
  */
 @Service
 public class RatingsService {
@@ -26,8 +29,11 @@ public class RatingsService {
     private final HejjeClock clock;
     private final BasesComputer basesComputer;
     private final RatingsLists lists;
+    private final NseSurveillance surveillance;
 
-    RatingsService(RatingsProperties props, RatingsComputer computer, HejjeClock clock, BasesComputer basesComputer, RatingsLists lists) {
+    RatingsService(RatingsProperties props, RatingsComputer computer, HejjeClock clock, BasesComputer basesComputer, RatingsLists lists,
+            NseSurveillance surveillance) {
+        this.surveillance = surveillance;
         this.basesComputer = basesComputer;
         this.lists = lists;
         this.props = props;
@@ -58,11 +64,20 @@ public class RatingsService {
     }
 
     public Optional<DailyRating> rating(String symbol, LocalDate date) {
-        return sessionFor(date).flatMap(d -> computer.find(symbol.trim().toUpperCase(), d));
+        return sessionFor(date).flatMap(d -> computer.find(symbol.trim().toUpperCase(), d))
+                .map(r -> r.withSurveillance(surveillance.asOf(r.sessionDate()).apply(r.symbol())));
     }
 
     public List<DailyRating> ratings(LocalDate date) {
-        return sessionFor(date).map(computer::forDate).orElse(List.of());
+        return sessionFor(date).map(d -> {
+            Function<String, Surveillance> of = surveillance.asOf(d);
+            return computer.forDate(d).stream().map(r -> r.withSurveillance(of.apply(r.symbol()))).toList();
+        }).orElse(List.of());
+    }
+
+    /** Fetches NSE's surveillance lists now (the evening refresh does it too); never throws. */
+    public NseSurveillance.Result refreshSurveillance() {
+        return surveillance.refresh();
     }
 
     public List<GroupRank> groups(LocalDate date) {
@@ -99,7 +114,11 @@ public class RatingsService {
 
     /** One of {@link RatingsLists#NAMES} for the session of {@code date}. */
     public List<SetupRow> list(String name, LocalDate date) {
-        return sessionFor(date).map(d -> lists.list(name, d)).orElse(List.of());
+        return sessionFor(date).map(d -> {
+            Function<String, Surveillance> of = surveillance.asOf(d);
+            return lists.list(name, d).stream()
+                    .map(row -> row.rating() == null ? row : new SetupRow(row.rating().withSurveillance(of.apply(row.rating().symbol())), row.base())).toList();
+        }).orElse(List.of());
     }
 
     /** Status rows written for the session (the nightly alerts). */

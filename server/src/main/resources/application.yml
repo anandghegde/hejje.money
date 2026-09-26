@@ -291,6 +291,8 @@ hejje:
   ratings:
     enabled: true
     universe: ratings-test             # five fixture equities with industries (test resources)
+    surveillance:
+      enabled: false                   # no NSE calls from tests; SurveillanceIT stores fixture lists directly
   events:
     refresh-on-startup: false
   llm:

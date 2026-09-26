@@ -12,20 +12,29 @@ import (
 
 // DailyRating is one stock's price/volume ratings for a session.
 type DailyRating struct {
-	SessionDate    string   `json:"sessionDate"`
-	Symbol         string   `json:"symbol"`
-	RsRating       *int     `json:"rsRating"`
-	AdGrade        string   `json:"adGrade"`
-	TechComposite  *int     `json:"techComposite"`
-	OffHighPct     *float64 `json:"offHighPct"`
-	OffLowPct      *float64 `json:"offLowPct"`
-	VolVsAvg50Pct  *float64 `json:"volVsAvg50Pct"`
-	UpDownVolRatio *float64 `json:"upDownVolRatio"`
-	AvgTurnoverCr  *float64 `json:"avgTurnoverCr"`
-	Close          Flex     `json:"close"`
-	ChangePct      *float64 `json:"changePct"`
-	GroupID        string   `json:"groupId"`
-	GroupRank      *int     `json:"groupRank"`
+	SessionDate    string        `json:"sessionDate"`
+	Symbol         string        `json:"symbol"`
+	RsRating       *int          `json:"rsRating"`
+	AdGrade        string        `json:"adGrade"`
+	TechComposite  *int          `json:"techComposite"`
+	OffHighPct     *float64      `json:"offHighPct"`
+	OffLowPct      *float64      `json:"offLowPct"`
+	VolVsAvg50Pct  *float64      `json:"volVsAvg50Pct"`
+	UpDownVolRatio *float64      `json:"upDownVolRatio"`
+	AvgTurnoverCr  *float64      `json:"avgTurnoverCr"`
+	Close          Flex          `json:"close"`
+	ChangePct      *float64      `json:"changePct"`
+	GroupID        string        `json:"groupId"`
+	GroupRank      *int          `json:"groupRank"`
+	Surveillance   *Surveillance `json:"surveillance"`
+}
+
+// Surveillance is a stock's NSE ASM/GSM measure as of the session (flag NONE, ASM_LT_n, ASM_ST_n or GSM_n).
+type Surveillance struct {
+	Flag  string `json:"flag"`
+	Code  string `json:"code"`
+	AsOf  string `json:"asOf"`
+	Stale bool   `json:"stale"`
 }
 
 // Base is a detected base with its informational trade plan and its status as of a session.
