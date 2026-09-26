@@ -25,11 +25,14 @@ duplicate and edits to a curated file replace the old row. Refresh runs after bo
 
 1. Copy `config/events/macro-2026.yaml` forward (or add a file and list it under `hejje.events.curated.files`).
 2. RBI: the MPC schedule press release for the financial year (rbi.org.in). FOMC: federalreserve.gov meeting
-   calendar; statements land at 14:00 ET, i.e. 00:30 IST the next day, so the Indian session reacts the morning
-   after and the entry is dated that morning. India CPI: MoSPI, 16:00 IST on the 12th or the next working day.
+   calendar; statements land at 14:00 ET (00:30 IST the next day in US standard time, 23:30 IST the same day in US
+   daylight time), so the Indian session reacts the morning after and the entry is dated that morning at 00:30. India CPI: MoSPI, 16:00 IST on the 12th or the next working day.
    US CPI / jobs: bls.gov schedules (after the Indian close; listed so the next session's environment shows them).
-3. Set `confidence` below 0.9 for dates that follow the pattern but are not yet confirmed by the issuer.
-4. `POST /api/v1/events/refresh` (or restart) and check `GET /api/v1/events?from=&to=`.
+3. NSE index rebalances: `hejje.events.computed.index-rebalance-dates` in `config/events.yaml`, the session before the
+   effective date in the NSE Indices press release (niftyindices.com; reviews are effective after the last working day
+   of March and September).
+4. Set `confidence` below 0.9 for dates that follow the pattern but are not yet confirmed by the issuer.
+5. `POST /api/v1/events/refresh` (or restart) and check `GET /api/v1/events?from=&to=`.
 
 ## Event risk (`EventRiskEvaluator`)
 

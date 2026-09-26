@@ -47,8 +47,18 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
 - `npm run e2e` — Playwright against a running dev-profile server (fake broker, PAPER, dev seeding on) and the Vite
   dev server: the smoke (login -> broker -> manual paper order -> Orders -> Positions) and the paper flow
   (`paper-flow.spec.ts`: seed a scripted session -> signal -> Today -> execute -> fill -> stop -> review -> attribution).
-  Both passed locally on 2026-09-09 (`docs/analytics.md`, "Development seeding"); CI runs lint/test/build and the e2e
-  stack in CI is still a follow-up.
+  Both passed locally on 2026-09-09 (`docs/analytics.md`, "Development seeding").
+- CI (`.github/workflows/ci.yml`, job `e2e`) runs all five specs (smoke, paper-flow, approvals, agent-chat, context) on
+  every push and PR: Postgres 16 as a service container (db/user/password `hejje`), `./gradlew bootJar`, the jar started
+  from the repo root with `HEJJE_DB_URL=jdbc:postgresql://localhost:5432/hejje HEJJE_DB_USER=hejje HEJJE_DB_PASSWORD=hejje
+  HEJJE_ADMIN_PASSWORD=admin-password HEJJE_DATA_DIR=<tmp> HEJJE_MARKET_STREAM=false HEJJE_RECOMMEND_MIN_SCORE=0
+  HEJJE_LLM_ENABLED=true HEJJE_RATINGS_ENABLED=true HEJJE_ANALOGS_ENABLED=true HEJJE_RATINGS_UNIVERSE=nifty50
+  HEJJE_ANALOGS_UNIVERSE=nifty50 --spring.profiles.active=dev --hejje.llm.providers.fixture.type=fixture
+  --hejje.llm.profiles.reasoning.provider=fixture --hejje.llm.profiles.fast.provider=fixture` (one config for all specs),
+  a poll of `GET /api/v1/server/ping`, then `npx playwright test` from `web/` (Chromium only; `playwright.config.ts`
+  starts the Vite dev server, which proxies `/api` and `/ws` to :8080). On failure the HTML report, traces
+  (`--trace=retain-on-failure`) and the server log are uploaded as the `playwright-report` artifact. The same stack run
+  locally (Postgres on another port) passed the suite three times in a row on 2026-09-26 (5 of 5, 13-23 s).
 
 ## Phase 3 additions
 
