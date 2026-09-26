@@ -13,7 +13,7 @@ func TestRenderBestAndNoTrade(t *testing.T) {
 	best := api.Recommendation{Instrument: "NSE:INFY", Strategy: "orb", Version: 3, Score: &score, Decision: "TRADE", Direction: "BUY", SignalID: "s1",
 		SignalStatus: "ACTIVE", Entry: &entry, Stop: &stop, Target: &target, RiskRupees: &risk, ExpectedRewardRupees: &reward, EventRisk: "HIGH", NextEvent: "Q2 results — Today 16:00",
 		Cautions: []api.Caution{{Code: "VIX_RISING", Message: "India VIX up 6.0% on the day"}},
-		Context: &api.StrategyCtx{Items: []api.ContextItem{{Name: "Market regime", Status: "GREEN", Value: "Favorable", Delta: intp(6)}, {Name: "Sector", Status: "UNKNOWN", Value: "Unknown"}}, NextEvent: "Q2 results — Today 16:00", NetImpact: -1},
+		Context:  &api.StrategyCtx{Items: []api.ContextItem{{Name: "Market regime", Status: "GREEN", Value: "Favorable", Delta: intp(6)}, {Name: "Sector", Status: "UNKNOWN", Value: "Unknown"}}, NextEvent: "Q2 results — Today 16:00", NetImpact: -1},
 		Backtest: map[string]any{"expectancyR": 0.42, "winRatePct": 61}, ScoreBreakdown: map[string]any{"adjustments": []any{map[string]any{"name": "Technical compatibility", "delta": 8}}}}
 	out := RenderBest(api.TodayView{Best: &best})
 	for _, want := range []string{"NSE:INFY — orb v3", "HEJJE SCORE            87 / 100", "LONG", "Entry                  1507.50", "Stop                   1495.00",

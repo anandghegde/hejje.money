@@ -102,7 +102,8 @@ Pure helpers live in `src/lib/context.ts` (`tests/context.test.ts`); the Playwri
 
 **Settings → API keys** (admin) creates client credentials: "Terminal (TUI)" gets every scope except `admin`, `sim:run`
 and `bot:decide`; the agent presets `research` and `execution` and the `bot` preset come from the server
-(`AgentPresets`). The key is shown once as `export HEJJE_API_KEY=…` with a copy button; the table lists prefix, scopes,
-last use and expiry (default 90 days) and revokes. Helpers in `src/lib/apiKeys.ts` (`tests/apiKeys.test.ts`).
+(`AgentPresets`); a bot key is bound to the bot picked from `GET /bots` (it decides for that bot only). The key is shown
+once as `export HEJJE_API_KEY=…` with a copy button; the table lists prefix, scopes (with the bound bot), last use and
+expiry (default 90 days) and revokes. Helpers in `src/lib/apiKeys.ts` (`tests/apiKeys.test.ts`).
 **Server** shows the Jev connection from `GET /jev/status`: enabled, key, model, circuit, today's calls by outcome,
 p50/p90 and cost, and the last error.

@@ -108,7 +108,9 @@ Any authenticated caller.
 
 ### `POST /api/v1/auth/clients`
 
-Scope: `admin`. The `key` is returned once and never stored (only a SHA-256 of the secret is).
+Scope: `admin`. The `key` is returned once and never stored (only a SHA-256 of the secret is). Either `scopes` or a
+`preset` (`research`, `execution`, `bot`); an optional `botId` binds a `bot:decide` key to one bot (docs/bots.md) and
+is echoed in the response and the listing.
 
 ```json
 { "name": "research-agent", "scopes": ["market:read", "strategies:read"], "expiresAt": "2027-01-01T00:00:00Z" }
@@ -120,7 +122,7 @@ Audited as `CLIENT_CREATED`.
 
 ### `GET /api/v1/auth/clients`
 
-Scope: `admin`. Lists `{id, name, keyPrefix, scopes, createdAt, expiresAt, revokedAt, lastUsedAt}`.
+Scope: `admin`. Lists `{id, name, keyPrefix, scopes, createdAt, expiresAt, revokedAt, lastUsedAt, botId}`.
 
 ### `DELETE /api/v1/auth/clients/{id}`
 

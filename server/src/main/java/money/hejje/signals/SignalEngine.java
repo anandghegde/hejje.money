@@ -70,6 +70,7 @@ public class SignalEngine implements money.hejje.common.Drainable {
     private final HejjeProperties properties;
     private final SignalProperties signalProperties;
     private final HejjeClock clock;
+    private final org.springframework.transaction.support.TransactionTemplate tx;
     private final Map<String, StrategyRunner> runners = new ConcurrentHashMap<>();
     private final ExecutorService thread = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "signal-engine");
@@ -81,7 +82,8 @@ public class SignalEngine implements money.hejje.common.Drainable {
 
     SignalEngine(SignalStore store, StrategyService strategies, InstrumentService instruments, MarketService market, TickBus bus, LiveExecutionPort livePort,
             money.hejje.orders.OrderService orders, AuditService audit, ApplicationEventPublisher events, HejjeProperties properties,
-            SignalProperties signalProperties, HejjeClock clock) {
+            SignalProperties signalProperties, HejjeClock clock, org.springframework.transaction.PlatformTransactionManager txManager) {
+        this.tx = new org.springframework.transaction.support.TransactionTemplate(txManager);
         this.orders = orders;
         this.store = store;
         this.strategies = strategies;
@@ -533,7 +535,13 @@ public class SignalEngine implements money.hejje.common.Drainable {
                     position.instrumentId(), position.mode(), position.side(), position.quantity(), position.entryPrice(), position.initialStop(), position.stop(),
                     position.target(), position.entryOrderId(), position.stopOrderId(), position.exitOrderId(), PositionStatus.CLOSED, reason, exitPrice,
                     position.openedAt(), now, now);
-            store.update(closed);
+            // the close and its event commit together: the event is published durably (the engine thread has no
+            // transaction of its own) and the review it triggers always sees the close reason
+            tx.executeWithoutResult(status -> {
+                store.update(closed);
+                events.publishEvent(new StrategyPositionClosedEvent(EventMeta.create(clock), closed.id(), closed.entryOrderId(), closed.instrumentId(),
+                        closed.mode(), closed.strategyId(), reason));
+            });
             if (position.stopOrderId() != null && reason != CloseReason.STOP && reason != CloseReason.TRAILING_STOP) {
                 livePort.cancelOrder(position.stopOrderId()); // cancel remaining children after an exit fill
             }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
-import { Access, ACCESS, ApiKeyCreated, ApiKeySummary, createKeyBody, keyState } from '../lib/apiKeys';
+import { Access, ACCESS, ApiKeyCreated, ApiKeySummary, BotSummary, createKeyBody, keyState } from '../lib/apiKeys';
 
 /** API keys for the TUI, agents and bots (admin): create (the key is shown once), list and revoke. */
 export function ApiKeysPanel() {
@@ -9,13 +9,16 @@ export function ApiKeysPanel() {
   const [name, setName] = useState('');
   const [access, setAccess] = useState<Access>('terminal');
   const [days, setDays] = useState('90');
+  const [botId, setBotId] = useState('');
   const [created, setCreated] = useState<ApiKeyCreated | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { data: keys } = useQuery({ queryKey: ['api-keys'], queryFn: () => request<ApiKeySummary[]>('/auth/clients'), retry: false });
+  const { data: bots } = useQuery({ queryKey: ['bots'], queryFn: () => request<BotSummary[]>('/bots'), retry: false, enabled: access === 'bot' });
+  const botName = (id: string) => bots?.find((b) => b.id === id)?.name ?? id.slice(0, 8);
   const refresh = () => qc.invalidateQueries({ queryKey: ['api-keys'] });
   const create = useMutation({
-    mutationFn: () => request<ApiKeyCreated>('/auth/clients', { method: 'POST', body: createKeyBody(name, access, Number(days) || null) }),
+    mutationFn: () => request<ApiKeyCreated>('/auth/clients', { method: 'POST', body: createKeyBody(name, access, Number(days) || null, botId || null) }),
     onSuccess: (c) => { setCreated(c); setCopied(false); setError(null); setName(''); refresh(); },
     onError: (e: Error) => setError(e.message),
   });
@@ -51,8 +54,14 @@ export function ApiKeysPanel() {
         <select value={access} onChange={(e) => setAccess(e.target.value as Access)}>
           {ACCESS.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}
         </select>
+        {access === 'bot' && (
+          <select data-testid="api-key-bot" value={botId} onChange={(e) => setBotId(e.target.value)} title="The key decides for this bot only">
+            <option value="">bot: pick one</option>
+            {(bots ?? []).map((b) => <option key={b.id} value={b.id}>{b.name} v{b.version}</option>)}
+          </select>
+        )}
         <label>expires in <input type="number" min={1} value={days} onChange={(e) => setDays(e.target.value)} style={{ width: 64 }} /> days</label>
-        <button onClick={() => create.mutate()} disabled={!name.trim() || create.isPending}>Create key</button>
+        <button onClick={() => create.mutate()} disabled={!name.trim() || (access === 'bot' && !botId) || create.isPending}>Create key</button>
       </div>
       {error && <p style={{ color: '#c0392b' }}>{error}</p>}
       <table>
@@ -64,7 +73,7 @@ export function ApiKeysPanel() {
               <tr key={k.id}>
                 <td>{k.name}</td>
                 <td><code>{k.keyPrefix}…</code></td>
-                <td>{k.scopes.join(', ')}</td>
+                <td>{k.scopes.join(', ')}{k.botId ? ` · bot ${botName(k.botId)}` : ''}</td>
                 <td>{new Date(k.createdAt).toLocaleDateString()}</td>
                 <td>{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleString() : '—'}</td>
                 <td>{k.expiresAt ? new Date(k.expiresAt).toLocaleDateString() : 'never'}</td>

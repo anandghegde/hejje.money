@@ -72,6 +72,8 @@ class SignalsIT extends AbstractIntegrationTest {
     @Autowired OrderService orders;
     @Autowired ExecutionEngine execution;
     @Autowired AuditService audit;
+    @Autowired money.hejje.analytics.AnalyticsService analytics;
+    @Autowired money.hejje.analytics.ReviewService reviews;
     @Autowired MutableClock clock;
     @Autowired JdbcTemplate jdbc;
     @Autowired money.hejje.market.internal.QuoteCache quoteCache;
@@ -209,6 +211,19 @@ class SignalsIT extends AbstractIntegrationTest {
         assertThat(closed.exitPrice()).isEqualByComparingTo("1494.00");
         assertThat(engine.runner(deployment.id(), infy).orElseThrow().position()).isEmpty();
         assertThat(audit.query(new AuditQuery(null, null, AuditEventType.POSITION_CLOSED, null, 0, 20)).content()).anyMatch(r -> signalId.equals(r.signalId()));
+
+        // the post-trade review carries the close reason: it is written from the engine's close event, never before it
+        awaitAsyncListeners();
+        money.hejje.analytics.TradeReview review = analytics.reviewForEntryOrder(entryOrderId).orElseThrow();
+        assertThat(review.closeReason()).isEqualTo("STOP");
+        assertThat(review.strategyPositionId()).isEqualTo(closed.id());
+        // and the flat-position path defers while the engine still manages the round trip (the exit fill's two events race)
+        UUID brokerPositionId = orders.positions(ExecutionMode.PAPER).stream().filter(p -> infy.equals(p.instrumentId())).findFirst().orElseThrow().id();
+        jdbc.update("DELETE FROM trade_review WHERE id = ?", review.id());
+        jdbc.update("UPDATE strategy_position SET status = 'EXITING', close_reason = NULL WHERE id = ?", closed.id());
+        assertThat(reviews.reviewClosedPosition(brokerPositionId)).isEmpty();
+        jdbc.update("UPDATE strategy_position SET status = 'CLOSED', close_reason = 'STOP' WHERE id = ?", closed.id());
+        assertThat(reviews.reviewClosedPosition(brokerPositionId)).map(money.hejje.analytics.TradeReview::closeReason).contains("STOP");
 
         // max_trades_per_day = 1: another breakout bar produces no new signal today
         bar("09:35", "1507", "1512", "1506", "1511");

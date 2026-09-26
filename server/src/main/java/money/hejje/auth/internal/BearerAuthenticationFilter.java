@@ -67,7 +67,7 @@ public class BearerAuthenticationFilter extends OncePerRequestFilter {
                 .filter(c -> !websocket || c.scopes().contains(ScopeCatalog.MARKET_READ))
                 .map(c -> {
                     clients.touchLastUsed(c.id(), clock.now());
-                    return new HejjePrincipal(c.id(), c.name(), HejjePrincipal.Type.CLIENT, c.scopes());
+                    return new HejjePrincipal(c.id(), c.name(), HejjePrincipal.Type.CLIENT, c.scopes(), c.botId());
                 });
     }
 

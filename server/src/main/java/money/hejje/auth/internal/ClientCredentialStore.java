@@ -19,7 +19,7 @@ import org.springframework.stereotype.Repository;
 public class ClientCredentialStore {
 
     public record ClientCredential(UUID id, String name, String keyPrefix, String secretHash, Set<String> scopes,
-            Instant createdAt, Instant expiresAt, Instant revokedAt, Instant lastUsedAt) {
+            Instant createdAt, Instant expiresAt, Instant revokedAt, Instant lastUsedAt, UUID botId) {
 
         public boolean isActive(Instant now) {
             return revokedAt == null && (expiresAt == null || expiresAt.isAfter(now));
@@ -34,10 +34,10 @@ public class ClientCredentialStore {
 
     public void insert(ClientCredential c) {
         jdbc.sql("""
-                INSERT INTO client_credential (id, name, key_prefix, secret_hash, scopes, created_at, expires_at)
-                VALUES (:id, :name, :prefix, :hash, :scopes, :created, :expires)
+                INSERT INTO client_credential (id, name, key_prefix, secret_hash, scopes, created_at, expires_at, bot_id)
+                VALUES (:id, :name, :prefix, :hash, :scopes, :created, :expires, :bot)
                 """)
-                .param("id", c.id()).param("name", c.name()).param("prefix", c.keyPrefix()).param("hash", c.secretHash())
+                .param("id", c.id()).param("name", c.name()).param("prefix", c.keyPrefix()).param("hash", c.secretHash()).param("bot", c.botId())
                 .param("scopes", c.scopes().toArray(String[]::new))
                 .param("created", c.createdAt().atOffset(ZoneOffset.UTC))
                 .param("expires", c.expiresAt() == null ? null : c.expiresAt().atOffset(ZoneOffset.UTC))
@@ -75,7 +75,8 @@ public class ClientCredentialStore {
                 rs.getString("key_prefix"),
                 rs.getString("secret_hash"),
                 new LinkedHashSet<>(Arrays.asList((String[]) scopes.getArray())),
-                instant(rs, "created_at"), instant(rs, "expires_at"), instant(rs, "revoked_at"), instant(rs, "last_used_at"));
+                instant(rs, "created_at"), instant(rs, "expires_at"), instant(rs, "revoked_at"), instant(rs, "last_used_at"),
+                rs.getObject("bot_id", UUID.class));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

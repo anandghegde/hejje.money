@@ -55,6 +55,10 @@ class BotWebSocketHandler extends TextWebSocketHandler {
             raw.close(CloseStatus.BAD_DATA.withReason("?bot=<id> required"));
             return;
         }
+        if (!p.mayDecideFor(botId)) {
+            raw.close(CloseStatus.POLICY_VIOLATION.withReason("key is bound to another bot"));
+            return;
+        }
         raw.getAttributes().put("botId", botId);
         raw.getAttributes().put("session", session);
         try {

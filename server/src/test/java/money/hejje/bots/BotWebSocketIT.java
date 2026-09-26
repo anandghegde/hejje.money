@@ -63,7 +63,7 @@ class BotWebSocketIT extends AbstractIntegrationTest {
                 .isInstanceOf(money.hejje.strategy.StrategyException.Conflict.class).hasMessageContaining("0 of the 20 SIM sessions");
         UUID infy = instruments.resolve("NSE:INFY").map(Instrument::id).orElseThrow();
         HejjePrincipal admin = new HejjePrincipal(UUID.randomUUID(), "admin", HejjePrincipal.Type.USER, ScopeCatalog.ALL);
-        String key = clients.create("bot-" + bot.name(), AgentPresets.scopes(AgentPresets.BOT), null, admin).key();
+        String key = clients.create("bot-" + bot.name(), AgentPresets.scopes(AgentPresets.BOT), null, bot.id(), admin).key(); // bound to this bot
         assertThat(AgentPresets.scopes(AgentPresets.BOT)).containsExactlyInAnyOrder("market:read", "strategies:read", "bot:decide");
         {
             // a key without bot:decide is refused
@@ -76,6 +76,20 @@ class BotWebSocketIT extends AbstractIntegrationTest {
                 }
             }, new WebSocketHttpHeaders(), URI.create("ws://localhost:" + port + "/ws/bot?token=" + research + "&bot=" + bot.id())).get(5, TimeUnit.SECONDS);
             assertThat(refused.poll(5, TimeUnit.SECONDS)).isEqualTo(CloseStatus.POLICY_VIOLATION.withReason("bot:decide scope required"));
+            // a bot key bound to another bot is refused on the socket and over REST; binding needs the bot:decide scope
+            String bound = clients.create("bound-" + bot.name(), AgentPresets.scopes(AgentPresets.BOT), null, UUID.randomUUID(), admin).key();
+            new StandardWebSocketClient().execute(new TextWebSocketHandler() {
+                @Override
+                public void afterConnectionClosed(WebSocketSession s, CloseStatus status) {
+                    refused.add(status);
+                }
+            }, new WebSocketHttpHeaders(), URI.create("ws://localhost:" + port + "/ws/bot?token=" + bound + "&bot=" + bot.id())).get(5, TimeUnit.SECONDS);
+            assertThat(refused.poll(5, TimeUnit.SECONDS)).isEqualTo(CloseStatus.POLICY_VIOLATION.withReason("key is bound to another bot"));
+            assertThat(rest.exchange("/api/v1/bots/" + bot.id() + "/decisions", HttpMethod.POST, new HttpEntity<>(Map.of("pointId", "manual-0",
+                    "decisions", List.of()), bearer(bound)), String.class).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> clients.create("x", AgentPresets.scopes(AgentPresets.RESEARCH), null, bot.id(), admin))
+                    .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("bot:decide");
+            assertThat(clients.list().stream().filter(c -> c.name().equals("bound-" + bot.name())).findFirst().orElseThrow().botId()).isNotNull();
 
             BlockingQueue<Map<String, Object>> received = new LinkedBlockingQueue<>();
             WebSocketSession session = new StandardWebSocketClient().execute(new TextWebSocketHandler() {

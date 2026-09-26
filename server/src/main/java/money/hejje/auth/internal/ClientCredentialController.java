@@ -25,8 +25,11 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasAuthority('SCOPE_admin')")
 class ClientCredentialController {
 
-    /** Either explicit {@code scopes} or an agent {@code preset} ({@link AgentPresets}: research, execution). */
-    record CreateRequest(@NotBlank String name, List<String> scopes, String preset, Instant expiresAt) {}
+    /**
+     * Either explicit {@code scopes} or an agent {@code preset} ({@link AgentPresets}: research, execution, bot);
+     * {@code botId} binds a {@code bot:decide} key to that one bot.
+     */
+    record CreateRequest(@NotBlank String name, List<String> scopes, String preset, Instant expiresAt, UUID botId) {}
 
     private final ClientCredentialService clients;
 
@@ -42,7 +45,7 @@ class ClientCredentialController {
         if (hasScopes == hasPreset) {
             throw new IllegalArgumentException("Give either scopes or a preset (" + String.join(", ", AgentPresets.names()) + ")");
         }
-        return clients.create(request.name(), hasPreset ? AgentPresets.scopes(request.preset()) : request.scopes(), request.expiresAt(), actor);
+        return clients.create(request.name(), hasPreset ? AgentPresets.scopes(request.preset()) : request.scopes(), request.expiresAt(), request.botId(), actor);
     }
 
     @GetMapping

@@ -1,5 +1,6 @@
 # NIFTY 50 constituents used for equity backfills and universes. Verify against the current NSE index
-# composition before relying on it (constituents change at semi-annual reviews); last edited 2026-09-09.
+# composition before relying on it (constituents change at semi-annual reviews); last edited 2026-09-09;
+# industry per symbol copied from nifty500.yaml (NSE's classification) on 2026-09-26 so group fields work on this universe too.
 name: nifty50
 index: "INDEX:NIFTY 50"
 symbols:
@@ -53,3 +54,54 @@ symbols:
   - NSE:TRENT
   - NSE:ULTRACEMCO
   - NSE:WIPRO
+industry:
+  "NSE:ADANIENT": "Metals & Mining"
+  "NSE:ADANIPORTS": "Services"
+  "NSE:APOLLOHOSP": "Healthcare"
+  "NSE:ASIANPAINT": "Consumer Durables"
+  "NSE:AXISBANK": "Financial Services"
+  "NSE:BAJAJ-AUTO": "Automobile and Auto Components"
+  "NSE:BAJFINANCE": "Financial Services"
+  "NSE:BAJAJFINSV": "Financial Services"
+  "NSE:BEL": "Capital Goods"
+  "NSE:BHARTIARTL": "Telecommunication"
+  "NSE:CIPLA": "Healthcare"
+  "NSE:COALINDIA": "Oil Gas & Consumable Fuels"
+  "NSE:DRREDDY": "Healthcare"
+  "NSE:EICHERMOT": "Automobile and Auto Components"
+  "NSE:ETERNAL": "Consumer Services"
+  "NSE:GRASIM": "Construction Materials"
+  "NSE:HCLTECH": "Information Technology"
+  "NSE:HDFCBANK": "Financial Services"
+  "NSE:HDFCLIFE": "Financial Services"
+  "NSE:HEROMOTOCO": "Automobile and Auto Components"
+  "NSE:HINDALCO": "Metals & Mining"
+  "NSE:HINDUNILVR": "Fast Moving Consumer Goods"
+  "NSE:ICICIBANK": "Financial Services"
+  "NSE:INDUSINDBK": "Financial Services"
+  "NSE:INFY": "Information Technology"
+  "NSE:ITC": "Fast Moving Consumer Goods"
+  "NSE:JIOFIN": "Financial Services"
+  "NSE:JSWSTEEL": "Metals & Mining"
+  "NSE:KOTAKBANK": "Financial Services"
+  "NSE:LT": "Construction"
+  "NSE:M&M": "Automobile and Auto Components"
+  "NSE:MARUTI": "Automobile and Auto Components"
+  "NSE:NESTLEIND": "Fast Moving Consumer Goods"
+  "NSE:NTPC": "Power"
+  "NSE:ONGC": "Oil Gas & Consumable Fuels"
+  "NSE:POWERGRID": "Power"
+  "NSE:RELIANCE": "Oil Gas & Consumable Fuels"
+  "NSE:SBILIFE": "Financial Services"
+  "NSE:SBIN": "Financial Services"
+  "NSE:SHRIRAMFIN": "Financial Services"
+  "NSE:SUNPHARMA": "Healthcare"
+  "NSE:TATAMOTORS": "Automobile and Auto Components"
+  "NSE:TATACONSUM": "Fast Moving Consumer Goods"
+  "NSE:TATASTEEL": "Metals & Mining"
+  "NSE:TCS": "Information Technology"
+  "NSE:TECHM": "Information Technology"
+  "NSE:TITAN": "Consumer Durables"
+  "NSE:TRENT": "Consumer Services"
+  "NSE:ULTRACEMCO": "Construction Materials"
+  "NSE:WIPRO": "Information Technology"

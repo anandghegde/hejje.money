@@ -2,9 +2,11 @@
 
 export interface ApiKeySummary {
   id: string; name: string; keyPrefix: string; scopes: string[];
-  createdAt: string; expiresAt?: string | null; revokedAt?: string | null; lastUsedAt?: string | null;
+  createdAt: string; expiresAt?: string | null; revokedAt?: string | null; lastUsedAt?: string | null; botId?: string | null;
 }
-export interface ApiKeyCreated { id: string; name: string; key: string; scopes: string[]; expiresAt?: string | null }
+export interface ApiKeyCreated { id: string; name: string; key: string; scopes: string[]; expiresAt?: string | null; botId?: string | null }
+/** A bot as `GET /bots` lists it (the fields the key form needs). */
+export interface BotSummary { id: string; name: string; version: string }
 
 /**
  * The terminal is a human's tool, so it may trade, cancel, close and change risk; agent presets never can (server
@@ -21,11 +23,12 @@ export const ACCESS = [
 ] as const;
 export type Access = (typeof ACCESS)[number]['id'];
 
-export function createKeyBody(name: string, access: Access, days: number | null, now: Date = new Date()) {
+/** A bot key is bound to the chosen bot (`botId`): it decides for that bot only. Other accesses never send one. */
+export function createKeyBody(name: string, access: Access, days: number | null, botId: string | null = null, now: Date = new Date()) {
   const expiresAt = days ? new Date(now.getTime() + days * 86_400_000).toISOString() : null;
-  return access === 'terminal'
-    ? { name: name.trim(), scopes: TERMINAL_SCOPES, expiresAt }
-    : { name: name.trim(), preset: access, expiresAt };
+  if (access === 'terminal') return { name: name.trim(), scopes: TERMINAL_SCOPES, expiresAt };
+  if (access === 'bot' && botId) return { name: name.trim(), preset: access, expiresAt, botId };
+  return { name: name.trim(), preset: access, expiresAt };
 }
 
 export function keyState(k: ApiKeySummary, now: Date = new Date()): 'revoked' | 'expired' | 'active' {

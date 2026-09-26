@@ -91,7 +91,9 @@ func brokerCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		emit(b, func() { fmt.Printf("%s %s (user %s, live=%v) — %s\n", b.Broker, b.State, b.BrokerUserID, b.LiveTradingEnabled, b.Detail) })
+		emit(b, func() {
+			fmt.Printf("%s %s (user %s, live=%v) — %s\n", b.Broker, b.State, b.BrokerUserID, b.LiveTradingEnabled, b.Detail)
+		})
 		return nil
 	}}
 }
@@ -134,7 +136,9 @@ func orderCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		emit(o, func() { fmt.Printf("%s %s %d @ %s state=%s broker=%s\n", o.Side, o.OrderType, o.Quantity, o.OrderType, o.State, o.BrokerOrderID) })
+		emit(o, func() {
+			fmt.Printf("%s %s %d @ %s state=%s broker=%s\n", o.Side, o.OrderType, o.Quantity, o.OrderType, o.State, o.BrokerOrderID)
+		})
 		return nil
 	}}
 }

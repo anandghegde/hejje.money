@@ -32,8 +32,11 @@ strategies (PRD 59, §66E).
   exit) and never evaluates entry rules of its own. It goes DRAFT → PAPER directly (there are no rules to backtest).
 - **Deploy** the backing strategy like any strategy (`POST /strategies/{id}/versions/1/deployments`: mode, instruments,
   autonomy, budgets). The bot trades through that deployment, so autonomy, daily budgets and drift apply unchanged.
-- A bot's credential: `POST /api/v1/auth/clients {"name": "example-bot", "preset": "bot"}` gives `market:read
-  strategies:read bot:decide` (never an order scope).
+- A bot's credential: `POST /api/v1/auth/clients {"name": "example-bot", "preset": "bot", "botId": "<bot id>"}` gives
+  `market:read strategies:read bot:decide` (never an order scope) **bound to that bot**: the socket and
+  `POST /bots/{id}/decisions` refuse it for any other bot (close reason / 403 "key is bound to another bot"). Without
+  `botId` the key decides for any bot (a user's token always can); `botId` on a key without `bot:decide` is a 400.
+  The web Settings → API keys form picks the bot.
 
 `GET /api/v1/bots`, `GET /api/v1/bots/{id}` (with `stats`: points, answered, skipped, latency p50/p90, connected),
 `POST /api/v1/bots/{id}/enabled {"enabled": false}`, `GET /api/v1/bots/{id}/decisions?limit=50`.

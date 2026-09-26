@@ -19,10 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ClientCredentialService {
 
-    public record Created(UUID id, String name, String key, Set<String> scopes, Instant expiresAt) {}
+    public record Created(UUID id, String name, String key, Set<String> scopes, Instant expiresAt, UUID botId) {}
 
     public record Summary(UUID id, String name, String keyPrefix, Set<String> scopes, Instant createdAt,
-            Instant expiresAt, Instant revokedAt, Instant lastUsedAt) {}
+            Instant expiresAt, Instant revokedAt, Instant lastUsedAt, UUID botId) {}
 
     private final ClientCredentialStore store;
     private final AuditService audit;
@@ -34,19 +34,30 @@ public class ClientCredentialService {
         this.clock = clock;
     }
 
-    @Transactional
     public Created create(String name, Iterable<String> requestedScopes, Instant expiresAt, HejjePrincipal actor) {
+        return create(name, requestedScopes, expiresAt, null, actor);
+    }
+
+    /** {@code botId} binds a {@code bot:decide} key to one bot (docs/bots.md); it is refused for a key without that scope. */
+    @Transactional
+    public Created create(String name, Iterable<String> requestedScopes, Instant expiresAt, UUID botId, HejjePrincipal actor) {
         Set<String> scopes = ScopeCatalog.validate(requestedScopes);
         Instant now = clock.now();
         if (expiresAt != null && !expiresAt.isAfter(now)) {
             throw new IllegalArgumentException("expiresAt must be in the future");
         }
+        if (botId != null && !scopes.contains(ScopeCatalog.BOT_DECIDE)) {
+            throw new IllegalArgumentException("botId binds a key with the " + ScopeCatalog.BOT_DECIDE + " scope");
+        }
         ApiKeys.Generated key = ApiKeys.generate();
         UUID id = Ids.newId();
-        store.insert(new ClientCredentialStore.ClientCredential(id, name, key.prefix(), key.secretHash(), scopes, now, expiresAt, null, null));
-        audit.record(AuditEvent.of(AuditEventType.CLIENT_CREATED, ActorType.USER).withActorId(actor.name())
-                .withPayload(Map.of("clientId", id.toString(), "name", name, "scopes", List.copyOf(scopes), "keyPrefix", key.prefix())));
-        return new Created(id, name, key.plaintextKey(), scopes, expiresAt);
+        store.insert(new ClientCredentialStore.ClientCredential(id, name, key.prefix(), key.secretHash(), scopes, now, expiresAt, null, null, botId));
+        Map<String, Object> payload = new java.util.LinkedHashMap<>(Map.of("clientId", id.toString(), "name", name, "scopes", List.copyOf(scopes), "keyPrefix", key.prefix()));
+        if (botId != null) {
+            payload.put("botId", botId.toString());
+        }
+        audit.record(AuditEvent.of(AuditEventType.CLIENT_CREATED, ActorType.USER).withActorId(actor.name()).withPayload(payload));
+        return new Created(id, name, key.plaintextKey(), scopes, expiresAt, botId);
     }
 
     public List<Summary> list() {
@@ -68,6 +79,6 @@ public class ClientCredentialService {
     }
 
     private static Summary summary(ClientCredentialStore.ClientCredential c) {
-        return new Summary(c.id(), c.name(), c.keyPrefix(), c.scopes(), c.createdAt(), c.expiresAt(), c.revokedAt(), c.lastUsedAt());
+        return new Summary(c.id(), c.name(), c.keyPrefix(), c.scopes(), c.createdAt(), c.expiresAt(), c.revokedAt(), c.lastUsedAt(), c.botId());
     }
 }

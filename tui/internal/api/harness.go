@@ -116,18 +116,18 @@ type HarnessOrder struct {
 }
 
 type HarnessTrade struct {
-	Time        string   `json:"time"`
-	Leg         string   `json:"leg"`
-	Symbol      string   `json:"symbol"`
-	Side        string   `json:"side"`
-	Quantity    int      `json:"quantity"`
-	Entry       float64  `json:"entry"`
-	Exit        float64  `json:"exit"`
-	Pnl         float64  `json:"pnl"`
-	HoldMinutes *int64   `json:"holdMinutes"`
-	Why         string   `json:"why"`
-	ExitReason  string   `json:"exitReason"`
-	Attribution string   `json:"attribution"`
+	Time        string  `json:"time"`
+	Leg         string  `json:"leg"`
+	Symbol      string  `json:"symbol"`
+	Side        string  `json:"side"`
+	Quantity    int     `json:"quantity"`
+	Entry       float64 `json:"entry"`
+	Exit        float64 `json:"exit"`
+	Pnl         float64 `json:"pnl"`
+	HoldMinutes *int64  `json:"holdMinutes"`
+	Why         string  `json:"why"`
+	ExitReason  string  `json:"exitReason"`
+	Attribution string  `json:"attribution"`
 }
 
 type HarnessDecision struct {

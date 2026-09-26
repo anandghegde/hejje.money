@@ -86,21 +86,21 @@ type Trade struct {
 }
 
 type RiskDashboard struct {
-	RealizedPnl              Paise   `json:"realizedPnl"`
-	UnrealizedPnl            Paise   `json:"unrealizedPnl"`
-	NetPnl                   Paise   `json:"netPnl"`
-	DailyLossLimit           Paise   `json:"dailyLossLimit"`
-	OpenPositions            int     `json:"openPositions"`
-	MaxOpenPositions         int     `json:"maxOpenPositions"`
-	TradesToday              int     `json:"tradesToday"`
-	MaxTradesPerDay          int     `json:"maxTradesPerDay"`
-	MarginUsedPct            float64 `json:"marginUsedPct"`
-	KillSwitchStopNewOrders  bool    `json:"killSwitchStopNewOrders"`
-	ConsecutiveLosses        int     `json:"consecutiveLosses"`
-	LossStreakMode           string  `json:"lossStreakMode"`
-	AllowanceUsed            *int    `json:"allowanceUsed"`
-	Allowance                *int    `json:"allowance"`
-	AllowanceReason          *string `json:"allowanceReason"`
+	RealizedPnl             Paise   `json:"realizedPnl"`
+	UnrealizedPnl           Paise   `json:"unrealizedPnl"`
+	NetPnl                  Paise   `json:"netPnl"`
+	DailyLossLimit          Paise   `json:"dailyLossLimit"`
+	OpenPositions           int     `json:"openPositions"`
+	MaxOpenPositions        int     `json:"maxOpenPositions"`
+	TradesToday             int     `json:"tradesToday"`
+	MaxTradesPerDay         int     `json:"maxTradesPerDay"`
+	MarginUsedPct           float64 `json:"marginUsedPct"`
+	KillSwitchStopNewOrders bool    `json:"killSwitchStopNewOrders"`
+	ConsecutiveLosses       int     `json:"consecutiveLosses"`
+	LossStreakMode          string  `json:"lossStreakMode"`
+	AllowanceUsed           *int    `json:"allowanceUsed"`
+	Allowance               *int    `json:"allowance"`
+	AllowanceReason         *string `json:"allowanceReason"`
 }
 
 type KillSwitch struct {
@@ -257,11 +257,11 @@ type ScoreView struct {
 }
 
 type Deployment struct {
-	ID            string   `json:"id"`
-	VersionID     string   `json:"versionId"`
-	StrategyID    string   `json:"strategyId"`
-	Mode          string   `json:"mode"`
-	InstrumentIDs []string `json:"instrumentIds"`
+	ID             string   `json:"id"`
+	VersionID      string   `json:"versionId"`
+	StrategyID     string   `json:"strategyId"`
+	Mode           string   `json:"mode"`
+	InstrumentIDs  []string `json:"instrumentIds"`
 	Enabled        bool     `json:"enabled"`
 	PauseReason    string   `json:"pauseReason"`
 	SizeMultiplier float64  `json:"sizeMultiplier"`
@@ -591,4 +591,3 @@ type OptionChain struct {
 		Put    *OptionQuote `json:"put"`
 	} `json:"rows"`
 }
-

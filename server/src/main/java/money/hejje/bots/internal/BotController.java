@@ -70,8 +70,11 @@ class BotController {
     /** A bot's answer to a decision point over REST (the WebSocket reply is the same body). */
     @PostMapping("/{id}/decisions")
     @PreAuthorize("hasAuthority('SCOPE_bot:decide')")
-    List<BotDecision> decide(@PathVariable UUID id, @RequestBody BotDecision.Reply reply) {
+    List<BotDecision> decide(@PathVariable UUID id, @RequestBody BotDecision.Reply reply, @AuthenticationPrincipal HejjePrincipal actor) {
         find(id);
+        if (!actor.mayDecideFor(id)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This key is bound to another bot");
+        }
         return hub.answer(id, reply);
     }
 

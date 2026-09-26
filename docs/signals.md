@@ -48,6 +48,9 @@ On every closed candle of the runner's timeframe, in this order:
   offer, and the exit fill cancels the remaining stop (audit `POSITION_CLOSED` with the reason).
 - Fills and order state changes arrive as durable order events and are matched to positions by order id, or through
   the order's intent → signal when the fill beats the write-back.
+- Recording a close publishes the durable `StrategyPositionClosedEvent` (strategy position, entry order, instrument,
+  mode, strategy, reason) in the same transaction as the `CLOSED` row; the post-trade review of a strategy trade is
+  written from it, never from the orders module's flat-position event, which can arrive first.
 - `POST /signals/{id}/skip` marks a signal `SKIPPED`; a scheduled sweep expires stale signals (`SIGNAL_EXPIRED`).
 
 ## Jev signal check (plan M9.5)

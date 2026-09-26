@@ -44,7 +44,9 @@ single `UNKNOWN` bucket until Phase 3. Bucket totals always sum to the summary.
 ## Post-trade review (PRD 55)
 
 When a position goes flat (`PositionChangedEvent` with net 0) the latest closed round trip of that (instrument,
-strategy) gets a `trade_review` (idempotent per entry order):
+strategy) gets a `trade_review` (idempotent per entry order). A round trip the signal engine still manages is skipped
+there and reviewed from the engine's `StrategyPositionClosedEvent` instead, so a strategy trade's review always carries
+its close reason (the two events of one exit fill reach their listeners in no fixed order):
 
 | Field | Strategy trade | Manual trade |
 |---|---|---|

@@ -67,11 +67,11 @@ type loaded struct {
 	approvals []api.Approval
 }
 
-func fetchHealth(c *api.Client) api.Health { h, _ := c.Health(); return h }
+func fetchHealth(c *api.Client) api.Health        { h, _ := c.Health(); return h }
 func fetchPositions(c *api.Client) []api.Position { p, _ := c.Positions(); return p }
-func fetchOrders(c *api.Client) []api.Order { o, _ := c.Orders(); return o }
-func fetchRisk(c *api.Client) api.RiskDashboard { r, _ := c.Risk(); return r }
-func fetchToday(c *api.Client) api.TodayView     { t, _ := c.Today(); return t }
+func fetchOrders(c *api.Client) []api.Order       { o, _ := c.Orders(); return o }
+func fetchRisk(c *api.Client) api.RiskDashboard   { r, _ := c.Risk(); return r }
+func fetchToday(c *api.Client) api.TodayView      { t, _ := c.Today(); return t }
 
 // fetchApprovals lists pending approvals; keys without orders:execute simply see none.
 func fetchApprovals(c *api.Client) []api.Approval { a, _ := c.Approvals("PENDING"); return a }

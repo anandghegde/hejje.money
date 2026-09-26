@@ -18,11 +18,13 @@ import money.hejje.market.MarketService;
 import money.hejje.market.indicators.IndicatorContext;
 import money.hejje.orders.OrderIntent;
 import money.hejje.orders.OrderService;
+import money.hejje.common.ExecutionMode;
 import money.hejje.orders.Position;
 import money.hejje.signals.CloseReason;
 import money.hejje.signals.Signal;
 import money.hejje.signals.SignalService;
 import money.hejje.signals.StrategyPosition;
+import money.hejje.signals.StrategyPositionClosedEvent;
 import money.hejje.strategy.StrategyDefinition;
 import money.hejje.strategy.StrategyService;
 import money.hejje.strategy.StrategyVersion;
@@ -73,20 +75,48 @@ public class ReviewService {
         this.clock = clock;
     }
 
-    /** Reviews the latest closed round trip of the flattened position (idempotent per entry order). */
+    /**
+     * Reviews the latest closed round trip of the flattened position (idempotent per entry order). A round trip the
+     * signal engine still manages is left alone: the engine reviews it through {@link StrategyPositionClosedEvent} once
+     * it has recorded the close reason (the flat position and the exit fill reach their listeners in no fixed order).
+     */
     public Optional<TradeReview> reviewClosedPosition(UUID positionId) {
         Optional<Position> position = orders.findPosition(positionId);
         if (position.isEmpty()) {
             return Optional.empty();
         }
         Position p = position.get();
-        Instant now = clock.now();
-        List<RoundTrip> trips = analytics.roundTrips(p.mode(), now.minus(LOOKBACK), now.plusSeconds(60)).stream()
-                .filter(r -> r.instrumentId().equals(p.instrumentId()) && java.util.Objects.equals(r.strategyId(), p.strategyId())).toList();
+        List<RoundTrip> trips = roundTrips(p.mode(), p.instrumentId(), p.strategyId());
         if (trips.isEmpty()) {
             return Optional.empty();
         }
         RoundTrip trip = trips.get(trips.size() - 1);
+        Optional<StrategyPosition> managed = signals.positionForOrder(trip.entryOrderId());
+        if (managed.isPresent() && managed.get().status().isLive()) {
+            log.debug("Round trip of entry order {} is still managed by the signal engine; its review follows the engine's close", trip.entryOrderId());
+            return Optional.empty();
+        }
+        return review(p, trip);
+    }
+
+    /** Reviews the round trip of a strategy position the engine has closed (idempotent per entry order). */
+    public Optional<TradeReview> reviewClosedStrategyPosition(ExecutionMode mode, UUID instrumentId, UUID strategyId, UUID entryOrderId) {
+        Optional<RoundTrip> trip = roundTrips(mode, instrumentId, strategyId).stream().filter(r -> r.entryOrderId().equals(entryOrderId)).findFirst();
+        Optional<Position> position = orders.positions(mode).stream()
+                .filter(p -> p.instrumentId().equals(instrumentId) && java.util.Objects.equals(p.strategyId(), strategyId)).findFirst();
+        if (trip.isEmpty() || position.isEmpty()) {
+            return Optional.empty(); // e.g. ENTRY_FAILED, or a DEPLOYMENT_STOPPED position still open at the broker: reviewed when it goes flat
+        }
+        return review(position.get(), trip.get());
+    }
+
+    private List<RoundTrip> roundTrips(ExecutionMode mode, UUID instrumentId, UUID strategyId) {
+        Instant now = clock.now();
+        return analytics.roundTrips(mode, now.minus(LOOKBACK), now.plusSeconds(60)).stream()
+                .filter(r -> r.instrumentId().equals(instrumentId) && java.util.Objects.equals(r.strategyId(), strategyId)).toList();
+    }
+
+    private Optional<TradeReview> review(Position p, RoundTrip trip) {
         if (store.findByEntryOrder(trip.entryOrderId()).isPresent()) {
             return store.findByEntryOrder(trip.entryOrderId());
         }
