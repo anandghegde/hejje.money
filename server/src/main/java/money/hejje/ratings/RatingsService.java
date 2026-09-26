@@ -75,6 +75,11 @@ public class RatingsService {
         }).orElse(List.of());
     }
 
+    /** A stock's surveillance measure as of {@code date} (the latest lists on or before it), or null while none were fetched. */
+    public Surveillance surveillance(String symbol, java.time.LocalDate date) {
+        return surveillance.asOf(date).apply(symbol);
+    }
+
     /** Fetches NSE's surveillance lists now (the evening refresh does it too); never throws. */
     public NseSurveillance.Result refreshSurveillance() {
         return surveillance.refresh();

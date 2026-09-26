@@ -29,7 +29,7 @@ class ExecutorBootstrapTest {
         when(broker.sessionState()).thenReturn(BrokerSessionState.DISCONNECTED);
         HejjeProperties properties = new HejjeProperties(ExecutionMode.PAPER, ZoneId.of("Asia/Kolkata"), Path.of("./data"));
         ExecutorBootstrap bootstrap = new ExecutorBootstrap(lease, broker, mock(OrderService.class), mock(ReconciliationService.class),
-                mock(UnknownOrderResolver.class), mock(AuditService.class), properties);
+                mock(UnknownOrderResolver.class), mock(AuditService.class), properties, mock(money.hejje.execution.GttService.class));
 
         bootstrap.run();
         assertThat(bootstrap.result().allowsExecution()).isFalse();

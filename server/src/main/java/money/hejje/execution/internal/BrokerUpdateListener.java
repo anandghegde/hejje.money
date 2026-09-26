@@ -21,8 +21,11 @@ public class BrokerUpdateListener {
     private final BrokerAdapter broker;
     private final OrderService orders;
     private final HejjeProperties properties;
+    private final money.hejje.execution.GttService gtts;
 
-    BrokerUpdateListener(BrokerOrderUpdates updates, BrokerAdapter broker, OrderService orders, HejjeProperties properties) {
+    BrokerUpdateListener(BrokerOrderUpdates updates, BrokerAdapter broker, OrderService orders, HejjeProperties properties,
+            @org.springframework.context.annotation.Lazy money.hejje.execution.GttService gtts) {
+        this.gtts = gtts;
         this.updates = updates;
         this.broker = broker;
         this.orders = orders;
@@ -36,7 +39,9 @@ public class BrokerUpdateListener {
 
     void onUpdate(BrokerOrderUpdate update) {
         try {
-            orders.applyBrokerUpdate(broker.brokerCode(), properties.mode(), update.order(), source(update.source()));
+            if (orders.applyBrokerUpdate(broker.brokerCode(), properties.mode(), update.order(), source(update.source())).isEmpty()) {
+                gtts.onUnknownOrder(update.order()); // the exit a delivery position's GTT placed (plan M11.2); else left to reconciliation
+            }
         } catch (RuntimeException e) {
             log.warn("Failed to apply broker update for order {}: {}", update.order().brokerOrderId(), e.getMessage());
         }

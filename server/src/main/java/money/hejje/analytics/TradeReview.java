@@ -18,11 +18,23 @@ import money.hejje.common.Side;
  * @param ruleAdherencePct   100 when entry and exit followed the rules; 50 when only the entry did; null for manual
  * @param context            regime / breadth / news / event placeholders until Phase 3
  * @param cause              why the trade ended as it did and how its entry was timed (plan M9.6); null until classified
+ * @param horizon            INTRADAY or SWING (plan M11.1)
+ * @param holdingDays        sessions held after the entry session (0 intraday; plan M11.1)
  */
 public record TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID strategyPositionId, UUID strategyId, UUID strategyVersionId, UUID signalId,
         UUID instrumentId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice, BigDecimal exitPrice, Instant openedAt, Instant closedAt,
         Money grossPnl, Money fees, Money netPnl, Double outcomeR, Boolean expectedSetupValid, Double entrySlippageBps, Double exitSlippageBps,
-        Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt, TradeCause cause) {
+        Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt, TradeCause cause, Horizon horizon,
+        int holdingDays) {
+
+    public TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID strategyPositionId, UUID strategyId, UUID strategyVersionId, UUID signalId,
+            UUID instrumentId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice, BigDecimal exitPrice, Instant openedAt, Instant closedAt,
+            Money grossPnl, Money fees, Money netPnl, Double outcomeR, Boolean expectedSetupValid, Double entrySlippageBps, Double exitSlippageBps,
+            Integer ruleAdherencePct, String closeReason, Map<String, Object> context, String notes, Instant createdAt, TradeCause cause) {
+        this(id, mode, positionId, strategyPositionId, strategyId, strategyVersionId, signalId, instrumentId, entryOrderId, side, quantity, entryPrice, exitPrice,
+                openedAt, closedAt, grossPnl, fees, netPnl, outcomeR, expectedSetupValid, entrySlippageBps, exitSlippageBps, ruleAdherencePct, closeReason, context,
+                notes, createdAt, cause, Horizon.INTRADAY, 0);
+    }
 
     public TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID strategyPositionId, UUID strategyId, UUID strategyVersionId, UUID signalId,
             UUID instrumentId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice, BigDecimal exitPrice, Instant openedAt, Instant closedAt,
@@ -36,5 +48,6 @@ public record TradeReview(UUID id, ExecutionMode mode, UUID positionId, UUID str
     public TradeReview {
         // placeholders are null until Phase 3, so keep an insertion-ordered copy that allows null values
         context = context == null ? Map.of() : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(context));
+        horizon = horizon == null ? Horizon.INTRADAY : horizon;
     }
 }

@@ -29,14 +29,15 @@ class BrokerAdapterConfig {
     BrokerAdapter brokerAdapter(ObjectProvider<FakeBrokerAdapter> fake, ObjectProvider<ZerodhaKiteAdapter> zerodha,
             ObjectProvider<money.hejje.broker.dhan.DhanAdapter> dhan,
             BrokerRateLimiter limiter, MeterRegistry meters, BrokerInstrumentResolver instruments, BrokerOrderUpdates updates,
-            HejjeClock clock, HejjeProperties properties, PaperBrokerProperties paperProperties) {
+            HejjeClock clock, HejjeProperties properties, PaperBrokerProperties paperProperties, JdbcPaperStateStore paperState) {
         FakeBrokerAdapter fakeAdapter = fake.getIfAvailable();
         ZerodhaKiteAdapter kite = fakeAdapter == null ? zerodha.getIfAvailable() : null;
         BrokerAdapter raw = fakeAdapter != null ? fakeAdapter : kite != null ? kite : dhan.getObject();
         BrokerAdapter rateLimited = new RateLimitedBrokerAdapter(raw, limiter, meters);
         // PAPER mode with a real (zerodha, dhan) adapter uses live data but simulates fills; the fake is already a paper sim.
+        // Its simulated delivery book (holdings, GTTs) is kept in the database so the swing book survives a restart (plan M11.1).
         if (properties.mode() == ExecutionMode.PAPER && fakeAdapter == null) {
-            return new PaperBrokerAdapter(rateLimited, instruments, updates, clock, paperProperties);
+            return new PaperBrokerAdapter(rateLimited, instruments, updates, clock, paperProperties, paperState);
         }
         // SIM (plan M7.2): replayed ticks drive paper fills over the fake broker; a MARKET order fills on the next tick
         if (properties.mode() == ExecutionMode.SIM) {

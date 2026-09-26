@@ -37,9 +37,10 @@ public class ReviewStore {
             jdbc.sql("""
                     INSERT INTO trade_review (id, mode, position_id, strategy_position_id, strategy_id, strategy_version_id, signal_id, instrument_id, entry_order_id,
                         side, quantity, entry_price, exit_price, opened_at, closed_at, gross_paise, fees_paise, net_paise, outcome_r, expected_setup_valid,
-                        entry_slippage_bps, exit_slippage_bps, rule_adherence_pct, close_reason, context, notes, created_at)
+                        entry_slippage_bps, exit_slippage_bps, rule_adherence_pct, close_reason, context, notes, created_at, horizon, holding_days)
                     VALUES (:id, :mode, :positionId, :spId, :strategyId, :versionId, :signalId, :instrumentId, :entryOrderId, :side, :qty, :entry, :exit, :openedAt,
-                        :closedAt, :gross, :fees, :net, :r, :valid, :entrySlip, :exitSlip, :adherence, :closeReason, CAST(:context AS jsonb), :notes, :createdAt)
+                        :closedAt, :gross, :fees, :net, :r, :valid, :entrySlip, :exitSlip, :adherence, :closeReason, CAST(:context AS jsonb), :notes, :createdAt,
+                        :horizon, :holdingDays)
                     ON CONFLICT (entry_order_id) DO NOTHING
                     """)
                     .param("id", r.id()).param("mode", r.mode().name()).param("positionId", r.positionId()).param("spId", r.strategyPositionId())
@@ -49,7 +50,7 @@ public class ReviewStore {
                     .param("fees", r.fees().paise()).param("net", r.netPnl().paise()).param("r", r.outcomeR()).param("valid", r.expectedSetupValid())
                     .param("entrySlip", r.entrySlippageBps()).param("exitSlip", r.exitSlippageBps()).param("adherence", r.ruleAdherencePct())
                     .param("closeReason", r.closeReason()).param("context", json.writeValueAsString(r.context())).param("notes", r.notes())
-                    .param("createdAt", ts(r.createdAt())).update();
+                    .param("createdAt", ts(r.createdAt())).param("horizon", r.horizon().name()).param("holdingDays", r.holdingDays()).update();
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalArgumentException(e);
         }
@@ -111,7 +112,8 @@ public class ReviewStore {
                     rs.getBigDecimal("exit_price"), instant(rs, "opened_at"), instant(rs, "closed_at"), Money.ofPaise(rs.getLong("gross_paise")),
                     Money.ofPaise(rs.getLong("fees_paise")), Money.ofPaise(rs.getLong("net_paise")), dbl(rs, "outcome_r"), bool(rs, "expected_setup_valid"),
                     dbl(rs, "entry_slippage_bps"), dbl(rs, "exit_slippage_bps"), integer(rs, "rule_adherence_pct"), rs.getString("close_reason"),
-                    json.readValue(rs.getString("context"), MAP), rs.getString("notes"), instant(rs, "created_at"), cause(rs));
+                    json.readValue(rs.getString("context"), MAP), rs.getString("notes"), instant(rs, "created_at"), cause(rs),
+                    money.hejje.analytics.Horizon.valueOf(rs.getString("horizon")), rs.getInt("holding_days"));
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new IllegalStateException(e);
         }

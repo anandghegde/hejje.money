@@ -75,5 +75,7 @@ divided by 100. Currency and commodity rows are skipped.
   a basket's margin is the sum without hedge benefit.
 - **History**: daily candles (`/charts/historical`, `toDate` exclusive) and 1/5/15/25/60-minute candles
   (`/charts/intraday`, in 90-day windows); Dhan has no 3-minute candles (INPUT).
+- GTT orders (plan M11.2): not wired (Dhan's equivalent is "Forever orders"); the adapter refuses GTT calls with an
+  `INPUT` error and sends nothing, so swing trading needs Zerodha (docs/swing.md).
 - Unverified against the live API (documentation is ambiguous): the consume-consent call's method (GET is used), the
   cancel response (202 with or without a body — both handled), candle timestamps in epoch seconds.

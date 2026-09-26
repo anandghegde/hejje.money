@@ -49,11 +49,14 @@ public class RiskService {
 
     private final org.springframework.beans.factory.ObjectProvider<SizeFactorSource> sizeSources;
     private final BigDecimal macroEventSizeFactor;
+    private final org.springframework.beans.factory.ObjectProvider<OvernightRiskSource> overnightSources;
 
     RiskService(RiskLimitsStore limitsStore, KillSwitchStore killSwitchStore, AccountSnapshotBuilder snapshots, AuditService audit,
             HejjeClock clock, ApplicationEventPublisher events, MarketService market, InstrumentService instruments,
             org.springframework.beans.factory.ObjectProvider<SizeFactorSource> sizeSources,
-            @org.springframework.beans.factory.annotation.Value("${hejje.risk.macro-event-size-factor:1.0}") BigDecimal macroEventSizeFactor) {
+            @org.springframework.beans.factory.annotation.Value("${hejje.risk.macro-event-size-factor:1.0}") BigDecimal macroEventSizeFactor,
+            org.springframework.beans.factory.ObjectProvider<OvernightRiskSource> overnightSources) {
+        this.overnightSources = overnightSources;
         if (macroEventSizeFactor.signum() <= 0 || macroEventSizeFactor.compareTo(BigDecimal.ONE) > 0) {
             throw new IllegalArgumentException("hejje.risk.macro-event-size-factor must be in (0, 1]; it only ever reduces size");
         }
@@ -128,10 +131,20 @@ public class RiskService {
                 : BigDecimal.valueOf(s.usedMargin().paise()).multiply(BigDecimal.valueOf(100)).divide(BigDecimal.valueOf(capital), 2, RoundingMode.HALF_UP);
         money.hejje.risk.internal.RiskControls.Allowance a = l.lossStreakMode() == RiskLimits.LossStreakMode.ALLOWANCE
                 ? money.hejje.risk.internal.RiskControls.allowance(s, l) : null;
+        OvernightRiskSource.OvernightRisk overnight = null;
+        OvernightRiskSource source = overnightSources.getIfAvailable();
+        if (source != null) {
+            try {
+                overnight = source.overnightRisk(mode);
+            } catch (RuntimeException e) {
+                log.warn("Swing overnight risk unavailable: {}", e.getMessage());
+            }
+        }
         return new RiskDashboard(mode, s.realizedPnl(), s.unrealizedPnl(), s.totalPnl(), l.maxLossPerDay(), s.grossExposure(),
                 l.maxGrossExposure(), s.openPositionCount(), l.maxOpenPositions(), s.tradesToday(), l.maxTradesPerDay(),
                 s.consecutiveLosses(), marginPct, killSwitchStore.find(mode).stopNewOrders(), l.lossStreakMode().name(), a == null ? null : a.used(),
-                a == null ? null : a.allowance(), a == null ? null : a.reason());
+                a == null ? null : a.allowance(), a == null ? null : a.reason(), overnight == null ? null : overnight.used(),
+                overnight == null ? null : overnight.budget(), overnight == null ? null : overnight.positions());
     }
 
     /** The risk-money multiplier for new entries on a session and why (plan M9.7). */

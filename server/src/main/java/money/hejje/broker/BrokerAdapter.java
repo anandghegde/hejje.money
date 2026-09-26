@@ -83,4 +83,31 @@ public interface BrokerAdapter {
     Funds getFunds();
 
     List<OrderMargin> getOrderMargins(List<BrokerOrderRequest> requests);
+
+    // --- GTT (good-till-triggered) orders, plan M11.2 ------------------------------------------------------------------
+    // A broker without them refuses cleanly with an INPUT error (nothing is sent).
+
+    /** Places a GTT; returns the broker's GTT id. */
+    default String placeGtt(Gtt.Request request) {
+        throw gttUnsupported();
+    }
+
+    /** Replaces an active GTT's triggers and legs; returns its id. */
+    default String modifyGtt(String gttId, Gtt.Request request) {
+        throw gttUnsupported();
+    }
+
+    /** Deletes an active GTT; returns its id. */
+    default String cancelGtt(String gttId) {
+        throw gttUnsupported();
+    }
+
+    /** The account's GTTs: the active ones and those that recently ended (triggered, deleted, expired, ...). */
+    default List<Gtt.Snapshot> getGtts() {
+        throw gttUnsupported();
+    }
+
+    private BrokerException gttUnsupported() {
+        return new BrokerException(BrokerException.Kind.INPUT, brokerCode() + " does not support GTT orders", false, null);
+    }
 }

@@ -1568,3 +1568,70 @@ is net of costs.
                          "expectancyRupees": 118.40, "netPnl": 3552.00 }, … ],
   "bySequence": [ { "bucket": "1st", … }, … ], "byHour": [ { "bucket": "09", … }, … ] }
 ```
+
+## Swing book (Phase 11, M11.1)
+
+### `GET /api/v1/swing/positions?mode=`
+
+Scope: `market:read`. The open swing book (delivery positions, docs/swing.md), newest first. `daysHeld` counts the
+sessions since the entry session; `r` is (last − entry) / (entry − initial stop), null without a stop.
+
+```json
+[ { "id": "…", "instrumentId": "…", "symbol": "NSE:INFY", "strategyId": null, "openedAt": "2026-12-01T04:30:00Z",
+    "entryDate": "2026-12-01", "daysHeld": 1, "quantity": 10, "entryPrice": 100.00, "stop": 93.00, "goal": 120.00,
+    "lastPrice": 107.00, "r": 1.00, "unrealizedPnl": { "paise": 7000 }, "gtt": "ACTIVE", "gttId": "GTT1" } ]
+```
+
+### `GET /api/v1/swing/positions/closed?mode=&limit=50`
+
+Scope: `market:read`. Closed swing round trips, newest first: `{ id, mode, positionId, instrumentId, strategyId,
+entryOrderId, openedAt, entryDate, quantity, entryPrice, initialStop, goal, status, closedAt, exitDate, exitPrice,
+holdingDays }`.
+
+### `POST /api/v1/swing/reconcile`
+
+Scope: `admin`. Runs the holdings reconciliation now and returns the open `HOLDINGS_MISMATCH` issues (also in
+`GET /api/v1/reconciliation-issues`). `GET /api/v1/analytics/pnl?groupBy=horizon` splits `INTRADAY` and `SWING`; trade
+costs (`GET /api/v1/trades/{id}/costs`) carry `dpCharges`.
+
+Since M11.2 the reconcile also matches the broker's GTTs to the open positions (`GTT_MISSING`, `GTT_MISMATCH`,
+`GTT_ORPHAN`), and each row of `GET /api/v1/swing/positions` carries `gtt` (`ACTIVE` | `MISSING` | `NONE`) and `gttId`;
+its `stop` is the GTT's stop.
+
+### `PUT /api/v1/swing/positions/{id}/stop` (M11.2)
+
+Scope: `positions:close`; header `Idempotency-Key` required. Body `{ "stop": "95.00", "widen": false }`. Moves the
+position's GTT stop at the broker. Stops only tighten: a stop below the current one is `400` unless `"widen": true`
+(a manual widening, audited). `409` when the position has no active GTT. Returns the GTT:
+
+```json
+{ "id": "…", "mode": "PAPER", "broker": "fake", "brokerGttId": "GTT1", "positionId": "…", "instrumentId": "…", "quantity": 10,
+  "stop": 95.00, "goal": 120.00, "status": "ACTIVE", "triggeredOrderId": null, "createdAt": "…", "updatedAt": "…", "confirmedAt": null }
+```
+
+## Swing overnight risk (Phase 11, M11.3)
+
+### `GET /api/v1/swing/limits` · `PUT /api/v1/swing/limits`
+
+Scope: `risk:read` / `risk:write`. The swing limits of the current mode (docs/swing.md). PUT body (money in paise):
+`{ "swingCapitalPaise": 50000000, "maxOpenPositions": 6, "maxRiskPerPositionPaise": 250000, "gapAllowancePct": "3.00",
+"maxOvernightRiskPaise": 1000000, "maxPositionsPerIndustry": 2, "blockBeforeEvents": true, "blockSurveillance": true }`.
+Returns the limits; audited `SWING_LIMITS_UPDATED`.
+
+### `GET /api/v1/swing/risk`
+
+Scope: `risk:read`. `{ mode, overnightRisk, budget, gapAllowancePct, openPositions, maxOpenPositions, deployed, capital,
+positions: [ { instrumentId, symbol, quantity, price, stop, industry, risk } ] }` (money as `{ "paise": n }`). `GET
+/api/v1/risk` adds `overnightRisk`, `overnightRiskBudget` and `swingPositions` to the dashboard.
+
+### `POST /api/v1/swing/size`
+
+Scope: `risk:read`. Body `{ "entry": "100.00", "stop": "93.00" }` → `{ "quantity": 250, "riskPerShare": 10.00,
+"riskBudget": { "paise": 250000 }, "limitedBy": "riskPerPosition" }` (`riskPerPosition` | `overnightRisk` | `capital` |
+`stop`).
+
+### `POST /api/v1/swing/close-all`
+
+Scope: `positions:close`; header `Idempotency-Key` required. Body `{ "confirmation": "CLOSE SWING BOOK" }` (anything else
+is 400). Exits every swing position (each with its GTT); returns `{ "closed": n }`. The kill switch's
+`CLOSE_ALL_POSITIONS` and `POST /positions/close-all` leave the swing book alone.

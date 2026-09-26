@@ -146,6 +146,97 @@ public abstract class BrokerAdapterContractTest {
         assertNoOrderSent();
     }
 
+    // --- GTT (plan M11.2) -------------------------------------------------------------------------------------------------
+
+    /** How the adapter supports GTTs: simulated (fake, paper; the contract below), at the broker (tested with its harness), or not at all. */
+    protected enum GttSupport { SIMULATED, BROKER, NONE }
+
+    protected GttSupport gttSupport() {
+        return GttSupport.NONE;
+    }
+
+    protected static Gtt.Request ocoStop(String last, String stop, String goal, int qty) {
+        return new Gtt.Request(INSTRUMENT, Gtt.Type.OCO, java.util.List.of(new BigDecimal(stop), new BigDecimal(goal)), new BigDecimal(last), java.util.List.of(
+                new Gtt.Leg(Side.SELL, qty, OrderType.MARKET, new BigDecimal(stop), Product.CNC),
+                new Gtt.Leg(Side.SELL, qty, OrderType.LIMIT, new BigDecimal(goal), Product.CNC)));
+    }
+
+    @Test
+    void gttsArePlacedListedModifiedAndCancelled() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(gttSupport() == GttSupport.SIMULATED);
+        givenQuote("1500.00");
+        String id = adapter.placeGtt(ocoStop("1500.00", "1400.00", "1700.00", 5));
+        assertThat(adapter.getGtts()).filteredOn(g -> g.id().equals(id)).singleElement().satisfies(g -> {
+            assertThat(g.status()).isEqualTo(Gtt.Status.ACTIVE);
+            assertThat(g.type()).isEqualTo(Gtt.Type.OCO);
+            assertThat(g.instrumentId()).isEqualTo(INSTRUMENT);
+            assertThat(g.triggers()).usingElementComparator(BigDecimal::compareTo).containsExactly(new BigDecimal("1400.00"), new BigDecimal("1700.00"));
+            assertThat(g.quantity()).isEqualTo(5);
+            assertThat(g.legs()).extracting(Gtt.Leg::product).containsOnly(Product.CNC);
+        });
+
+        assertThat(adapter.modifyGtt(id, ocoStop("1500.00", "1450.00", "1700.00", 3))).isEqualTo(id);
+        assertThat(adapter.getGtts()).filteredOn(g -> g.id().equals(id)).singleElement().satisfies(g -> {
+            assertThat(g.triggers().get(0)).isEqualByComparingTo("1450.00");
+            assertThat(g.quantity()).isEqualTo(3);
+        });
+
+        assertThat(adapter.cancelGtt(id)).isEqualTo(id);
+        assertThat(adapter.getGtts()).filteredOn(g -> g.id().equals(id)).singleElement().satisfies(g -> assertThat(g.status().isLive()).isFalse());
+        assertThatThrownBy(() -> adapter.modifyGtt(id, ocoStop("1500.00", "1450.00", "1700.00", 3)))
+                .isInstanceOfSatisfying(BrokerException.class, e -> assertThat(e.kind()).isEqualTo(BrokerException.Kind.REJECTED));
+        assertThatThrownBy(() -> adapter.placeGtt(new Gtt.Request(UUID.randomUUID(), Gtt.Type.SINGLE, java.util.List.of(new BigDecimal("10")),
+                new BigDecimal("11"), java.util.List.of(new Gtt.Leg(Side.SELL, 1, OrderType.MARKET, new BigDecimal("10"), Product.CNC)))))
+                .isInstanceOfSatisfying(BrokerException.class, e -> assertThat(e.kind()).isEqualTo(BrokerException.Kind.INPUT));
+    }
+
+    @Test
+    void aGapDownThroughTheStopFillsTheStopLegAtTheOpen() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(gttSupport() == GttSupport.SIMULATED);
+        givenQuote("1500.00");
+        String id = adapter.placeGtt(ocoStop("1500.00", "1400.00", "1700.00", 5));
+        givenQuote("1350.00"); // the next session opens 50 below the stop
+        Gtt.Snapshot fired = adapter.getGtts().stream().filter(g -> g.id().equals(id)).findFirst().orElseThrow();
+        assertThat(fired.status()).isEqualTo(Gtt.Status.TRIGGERED);
+        assertThat(fired.triggeredOrderId()).isNotBlank();
+        BrokerOrder exit = adapter.getOrder(new BrokerOrderRef(fired.triggeredOrderId()));
+        assertThat(exit.side()).isEqualTo(Side.SELL);
+        assertThat(exit.product()).isEqualTo(Product.CNC);
+        assertThat(exit.quantity()).isEqualTo(5);
+        assertThat(exit.status()).isEqualTo(BrokerOrderStatus.COMPLETE);
+        // filled at the open (less slippage where the adapter models it), not at the stop
+        assertThat(exit.averagePrice()).isLessThanOrEqualTo(new BigDecimal("1350.00")).isGreaterThan(new BigDecimal("1349.00"));
+        givenQuote("1800.00"); // an OCO ends with its first leg: the goal leg never fires
+        assertThat(adapter.getOrders()).filteredOn(o -> o.side() == Side.SELL).hasSize(1);
+    }
+
+    @Test
+    void theGoalLegOfAnOcoFillsAtTheGoal() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(gttSupport() == GttSupport.SIMULATED);
+        givenQuote("1500.00");
+        String id = adapter.placeGtt(ocoStop("1500.00", "1400.00", "1700.00", 5));
+        givenQuote("1650.00");
+        assertThat(adapter.getGtts()).filteredOn(g -> g.id().equals(id)).singleElement().satisfies(g -> assertThat(g.status()).isEqualTo(Gtt.Status.ACTIVE));
+        givenQuote("1710.00");
+        Gtt.Snapshot fired = adapter.getGtts().stream().filter(g -> g.id().equals(id)).findFirst().orElseThrow();
+        assertThat(fired.status()).isEqualTo(Gtt.Status.TRIGGERED);
+        BrokerOrder exit = adapter.getOrder(new BrokerOrderRef(fired.triggeredOrderId()));
+        assertThat(exit.orderType()).isEqualTo(OrderType.LIMIT);
+        assertThat(exit.averagePrice()).isEqualByComparingTo("1700.00");
+    }
+
+    @Test
+    void anAdapterWithoutGttsRefusesThemCleanly() {
+        org.junit.jupiter.api.Assumptions.assumeTrue(gttSupport() == GttSupport.NONE);
+        assertThatThrownBy(() -> adapter.placeGtt(ocoStop("1500.00", "1400.00", "1700.00", 5)))
+                .isInstanceOfSatisfying(BrokerException.class, e -> {
+                    assertThat(e.kind()).isEqualTo(BrokerException.Kind.INPUT);
+                    assertThat(e.retryable()).isFalse();
+                });
+        assertThatThrownBy(() -> adapter.getGtts()).isInstanceOf(BrokerException.class);
+        assertNoOrderSent();
+    }
+
     @Test
     void clearingTheSessionDisconnects() {
         adapter.clearSession();

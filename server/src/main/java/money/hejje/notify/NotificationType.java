@@ -23,6 +23,10 @@ public enum NotificationType {
     SETUP_STOPPED(Severity.INFO),
     SETUP_HIT_GOAL(Severity.INFO),
     DAILY_CONTEXT_DIGEST(Severity.INFO),
+    /** Plan M11.2: an open delivery position has no confirmed GTT at the broker. */
+    GTT_MISSING(Severity.CRITICAL),
+    /** Plan M11.2: a GTT at the broker has the wrong quantity or stop, or protects no open position (orphan). */
+    GTT_MISMATCH(Severity.WARNING),
     TEST(Severity.INFO);
 
     private final Severity severity;

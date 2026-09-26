@@ -57,17 +57,29 @@ public class AnalyticsService {
 
     /** Round trips rebuilt from fills in {@code [from, to]}, oldest first. */
     public List<RoundTrip> roundTrips(ExecutionMode mode, Instant from, Instant to) {
-        List<Trade> fills = new ArrayList<>(orders.trades(mode, from, to));
+        return roundTripsOf(orders.trades(mode, from, to));
+    }
+
+    /** Round trips of one instrument's fills in {@code [from, to]} (swing reviews look back further than the trade list reaches). */
+    public List<RoundTrip> roundTrips(ExecutionMode mode, UUID instrumentId, Instant from, Instant to) {
+        return roundTripsOf(orders.trades(mode, instrumentId, from, to));
+    }
+
+    private List<RoundTrip> roundTripsOf(List<Trade> trades) {
+        List<Trade> fills = new ArrayList<>(trades);
         fills.sort((a, b) -> a.ts().compareTo(b.ts()));
         return roundTrips(fills, t -> orders.cost(t).total(), this::attribution);
     }
 
-    /** Pure round-trip builder: per (instrument, strategy), accumulate until the net quantity returns to zero. */
+    /**
+     * Pure round-trip builder: per (instrument, strategy, horizon), accumulate until the net quantity returns to zero. A
+     * delivery (CNC) fill belongs to the SWING horizon (plan M11.1).
+     */
     public static List<RoundTrip> roundTrips(List<Trade> fills, Function<Trade, Money> feeOf, Function<UUID, Optional<StrategyPosition>> positionOfEntryOrder) {
         Map<String, Open> open = new HashMap<>();
         List<RoundTrip> out = new ArrayList<>();
         for (Trade t : fills) {
-            String key = t.instrumentId() + "|" + t.strategyId();
+            String key = t.instrumentId() + "|" + t.strategyId() + "|" + Horizon.of(t.product());
             Open o = open.computeIfAbsent(key, k -> new Open(t));
             int signed = t.side() == Side.BUY ? t.quantity() : -t.quantity();
             BigDecimal value = t.price().multiply(BigDecimal.valueOf(t.quantity()));
@@ -88,7 +100,8 @@ public class AnalyticsService {
                 BigDecimal gross = o.side == Side.BUY ? o.exitValue.subtract(o.entryValue) : o.entryValue.subtract(o.exitValue);
                 Optional<StrategyPosition> p = positionOfEntryOrder.apply(o.entryOrderId);
                 out.add(new RoundTrip(t.instrumentId(), t.strategyId(), p.map(StrategyPosition::versionId).orElse(null), p.map(StrategyPosition::signalId).orElse(null),
-                        o.entryOrderId, o.side, o.entryQty, entry, exit, o.openedAt, o.lastTs, Money.of(gross.setScale(2, java.math.RoundingMode.HALF_UP)), o.fees));
+                        o.entryOrderId, o.side, o.entryQty, entry, exit, o.openedAt, o.lastTs, Money.of(gross.setScale(2, java.math.RoundingMode.HALF_UP)), o.fees,
+                        Horizon.of(t.product())));
                 open.remove(key);
             }
         }
@@ -118,7 +131,10 @@ public class AnalyticsService {
         return signals.positionForOrder(entryOrderId);
     }
 
-    /** PRD 53 breakdown. {@code groupBy}: strategy | version | instrument | weekday | hour | regime (trend × volatility label of the entry session; UNKNOWN when unlabelled). */
+    /**
+     * PRD 53 breakdown. {@code groupBy}: strategy | version | instrument | weekday | hour | horizon (INTRADAY | SWING, plan M11.1) |
+     * regime (trend × volatility label of the entry session; UNKNOWN when unlabelled).
+     */
     public List<PnlBucket> pnl(String groupBy, ExecutionMode mode, Instant from, Instant to) {
         List<RoundTrip> trips = roundTrips(mode, from, to);
         Map<java.time.LocalDate, money.hejje.regime.RegimeSnapshot> regimeLabels = "regime".equalsIgnoreCase(groupBy) && !trips.isEmpty()
@@ -163,6 +179,10 @@ public class AnalyticsService {
                 }
                 case "exitreason" -> {
                     key = exitReasonOf(r);
+                    label = key;
+                }
+                case "horizon" -> {
+                    key = r.horizon().name();
                     label = key;
                 }
                 case "regime" -> {
@@ -244,10 +264,15 @@ public class AnalyticsService {
                     review.map(TradeReview::entrySlippageBps).orElse(null), review.map(TradeReview::exitSlippageBps).orElse(null),
                     review.map(TradeReview::ruleAdherencePct).orElse(null), review.map(TradeReview::expectedSetupValid).orElse(null),
                     r.openedAt().atZone(clock.zone()).getHour(), review.map(TradeReview::cause).map(c -> c.cause().name()).orElse("UNKNOWN"),
-                    review.map(TradeReview::cause).map(TradeCause::entryTiming).map(Enum::name).orElse("UNKNOWN")));
+                    review.map(TradeReview::cause).map(TradeCause::entryTiming).map(Enum::name).orElse("UNKNOWN"), r.horizon().name(), holdingDays(r)));
         }
         out.sort(java.util.Comparator.comparing(TradeFact::closedAt));
         return out;
+    }
+
+    /** Sessions held after the entry session (plan M11.1): 0 for a trade closed on its entry day. */
+    public int holdingDays(RoundTrip r) {
+        return clock.sessionsBetween(r.openedAt().atZone(clock.zone()).toLocalDate(), r.closedAt().atZone(clock.zone()).toLocalDate());
     }
 
     private List<TradeFact> facts(ExecutionMode mode, java.time.LocalDate from, java.time.LocalDate to) {

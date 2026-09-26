@@ -75,7 +75,14 @@ public class RiskEngineImpl implements RiskEngine {
         List<RiskCheck> checks = new ArrayList<>();
         checks.add(RiskControls.brokerConnected(in));
         checks.add(RiskControls.readiness(in));
-        if (!in.exposureReducing()) {
+        if (!in.exposureReducing() && intent.product() == money.hejje.common.Product.CNC) {
+            // the swing book (plan M11.1): the intraday limits do not apply; the swing limits are contributed by the swing module
+            checks.add(RiskControls.killSwitch(in));
+            checks.add(RiskControls.quantity(in));
+            checks.add(RiskControls.notional(in));
+            checks.add(RiskControls.marginUtilization(in));
+            addContributions(intent, checks);
+        } else if (!in.exposureReducing()) {
             checks.add(RiskControls.killSwitch(in));
             checks.add(RiskControls.dailyLoss(in));
             checks.add(RiskControls.realizedLoss(in));
@@ -93,13 +100,7 @@ public class RiskEngineImpl implements RiskEngine {
             checks.add(RiskControls.averagingDown(in));
             checks.add(RiskControls.reentryCooldown(in, clock.now()));
             checks.add(RiskControls.lossStreak(in));
-            for (money.hejje.risk.RiskCheckContributor contributor : contributors) {
-                try {
-                    checks.addAll(contributor.contribute(intent));
-                } catch (RuntimeException e) {
-                    checks.add(RiskCheck.pass(contributor.getClass().getSimpleName(), "contributor failed (" + e.getMessage() + "); not blocking"));
-                }
-            }
+            addContributions(intent, checks);
         }
         if (instruments.findById(intent.instrumentId()).map(i -> i.type() == money.hejje.common.InstrumentType.OPT).orElse(false)) {
             // option legs (M5.4): a stop-based control does not describe a leg's risk; lots, premium at risk and defined risk do (options module)
@@ -108,6 +109,16 @@ public class RiskEngineImpl implements RiskEngine {
         }
         boolean approved = checks.stream().allMatch(RiskCheck::passed);
         return approved ? RiskDecision.approved(checks) : RiskDecision.rejected(checks);
+    }
+
+    private void addContributions(OrderIntent intent, List<RiskCheck> checks) {
+        for (money.hejje.risk.RiskCheckContributor contributor : contributors) {
+            try {
+                checks.addAll(contributor.contribute(intent));
+            } catch (RuntimeException e) {
+                checks.add(RiskCheck.pass(contributor.getClass().getSimpleName(), "contributor failed (" + e.getMessage() + "); not blocking"));
+            }
+        }
     }
 
     private RiskInputs resolve(OrderIntent intent, AccountSnapshot snapshot, RiskLimits limits) {
@@ -121,7 +132,11 @@ public class RiskEngineImpl implements RiskEngine {
         boolean connected = broker.sessionState() == BrokerSessionState.CONNECTED;
         boolean executionEnabled = readiness.isExecutionEnabled();
 
-        int currentNet = snapshot.netPositionQty().getOrDefault(intent.instrumentId(), 0);
+        // the snapshot is the intraday book; a delivery intent is measured against the swing book's (CNC) position
+        int currentNet = intent.product() == money.hejje.common.Product.CNC
+                ? orders.positions(intent.mode()).stream().filter(p -> p.product() == money.hejje.common.Product.CNC && p.instrumentId().equals(intent.instrumentId()))
+                        .mapToInt(Position::netQuantity).sum()
+                : snapshot.netPositionQty().getOrDefault(intent.instrumentId(), 0);
         boolean losing = isInstrumentLosing(intent, currentNet, lastPrice);
         int signed = intent.side() == money.hejje.common.Side.BUY ? intent.quantity().value() : -intent.quantity().value();
         boolean exposureReducing = intent.isExposureReducing() || (currentNet != 0 && Integer.signum(currentNet) != Integer.signum(signed));
@@ -135,7 +150,7 @@ public class RiskEngineImpl implements RiskEngine {
             return false;
         }
         return orders.positions(intent.mode()).stream()
-                .filter(p -> p.instrumentId().equals(intent.instrumentId()) && !p.isFlat())
+                .filter(p -> p.instrumentId().equals(intent.instrumentId()) && p.product() == intent.product() && !p.isFlat())
                 .findFirst()
                 .map(Position::averagePrice)
                 .map(avg -> currentNet > 0 ? lastPrice.compareTo(avg) < 0 : lastPrice.compareTo(avg) > 0)

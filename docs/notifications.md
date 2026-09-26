@@ -24,6 +24,8 @@ rules, with rate limiting and a delivery log. Off the trading core: a channel fa
 | `LLM_BUDGET_EXCEEDED` | WARNING | the LLM daily cost cap was reached |
 | `ENTERED_BUY_ZONE`, `NEAR_PIVOT`, `SETUP_STOPPED`, `SETUP_HIT_GOAL` | INFO | a base of a Leader (or a watchlist symbol) changed status in the nightly run (`docs/ratings.md`); informational, Hejje does not trade the setups; at most one per symbol per day; seeded with in-app rules |
 | `DAILY_CONTEXT_DIGEST` | INFO | the evening digest line after the nightly context run: market condition, new buy-zone entries, top five of the ranked analog list with counts; seeded with an in-app rule |
+| `GTT_MISSING` | CRITICAL | an open swing (delivery) position has no confirmed GTT at the broker (`docs/swing.md`); seeded with an in-app rule |
+| `GTT_MISMATCH` | WARNING | a GTT at the broker has the wrong quantity or stop, or protects no open position (orphan); seeded with an in-app rule |
 | `MARKET_CONDITION_CHANGED` | INFO (WARNING into `DOWNTREND`) | the final regime label's market condition differs from the previous session's (`docs/regime.md`); seeded with an in-app rule |
 | `TEST` | INFO | `POST /notifications/test` |
 

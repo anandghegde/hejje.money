@@ -329,7 +329,7 @@ public class ZerodhaKiteAdapter implements BrokerAdapter {
     @Override
     public List<BrokerHolding> getHoldings() {
         return call("getHoldings", kite::getHoldings).stream()
-                .map(h -> new BrokerHolding(instrumentId(h.exchange, h.tradingSymbol), h.tradingSymbol, h.exchange, h.isin, h.quantity,
+                .map(h -> new BrokerHolding(instrumentId(h.exchange, h.tradingSymbol), h.tradingSymbol, h.exchange, h.isin, h.quantity, h.t1Quantity,
                         KiteMapper.decimal(h.averagePrice), KiteMapper.decimal(h.lastPrice), Map.of("product", String.valueOf(h.product))))
                 .toList();
     }
@@ -382,6 +382,39 @@ public class ZerodhaKiteAdapter implements BrokerAdapter {
                     d.charges == null ? Money.ZERO : KiteMapper.money(d.charges.total)));
         }
         return out;
+    }
+
+    // --- GTT (plan M11.2): Kite Connect /gtt/triggers ------------------------------------------------------------------
+
+    @Override
+    public String placeGtt(money.hejje.broker.Gtt.Request request) {
+        com.zerodhatech.models.GTTParams params = KiteMapper.gttParams(request, ref(request.instrumentId()));
+        return String.valueOf(call("placeGtt", () -> kite.placeGTT(params)).id);
+    }
+
+    @Override
+    public String modifyGtt(String gttId, money.hejje.broker.Gtt.Request request) {
+        com.zerodhatech.models.GTTParams params = KiteMapper.gttParams(request, ref(request.instrumentId()));
+        return String.valueOf(call("modifyGtt", () -> kite.modifyGTT(gttIdOf(gttId), params)).id);
+    }
+
+    @Override
+    public String cancelGtt(String gttId) {
+        return String.valueOf(call("cancelGtt", () -> kite.cancelGTT(gttIdOf(gttId))).id);
+    }
+
+    @Override
+    public List<money.hejje.broker.Gtt.Snapshot> getGtts() {
+        return call("getGtts", kite::getGTTs).stream()
+                .map(g -> KiteMapper.gtt(g, g.condition == null ? null : instrumentId(g.condition.exchange, g.condition.tradingSymbol))).toList();
+    }
+
+    private static int gttIdOf(String gttId) {
+        try {
+            return Integer.parseInt(gttId);
+        } catch (NumberFormatException e) {
+            throw new BrokerException(BrokerException.Kind.INPUT, "not a Kite GTT id: " + gttId, false, null);
+        }
     }
 
     // --- helpers -------------------------------------------------------------------------------------------------------

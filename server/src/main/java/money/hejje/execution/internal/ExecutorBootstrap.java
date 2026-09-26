@@ -42,11 +42,13 @@ class ExecutorBootstrap implements ReadinessCheck {
     private final UnknownOrderResolver unknownResolver;
     private final AuditService audit;
     private final HejjeProperties properties;
+    private final money.hejje.execution.GttService gtts;
     private volatile boolean complete;
     private volatile String detail = "not started";
 
     ExecutorBootstrap(ExecutorLease lease, BrokerAdapter broker, OrderService orders, @Lazy ReconciliationService reconciliation,
-            UnknownOrderResolver unknownResolver, AuditService audit, HejjeProperties properties) {
+            UnknownOrderResolver unknownResolver, AuditService audit, HejjeProperties properties, @Lazy money.hejje.execution.GttService gtts) {
+        this.gtts = gtts;
         this.lease = lease;
         this.broker = broker;
         this.orders = orders;
@@ -69,6 +71,8 @@ class ExecutorBootstrap implements ReadinessCheck {
         if (broker.sessionState() == BrokerSessionState.CONNECTED) {
             try {
                 reconciliation.reconcile();
+                reconciliation.reconcileHoldings(); // the swing book against the broker's holdings (plan M11.1)
+                gtts.reconcile(); // and every open delivery position against its GTT at the broker (plan M11.2)
                 restoreInFlight();
             } catch (RuntimeException e) {
                 log.warn("Bootstrap reconciliation failed: {}", e.getMessage());

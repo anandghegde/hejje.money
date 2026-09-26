@@ -59,6 +59,8 @@ public final class SimJobs {
         skip(m, "JevRetention#prune", "housekeeping of the live database");
         skip(m, "CalibrationJob#nightly", "SIM labels predictions at the end of the session (SimReports), from the replayed candles");
         skip(m, "CandleRetentionJob#prune", "the SIM database is not the operational candle store");
+        skip(m, "SwingJobs#beforeOpen", "wall-time cron; a SIM session resets the simulated broker, so there are no holdings to reconcile");
+        skip(m, "SwingJobs#afterClose", "wall-time cron; a SIM session resets the simulated broker, so there are no holdings to reconcile");
         // library jobs (not covered by SimJobsCoverageTest, which scans money.hejje; SimModeIT boots the full context)
         skip(m, "Moments#everyHour", "Spring Modulith time-passage events on the wall clock; nothing in Hejje listens to them");
         skip(m, "Moments#everyMidnight", "Spring Modulith time-passage events on the wall clock; nothing in Hejje listens to them");

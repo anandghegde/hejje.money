@@ -32,6 +32,13 @@ RUNBOOK for M1.6.
 
 Closing orders are always allowed while the switch is at `STOP_NEW_ORDERS`; only new or increasing exposure is blocked.
 
+The swing book (delivery positions, plan M11.1–M11.3, `docs/swing.md`) is separate: the intraday snapshot above leaves
+`CNC` positions and fills out, and a `CNC` intent is checked for `killSwitch`, `quantity`, `notional` and
+`marginUtilization` plus the swing limits (`swing*` checks) instead of the intraday limits. The kill switch stops new
+swing entries, but `CLOSE_ALL_POSITIONS` (and `POST /positions/close-all`) leave swing positions open with their GTTs at
+the broker; `POST /swing/close-all` with the confirmation `CLOSE SWING BOOK` exits them. The dashboard (`GET /risk`)
+adds the swing book's gap-adjusted `overnightRisk` against `overnightRiskBudget`, and `swingPositions`.
+
 ## Stop suggestion
 
 `StopSuggester.suggest(side, entry, atr, maxStopDistancePct, tick)` proposes an initial stop 1.5 × ATR(14) from the

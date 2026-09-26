@@ -41,6 +41,11 @@ round trip whose entry order came from a signal is linked to the strategy versio
 (default: the last 30 days) with trades, wins, gross, fees, net, win rate and the average review R; `regime` is a
 single `UNKNOWN` bucket until Phase 3. Bucket totals always sum to the summary.
 
+Plan M11.1: `groupBy=horizon` splits `INTRADAY` and `SWING` (delivery) round trips; round trips are built per
+(instrument, strategy, horizon), trade facts and reviews carry `horizon` and `holdingDays` (sessions held after the entry
+session), and the loss attribution has a `horizon` dimension. A swing review is rebuilt from the instrument's own fills
+over the last 400 days (docs/swing.md).
+
 ## Post-trade review (PRD 55)
 
 When a position goes flat (`PositionChangedEvent` with net 0) the latest closed round trip of that (instrument,

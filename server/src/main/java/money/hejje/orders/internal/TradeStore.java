@@ -17,6 +17,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class TradeStore {
 
+    /** Every trade column plus its order's product (plan M11.1: the swing book is the CNC fills). */
+    private static final String COLUMNS = "trade.*, (SELECT o.product FROM hejje_order o WHERE o.id = trade.order_id) AS product";
+
     private final JdbcClient jdbc;
 
     TradeStore(JdbcClient jdbc) {
@@ -39,7 +42,7 @@ public class TradeStore {
     }
 
     public List<Trade> query(ExecutionMode mode, Instant from, Instant to) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM trade WHERE mode = :mode");
+        StringBuilder sql = new StringBuilder("SELECT " + COLUMNS + " FROM trade WHERE mode = :mode");
         if (from != null) sql.append(" AND ts >= :from");
         if (to != null) sql.append(" AND ts <= :to");
         sql.append(" ORDER BY ts DESC LIMIT 1000");
@@ -49,8 +52,25 @@ public class TradeStore {
         return q.query(this::map).list();
     }
 
+    public List<Trade> queryInstrument(ExecutionMode mode, UUID instrumentId, Instant from, Instant to) {
+        return jdbc.sql("SELECT " + COLUMNS + " FROM trade WHERE mode = :mode AND instrument_id = :instrument AND ts >= :from AND ts <= :to ORDER BY ts")
+                .param("mode", mode.name()).param("instrument", instrumentId).param("from", ts(from)).param("to", ts(to)).query(this::map).list();
+    }
+
+    /** True when a delivery (CNC) sell of the same scrip and mode was filled earlier on the trade's IST day (plan M11.1). */
+    public boolean hasEarlierDeliverySell(Trade t, java.time.ZoneId zone) {
+        Instant dayStart = t.ts().atZone(zone).toLocalDate().atStartOfDay(zone).toInstant();
+        return jdbc.sql("""
+                SELECT count(*) FROM trade t JOIN hejje_order o ON o.id = t.order_id
+                WHERE t.mode = :mode AND t.instrument_id = :instrument AND t.side = 'SELL' AND o.product = 'CNC'
+                  AND t.ts >= :dayStart AND (t.ts < :ts OR (t.ts = :ts AND t.id < :id))
+                """)
+                .param("mode", t.mode().name()).param("instrument", t.instrumentId()).param("dayStart", ts(dayStart))
+                .param("ts", ts(t.ts())).param("id", t.id()).query(Long.class).single() > 0;
+    }
+
     public List<Trade> byOrder(UUID orderId) {
-        return jdbc.sql("SELECT * FROM trade WHERE order_id = :id ORDER BY ts").param("id", orderId).query(this::map).list();
+        return jdbc.sql("SELECT " + COLUMNS + " FROM trade WHERE order_id = :id ORDER BY ts").param("id", orderId).query(this::map).list();
     }
 
     private Trade map(ResultSet rs, int i) throws SQLException {
@@ -58,7 +78,8 @@ public class TradeStore {
                 rs.getObject("id", UUID.class), rs.getObject("order_id", UUID.class), rs.getString("broker_trade_id"),
                 rs.getObject("instrument_id", UUID.class), Side.valueOf(rs.getString("side")), rs.getInt("quantity"),
                 rs.getBigDecimal("price"), rs.getObject("ts", OffsetDateTime.class).toInstant(),
-                ExecutionMode.valueOf(rs.getString("mode")), rs.getObject("strategy_id", UUID.class));
+                ExecutionMode.valueOf(rs.getString("mode")), rs.getObject("strategy_id", UUID.class),
+                rs.getString("product") == null ? null : money.hejje.common.Product.valueOf(rs.getString("product")));
     }
 
     private static OffsetDateTime ts(Instant instant) {

@@ -46,6 +46,18 @@ class CostModelTest {
     }
 
     @Test
+    void aDeliverySellPaysTheDepositoryChargeOncePerScripAndDay() {
+        CostModel withDp = new CostModel(defaults(), new BigDecimal("15.34"));
+        CostBreakdown sell = withDp.compute(new CostFill(InstrumentType.EQ, Product.CNC, Side.SELL, 10, new BigDecimal("1000.00")));
+        assertThat(sell.dpCharges().toRupeesString()).isEqualTo("15.34");
+        assertThat(sell.total()).isEqualTo(sell.stt().plus(sell.exchangeTxn()).plus(sell.gst()).plus(sell.sebi()).plus(sell.dpCharges()));
+        // a later sell of the same scrip that day, a delivery buy, and an intraday sell pay none
+        assertThat(withDp.compute(new CostFill(InstrumentType.EQ, Product.CNC, Side.SELL, 10, new BigDecimal("1000.00"), false)).dpCharges().paise()).isZero();
+        assertThat(withDp.compute(new CostFill(InstrumentType.EQ, Product.CNC, Side.BUY, 10, new BigDecimal("1000.00"))).dpCharges().paise()).isZero();
+        assertThat(withDp.compute(new CostFill(InstrumentType.EQ, Product.MIS, Side.SELL, 10, new BigDecimal("1000.00"))).dpCharges().paise()).isZero();
+    }
+
+    @Test
     void futuresAndOptions() {
         CostBreakdown fut = model.compute(new CostFill(InstrumentType.FUT, Product.NRML, Side.SELL, 75, new BigDecimal("24980.00")));
         assertThat(fut.stt().toRupeesString()).isEqualTo("374.70"); // 0.02% of 1,873,500

@@ -237,6 +237,55 @@ class ZerodhaKiteAdapterWireMockTest {
     }
 
     @Test
+    void gttPlaceListModifyCancelMapping() throws Exception {
+        login();
+        money.hejje.broker.Gtt.Request oco = new money.hejje.broker.Gtt.Request(INFY, money.hejje.broker.Gtt.Type.OCO,
+                List.of(new BigDecimal("93.00"), new BigDecimal("120.00")), new BigDecimal("100.00"), List.of(
+                        new money.hejje.broker.Gtt.Leg(Side.SELL, 10, OrderType.MARKET, new BigDecimal("93.00"), Product.CNC),
+                        new money.hejje.broker.Gtt.Leg(Side.SELL, 10, OrderType.LIMIT, new BigDecimal("120.00"), Product.CNC)));
+        wiremock.stubFor(post(urlPathEqualTo("/gtt/triggers")).willReturn(json(200, "{\"status\":\"success\",\"data\":{\"trigger_id\":112127}}")));
+        assertThat(adapter.placeGtt(oco)).isEqualTo("112127");
+        wiremock.verify(postRequestedFor(urlPathEqualTo("/gtt/triggers"))
+                .withRequestBody(containing("type=two-leg"))
+                .withRequestBody(containing("tradingsymbol"))
+                .withRequestBody(containing("INFY"))
+                .withRequestBody(containing("CNC"))
+                .withRequestBody(containing("MARKET"))
+                .withRequestBody(containing("408065")));
+
+        wiremock.stubFor(put(urlPathEqualTo("/gtt/triggers/112127")).willReturn(json(200, "{\"status\":\"success\",\"data\":{\"trigger_id\":112127}}")));
+        assertThat(adapter.modifyGtt("112127", oco)).isEqualTo("112127");
+        wiremock.verify(putRequestedFor(urlPathEqualTo("/gtt/triggers/112127")).withRequestBody(containing("type=two-leg")));
+
+        wiremock.stubFor(get(urlEqualTo("/gtt/triggers")).willReturn(json(200, """
+                {"status":"success","data":[{"id":112127,"user_id":"AB1234","parent_trigger":null,"type":"two-leg","created_at":"2026-12-01 10:00:00",
+                 "updated_at":"2026-12-02 09:15:01","expires_at":"2027-12-01 10:00:00","status":"triggered",
+                 "condition":{"exchange":"NSE","last_price":100,"tradingsymbol":"INFY","trigger_values":[93,120],"instrument_token":408065},
+                 "orders":[{"exchange":"NSE","tradingsymbol":"INFY","product":"CNC","order_type":"MARKET","transaction_type":"SELL","quantity":10,"price":93,
+                   "result":{"account_id":"AB1234","exchange":"NSE","tradingsymbol":"INFY","validity":"DAY","product":"CNC","order_type":"MARKET",
+                     "transaction_type":"SELL","quantity":10,"price":93,"meta":"","timestamp":"2026-12-02 09:15:01","triggered_at":90,
+                     "order_result":{"status":"success","order_id":"261202000000001","rejection_reason":""}}},
+                  {"exchange":"NSE","tradingsymbol":"INFY","product":"CNC","order_type":"LIMIT","transaction_type":"SELL","quantity":10,"price":120,"result":null}],
+                 "meta":null}]}
+                """)));
+        assertThat(adapter.getGtts()).singleElement().satisfies(g -> {
+            assertThat(g.id()).isEqualTo("112127");
+            assertThat(g.instrumentId()).isEqualTo(INFY);
+            assertThat(g.type()).isEqualTo(money.hejje.broker.Gtt.Type.OCO);
+            assertThat(g.status()).isEqualTo(money.hejje.broker.Gtt.Status.TRIGGERED);
+            assertThat(g.triggers()).usingElementComparator(BigDecimal::compareTo).containsExactly(new BigDecimal("93"), new BigDecimal("120"));
+            assertThat(g.legs()).extracting(money.hejje.broker.Gtt.Leg::orderType).containsExactly(OrderType.MARKET, OrderType.LIMIT);
+            assertThat(g.quantity()).isEqualTo(10);
+            assertThat(g.triggeredOrderId()).isEqualTo("261202000000001");
+            assertThat(g.createdAt()).isEqualTo(java.time.Instant.parse("2026-12-01T04:30:00Z"));
+        });
+
+        wiremock.stubFor(delete(urlPathEqualTo("/gtt/triggers/112127")).willReturn(json(200, "{\"status\":\"success\",\"data\":{\"trigger_id\":112127}}")));
+        assertThat(adapter.cancelGtt("112127")).isEqualTo("112127");
+        wiremock.verify(deleteRequestedFor(urlPathEqualTo("/gtt/triggers/112127")));
+    }
+
+    @Test
     void getOrdersTradesPositionsFundsMapping() throws Exception {
         login();
         wiremock.stubFor(get(urlEqualTo("/orders")).willReturn(json(200, """

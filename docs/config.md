@@ -65,6 +65,9 @@ migration V9) and edited through `PUT /api/v1/risk/limits`. See `docs/risk.md`.
 | `hejje.paper.partial-fill-probability` | — | `0.0` | Chance a paper fill is split (0 disables). |
 | `hejje.paper.starting-capital` | — | `1000000` | Simulated paper cash in rupees. |
 | `hejje.costs.*` | — | see config/costs.yaml | Transaction cost rates (brokerage, STT, exchange txn, GST, SEBI, stamp duty) per segment. |
+| `hejje.costs.dp-charge` | — | `15.34` | Depository charge in rupees (GST included) of a delivery sell, once per scrip and day (plan M11.1, docs/costs.md). |
+| `hejje.swing.before-open-cron` / `after-close-cron` | — | `0 0 9 * * MON-FRI` / `0 45 15 * * MON-FRI` | IST crons of the swing book's holdings and GTT reconciliation; after the close also the trailing of stops (docs/swing.md). |
+| `hejje.swing.universe` | — | `nifty500` | Universe (`config/universe/<name>.yaml`) whose industry map the swing limit on positions per industry uses (plan M11.3). The swing limits themselves live in `swing_limits` (`PUT /swing/limits`). |
 | `hejje.strategy.load-bundled` | — | `true` | Load `strategies/*.yaml` at startup (new slugs created, changed definitions become new versions). |
 | `hejje.strategy.bundled-dirs` | — | `./strategies, ../strategies` | Directories searched for bundled definitions; the first that exists wins, otherwise the copies packaged in the jar (`classpath:strategies/`). |
 | `hejje.strategy.aliases` | — | `NIFTY`, `BANKNIFTY`, `FINNIFTY` → `nearest_future: <name>` | Bare universe names allowed in definitions and what they resolve to (a symbol, `nearest_future: X` or `index: X`). |

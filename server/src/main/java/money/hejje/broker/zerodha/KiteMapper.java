@@ -393,4 +393,78 @@ public final class KiteMapper {
     static Instant candleInstant(String ts) {
         return OffsetDateTime.parse(ts, CANDLE_TS).toInstant();
     }
+
+    // --- GTT (plan M11.2, docs/swing.md) ------------------------------------------------------------------------------
+
+    private static final DateTimeFormatter GTT_TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+    /**
+     * A Hejje GTT as Kite's GTT parameters. A MARKET leg is sent with automatic market price protection (-1); Kite
+     * accepts MARKET and LIMIT legs.
+     */
+    static com.zerodhatech.models.GTTParams gttParams(money.hejje.broker.Gtt.Request request, BrokerInstrumentRef ref) {
+        com.zerodhatech.models.GTTParams p = new com.zerodhatech.models.GTTParams();
+        p.tradingsymbol = ref.tradingSymbol();
+        p.exchange = ref.exchangeSegment();
+        p.instrumentToken = Integer.parseInt(ref.brokerToken());
+        p.triggerType = request.type() == money.hejje.broker.Gtt.Type.OCO ? Constants.OCO : Constants.SINGLE;
+        p.lastPrice = request.lastPrice().doubleValue();
+        p.triggerPrices = request.triggers().stream().map(BigDecimal::doubleValue).toList();
+        p.orders = new java.util.ArrayList<>();
+        for (money.hejje.broker.Gtt.Leg leg : request.legs()) {
+            com.zerodhatech.models.GTTParams.GTTOrderParams o = p.new GTTOrderParams();
+            o.quantity = leg.quantity();
+            o.price = leg.price() == null ? 0 : leg.price().doubleValue();
+            o.orderType = orderType(leg.orderType());
+            o.product = leg.product().name();
+            o.transactionType = leg.side() == Side.SELL ? Constants.TRANSACTION_TYPE_SELL : Constants.TRANSACTION_TYPE_BUY;
+            o.marketProtection = leg.orderType() == OrderType.MARKET ? -1 : 0;
+            p.orders.add(o);
+        }
+        return p;
+    }
+
+    static money.hejje.broker.Gtt.Snapshot gtt(com.zerodhatech.models.GTT g, UUID instrumentId) {
+        List<BigDecimal> triggers = g.condition == null || g.condition.triggerValues == null ? List.of()
+                : g.condition.triggerValues.stream().map(KiteMapper::decimal).toList();
+        List<money.hejje.broker.Gtt.Leg> legs = new java.util.ArrayList<>();
+        String triggeredOrderId = null;
+        if (g.orders != null) {
+            for (com.zerodhatech.models.GTT.GTTOrder o : g.orders) {
+                OrderType type = orderType(o.orderType);
+                legs.add(new money.hejje.broker.Gtt.Leg(side(o.transactionType), o.quantity, type == null ? OrderType.LIMIT : type, decimal(o.price),
+                        product(o.product)));
+                if (o.result != null && o.result.orderResult != null && o.result.orderResult.orderId != null && !"-".equals(o.result.orderResult.orderId)) {
+                    triggeredOrderId = o.result.orderResult.orderId;
+                }
+            }
+        }
+        money.hejje.broker.Gtt.Status status;
+        try {
+            status = money.hejje.broker.Gtt.Status.valueOf(String.valueOf(g.status).toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            status = money.hejje.broker.Gtt.Status.DISABLED; // an unknown state is not an active one
+        }
+        Map<String, Object> raw = new java.util.LinkedHashMap<>();
+        raw.put("status", String.valueOf(g.status));
+        raw.put("expires_at", String.valueOf(g.expiresAt));
+        if (g.meta != null && g.meta.rejectionReason != null) {
+            raw.put("rejection_reason", g.meta.rejectionReason);
+        }
+        return new money.hejje.broker.Gtt.Snapshot(String.valueOf(g.id), instrumentId, g.condition == null ? null : g.condition.tradingSymbol,
+                Constants.OCO.equals(g.triggerType) ? money.hejje.broker.Gtt.Type.OCO : money.hejje.broker.Gtt.Type.SINGLE, status, triggers, legs,
+                triggeredOrderId, gttInstant(g.createdAt), gttInstant(g.updatedAt), raw);
+    }
+
+    /** GTT timestamps look like {@code 2026-09-08 15:29:56} (IST). */
+    static Instant gttInstant(String ts) {
+        if (ts == null || ts.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(ts, GTT_TS).atZone(IST).toInstant();
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
 }

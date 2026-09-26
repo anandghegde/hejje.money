@@ -105,7 +105,8 @@ public final class PerformanceMath {
                 new Dimension("cause", buckets(facts, TradeFact::cause, totalLoss)),
                 new Dimension("entryTiming", buckets(facts, TradeFact::entryTiming, totalLoss)),
                 new Dimension("hour", buckets(facts, f -> String.format("%02d", f.hour()), totalLoss)),
-                new Dimension("instrument", buckets(facts, TradeFact::instrument, totalLoss)));
+                new Dimension("instrument", buckets(facts, TradeFact::instrument, totalLoss)),
+                new Dimension("horizon", buckets(facts, TradeFact::horizon, totalLoss)));
         List<Bucket> combos = buckets(facts, f -> f.family() + " × " + f.trend(), totalLoss);
         String headline = null;
         if (totalLoss > 0 && !combos.isEmpty() && combos.get(0).losses().signum() > 0) {

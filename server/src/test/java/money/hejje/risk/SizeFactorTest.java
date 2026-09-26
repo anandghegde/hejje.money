@@ -22,7 +22,7 @@ class SizeFactorTest {
         SizeFactorSource source = date -> date.equals(EVENT_DAY) ? Optional.of("RBI_POLICY: RBI policy (curated)") : Optional.empty();
         ObjectProvider<SizeFactorSource> provider = org.mockito.Mockito.mock(ObjectProvider.class);
         org.mockito.Mockito.when(provider.orderedStream()).thenAnswer(i -> Stream.of(source));
-        return new RiskService(null, null, null, null, null, null, null, null, provider, new BigDecimal(factor));
+        return new RiskService(null, null, null, null, null, null, null, null, provider, new BigDecimal(factor), null);
     }
 
     @Test
