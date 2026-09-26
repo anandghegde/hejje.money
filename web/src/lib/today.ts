@@ -1,5 +1,5 @@
 import { Recommendation } from '../api/types';
-import { BadgeTone } from '../ui';
+import type { BadgeTone } from '../ui';
 
 /** Badge tone for a PRD 15 decision. */
 export function decisionTone(decision: Recommendation['decision']): BadgeTone {

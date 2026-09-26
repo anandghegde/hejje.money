@@ -21,7 +21,7 @@ function ApprovalCard({ a, now, busy, onDecide }: { a: Approval; now: number; bu
       title={a.summary}
       actions={<Badge tone={left === 'expired' ? 'loss' : 'warning'}>expires in {left}</Badge>}
     >
-      <div className="stack approval-body">
+      <div className="stack">
         <div className="muted text-sm">
           {a.kind} · requested by {a.requestedBy} ({a.requestedByType === 'CLIENT' ? 'agent key' : a.requestedByType === 'STRATEGY' ? 'strategy, held by the AUTO policy' : 'Hejje AI'}) · {new Date(a.createdAt).toLocaleTimeString()}
         </div>

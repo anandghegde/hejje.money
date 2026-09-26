@@ -2,11 +2,11 @@ import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
-import { Approval, Health, KillSwitch, NotificationSeverity } from '../api/types';
+import { Approval, Health, KillSwitch } from '../api/types';
 import { useEventsSocket } from '../ws/useEventsSocket';
 import { useAuth } from '../auth/AuthContext';
-import { PushedNotification, pushedNotification } from '../lib/notifications';
-import { ToastStack, ToastTone } from '../ui';
+import { PushedNotification, SEVERITY_TONE, pushedNotification } from '../lib/notifications';
+import { ToastStack } from '../ui';
 import '../styles/shell.css';
 
 /** Side navigation, grouped. An item without a route is a placeholder for a later phase. */
@@ -27,8 +27,6 @@ const NAV: { group: string; items: { name: string; to?: string }[] }[] = [
 const QUICK = [
   { name: 'Today', to: '/today' }, { name: 'Positions', to: '/positions' }, { name: 'Approvals', to: '/approvals' }, { name: 'Risk', to: '/risk' },
 ];
-
-const SEVERITY_TONE: Record<NotificationSeverity, ToastTone> = { INFO: 'info', WARNING: 'warning', CRITICAL: 'loss' };
 
 /** A health check: OK, down, or not known yet (before the first health answer). */
 function Dot({ ok, label }: { ok: boolean | undefined; label: string }) {

@@ -33,7 +33,8 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
   postmortem; **Analytics** (`/analytics`) P&L breakdown by strategy / version / instrument / weekday / hour / regime.
 - Orders (manual order form with the stop prefilled from `GET /risk/stop-suggestion` + cancel), Positions (close, close-all), Risk (dashboard, kill switch with typed `CLOSE
   ALL` confirmation, re-arm), Broker, Server, Settings. Pulse remains a placeholder in the nav (the `/pulse` page exists). A mode banner (red LIVE
-  / blue PAPER) and server/broker/market-data status dots sit across the top of every screen.
+  / blue PAPER / purple SIM) with the kill-switch state and server/broker/market-data status sits across the top of
+  every screen at every width (see "Design system" below).
 
 ## Realtime
 
@@ -48,7 +49,11 @@ triggers a silent refresh, then a redirect to `/login`. Every transactional call
   dev server: the smoke (login -> broker -> manual paper order -> Orders -> Positions) and the paper flow
   (`paper-flow.spec.ts`: seed a scripted session -> signal -> Today -> execute -> fill -> stop -> review -> attribution).
   Both passed locally on 2026-09-09 (`docs/analytics.md`, "Development seeding").
-- CI (`.github/workflows/ci.yml`, job `e2e`) runs all five specs (smoke, paper-flow, approvals, agent-chat, context) on
+- `ui-shell.spec.ts` (Phase 10) checks the shell and every page at 360, 768 and 1440 px in both themes (banner and
+  kill state visible, no sideways page scroll), the phone tab bar and menu, the theme switch and the phone login, and
+  writes screenshots to `test-results/`. It sorts last on purpose: its page loads use up the admin's request burst (40),
+  which the trading specs need.
+- CI (`.github/workflows/ci.yml`, job `e2e`) runs all the specs (smoke, paper-flow, approvals, agent-chat, context, ui-shell) on
   every push and PR: Postgres 16 as a service container (db/user/password `hejje`), `./gradlew bootJar`, the jar started
   from the repo root with `HEJJE_DB_URL=jdbc:postgresql://localhost:5432/hejje HEJJE_DB_USER=hejje HEJJE_DB_PASSWORD=hejje
   HEJJE_ADMIN_PASSWORD=admin-password HEJJE_DATA_DIR=<tmp> HEJJE_MARKET_STREAM=false HEJJE_RECOMMEND_MIN_SCORE=0
@@ -119,3 +124,43 @@ once as `export HEJJE_API_KEY=…` with a copy button; the table lists prefix, s
 expiry (default 90 days) and revokes. Helpers in `src/lib/apiKeys.ts` (`tests/apiKeys.test.ts`).
 **Server** shows the Jev connection from `GET /jev/status`: enabled, key, model, circuit, today's calls by outcome,
 p50/p90 and cost, and the last error.
+
+## Design system (Phase 10)
+
+The web client has a small design system of its own: plain CSS on custom properties and a handful of React components.
+There is no CSS framework or component library.
+
+- **Tokens** (`src/styles/tokens.css`) are the one source of colour, type (6-step scale, a UI stack, tabular figures and
+  a monospace stack), 4-px spacing, radii and two elevation shadows. Each colour token has a light and a dark value.
+  The theme follows the OS (`prefers-color-scheme`), and Settings → Appearance overrides it per browser
+  (`data-theme` on `<html>`, `lib/theme.ts`, localStorage). `tests/tokens.test.ts` fails when a token lacks either
+  value, the two dark copies disagree, or a text token falls below WCAG AA (4.5:1) on its surfaces.
+- **Stylesheets**, one per concern: `base.css` (elements, focus ring, `.num`, `.profit`/`.loss`, reduced motion),
+  `shell.css` (the layout), `ui/ui.css` (components and shared helpers such as `.stack`, `.cluster`, `.kv`,
+  `.table-scroll`), `trading.css`, `research.css` and `system.css` (page-specific rules), `design-page.css`.
+- **Components** (`src/ui`, import from `../ui`): `Page`, `Card`, `Stat`, `DataTable` (TanStack Table: sticky header,
+  `meta: { numeric: true }` columns right-aligned and sorted by value, empty and loading states, scroll inside the
+  table), `Badge`, `Button`, `Field`, `Tabs`, `Dialog`, `Toast`/`ToastStack`, `EmptyState`, `Skeleton`, plus
+  `useMediaQuery(PHONE)` and `useChartTheme()`.
+- **Shell** (`components/Layout.tsx`): a sticky mode banner (LIVE is red with a white bottom edge and the word LIVE),
+  the kill-switch state (links to Risk) and health, a grouped side navigation (Trade, Research, Automation, System) that
+  becomes a bottom tab bar (Today, Positions, Approvals, Risk) and a Menu sheet below 768 px, and content up to 1280 px.
+- **`/design`** (behind login, linked from Settings) shows the colour tokens, the type scale and every component in the
+  light and dark theme side by side.
+
+Rules for new pages and components:
+
+1. **No inline styles.** `npm run lint` rejects any JSX `style` prop. Use tokens through classes. Charts get token
+   colours from `useChartTheme()` and redraw when the theme changes. SVG geometry uses attributes, colours use classes.
+2. **Numbers are data.** Put prices, quantities, P&L and percentages in `.num` (tabular, right-aligned in tables) or in
+   `numeric` DataTable columns. Money is signed with `signed()` and coloured with `tone()` (`tone-profit`, `tone-loss`,
+   `tone-neutral`). Colour is never the only signal: a sign, a word or a mark (✓ ✗ ⚠) goes with it.
+3. **Status is a Badge** with a tone. Map domain states to tones in `lib/` (for example `decisionTone`, `DRIFT_TONE`,
+   `BASKET_TONE`, `conditionTone`), never to hex colours.
+4. **Destructive actions confirm through `Dialog`**, never `window.confirm`/`prompt`/`alert`. This covers close all
+   positions, cancel all open orders, fail over, revoke a key, rotate a webhook secret, retire a version and a LIVE
+   manual order. The safe button comes first so it takes the focus.
+5. **Phone layouts** for the away-from-desk pages (Today, Positions, Approvals, Risk, Broker, Login): wide tables become
+   cards below 640 px (`useMediaQuery(PHONE)`). Other wide tables scroll inside `.table-scroll` or the DataTable, never
+   the page.
+6. Keep the existing `data-testid`s and accessible names. Specs depend on them. Add new ones rather than renaming.

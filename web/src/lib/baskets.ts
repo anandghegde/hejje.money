@@ -1,7 +1,8 @@
 import { Basket, BasketLeg, SplitOrder } from '../api/types';
+import type { BadgeTone } from '../ui';
 
-export const BASKET_COLOR: Record<Basket['status'], string> = {
-  PENDING: '#616161', EXECUTING: '#1565c0', COMPLETED: '#2e7d32', PARTIAL: '#b7791f', FAILED: '#c0392b', ROLLED_BACK: '#ef6c00', EXPIRED: '#c0392b',
+export const BASKET_TONE: Record<Basket['status'], BadgeTone> = {
+  PENDING: 'neutral', EXECUTING: 'info', COMPLETED: 'profit', PARTIAL: 'warning', FAILED: 'loss', ROLLED_BACK: 'warning', EXPIRED: 'loss',
 };
 
 /** Legs in the order they were (or will be) placed: hedge legs first, then by sequence (mirrors the server). */

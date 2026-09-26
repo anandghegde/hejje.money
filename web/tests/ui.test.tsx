@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button, DataTable, Dialog, Field, Stat, Tabs, signed, toNumber, tone } from '../src/ui';
+import { Button, DataTable, Dialog, Field, Stat, Tabs, signed, toNumber, tone, useChartTheme } from '../src/ui';
 
 afterEach(cleanup);
 
@@ -110,6 +110,25 @@ describe('Dialog', () => {
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+  });
+});
+
+describe('chart theme', () => {
+  it('reads the token colours and re-reads them when the theme attribute changes', async () => {
+    const root = document.documentElement;
+    root.style.setProperty('--accent', ' #111111');
+    root.style.setProperty('--profit', '#00aa00');
+    function Probe() {
+      const t = useChartTheme();
+      return <span data-testid="accent">{t.accent}|{t.profit}</span>;
+    }
+    render(<Probe />);
+    expect(screen.getByTestId('accent').textContent).toBe('#111111|#00aa00');
+    root.style.setProperty('--accent', '#222222');
+    await act(async () => { root.setAttribute('data-theme', 'dark'); await Promise.resolve(); });
+    expect(screen.getByTestId('accent').textContent).toBe('#222222|#00aa00');
+    root.removeAttribute('data-theme');
+    root.removeAttribute('style');
   });
 });
 

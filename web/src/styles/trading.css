@@ -27,7 +27,6 @@
 .best-decision { font-size: var(--text-lg); }
 .today-no-trade { font-size: var(--text-lg); color: var(--text-secondary); }
 .execute-checks { max-height: 180px; overflow: auto; }
-.why { font-size: var(--text-xs); color: var(--text-secondary); }
 .ranked-cards { list-style: none; padding: 0; margin: 0; }
 
 @media (max-width: 639px) {

@@ -16,5 +16,7 @@ export type { TabItem } from './Tabs';
 export { Toast, ToastStack } from './Toast';
 export type { ToastItem, ToastTone } from './Toast';
 export { PHONE, useMediaQuery } from './useMediaQuery';
+export { chartOptions, readChartTheme, useChartTheme } from './useChartTheme';
+export type { ChartTheme } from './useChartTheme';
 export { signed, tone, toNumber } from './format';
 export type { Tone } from './format';

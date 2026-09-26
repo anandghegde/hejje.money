@@ -1,7 +1,8 @@
 import { ExperimentVariant, SplitSummary, VariantMetrics } from '../api/types';
+import type { BadgeTone } from '../ui';
 
-export const VERDICT_COLOR: Record<string, string> = {
-  RECOMMENDED: '#2e7d32', BETTER_OUT_OF_SAMPLE: '#558b2f', BETTER_BUT_FRAGILE: '#ef6c00', NOT_BETTER: '#616161', BASELINE: '#1565c0',
+export const VERDICT_TONE: Record<string, BadgeTone> = {
+  RECOMMENDED: 'profit', BETTER_OUT_OF_SAMPLE: 'profit', BETTER_BUT_FRAGILE: 'warning', NOT_BETTER: 'neutral', BASELINE: 'info',
 };
 
 /** The slice a variant is ranked on: out-of-sample, else validation, else overall (mirrors the server). */

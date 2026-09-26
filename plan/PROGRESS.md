@@ -256,3 +256,19 @@ Still open from the follow-up lists (not built): the incremental session-analog 
 Verification 2026-09-26 (worktree branch, jar built from the same tree, dev profile, Postgres 16): `npm run lint` clean, 81 unit tests, build green; Playwright 9/9 (agent-chat, approvals, context, paper-flow, smoke unchanged + 4 ui-shell). One earlier full run failed the first ui-shell test once (a login under the rate limit); four later runs were green.
 
 Still open in Phase 10: M10.4 research pages, M10.5 system/settings pages, M10.6 sweep (empty the allow-list, `docs/web.md` design-system section). The shared components used by Today (ContextCard, NewsBiasPanel, CandidateContextLine in Stock) and Orders (Baskets) still carry inline styles until M10.4.
+
+| Milestone | Date | Commit / PR | Notes |
+|---|---|---|---|
+| M10.4 Research pages | 2026-09-26 | (see below) | Strategies, StrategyDetail, Lab, Screener, Stock, Pulse, Analytics, Reviews, Options and ContextCard, DriftPanel, EquityChart, Experiments, LegBuilder, LossInvestigation, NewsBiasPanel, CalibrationPanel, Baskets, DescribeStrategy are on the components. The hex colour maps in `lib/` became tone maps (`conditionTone`, `directionTone`, `pulseTone`, `DRIFT_TONE`, `VERDICT_TONE`, `BASKET_TONE`, `SEVERITY_TONE`; `tests/pulse.test.ts` follows). The charts (`EquityChart`, the Stock daily chart) take token colours through `ui/useChartTheme` and redraw on a theme change (unit test). The SVG sparklines, analog band and Pulse sector bars use classes and SVG attributes instead of inline styles. The Screener list switches stay buttons (`aria-pressed`) because `context.spec.ts` clicks `button "Custom screen"`. `prompt()`/`alert()` are gone: drift override and Lab clone use a Dialog, and a status error shows inline. Retiring a version confirms through a Dialog. |
+| M10.5 System and settings pages | 2026-09-26 | (see below) | System, Settings, Policies, Agent (Hejje AI) and Login, plus ApiKeysPanel, NotificationsPanel and WebhooksPanel. Revoking an API key and rotating a webhook secret confirm through a Dialog (new step). Login is a centred card that works at 360 px. The labels are visible now and the `aria-label`s are unchanged. |
+| M10.6 Consistency sweep | 2026-09-26 | (see below) | The inline-style allow-list is gone: `no-restricted-syntax` on JSX `style` applies to every file. No documented exceptions were needed: charts size themselves with `clientWidth` and SVG uses attributes. No hex colours remain outside `tokens.css`: the nav overlays became `--nav-hover`/`--nav-selected`. A script check found no class used without a rule and no rule without a user. The `ui-shell` spec now loads all 21 pages at 360/768/1440 px in light and dark (banner in view, kill state visible, no sideways page scroll), plus the phone login. `docs/web.md` has a "Design system" section (tokens, stylesheets, components, the shell, `/design`, rules for new pages). |
+
+Verification 2026-09-26 (same local stack as above): lint clean with no allow-list; 82 unit tests; build; Playwright 11/11 twice in a row (2.4 min each; the every-page sweep is about 1.7 min). Screenshots of Stock, StrategyDetail and Analytics in both themes at three widths were reviewed.
+
+## Phase 10 exit checklist status
+
+- [x] No `style={{` in `web/src` (lint enforces it everywhere; there are no exceptions).
+- [x] Every page renders at 360, 768 and 1440 px with no page-level horizontal scroll (`ui-shell.spec.ts`).
+- [x] Light and dark themes pass the AA contrast test; the theme follows the OS and can be overridden.
+- [x] Mode banner and kill-switch state visible on every page at every width.
+- [ ] All Playwright specs pass unchanged in CI: they pass locally against the CI configuration (11/11). **CI itself runs on the first push.** The new spec adds about 2 minutes to the job.

@@ -1,12 +1,12 @@
 import { SectorStrength } from '../api/types';
+import type { BadgeTone } from '../ui';
 
-/** Colour of a pulse direction / sector label. */
-export function pulseColor(label: string): string {
+/** Tone of a pulse direction / sector label. */
+export function pulseTone(label: string): BadgeTone {
   switch (label) {
-    case 'BULLISH': case 'STRONG': return '#2e7d32';
-    case 'BEARISH': case 'WEAK': return '#c62828';
-    case 'UNKNOWN': return '#9e9e9e';
-    default: return '#616161';
+    case 'BULLISH': case 'STRONG': return 'profit';
+    case 'BEARISH': case 'WEAK': return 'loss';
+    default: return 'neutral';
   }
 }
 

@@ -83,3 +83,43 @@ test('the theme switch applies at once and follows the OS by default', async ({ 
   await page.getByTestId('theme-select').selectOption('system');
   await expect.poll(bg).toBe(dark);
 });
+
+/** M10.6 exit check: every page at 360, 768 and 1440 px in both themes; banner and kill state visible, no sideways page scroll. */
+test('every page at 360, 768 and 1440 px in both themes', async ({ page, request }, info) => {
+  test.setTimeout(300_000);
+  const API = process.env.API_URL ?? 'http://localhost:8080/api/v1';
+  const token = (await (await request.post(`${API}/auth/login`, { data: { username: 'admin', password: PASSWORD } })).json()).accessToken;
+  const strategies = await (await request.get(`${API}/strategies`, { headers: { Authorization: `Bearer ${token}` } })).json();
+  const pages = ['/today', '/approvals', '/orders', '/positions', '/trades', '/risk', '/risk/policies', '/broker', '/options', '/screener',
+    '/stocks/NSE:INFY', '/pulse', '/strategies', `/strategies/${strategies[0].id}`, '/lab', '/reviews', '/analytics', '/agent', '/system',
+    '/settings', '/design'];
+  await login(page);
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const vp of VIEWPORTS) {
+      await page.setViewportSize(vp);
+      for (const path of pages) {
+        await page.goto(path);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.waitForLoadState('networkidle');
+        await expect(page.getByTestId('mode-banner')).toBeInViewport();
+        await expect(page.getByTestId('kill-state')).toBeVisible();
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow, `${path} scrolls sideways at ${vp.width} px (${colorScheme})`).toBeLessThanOrEqual(0);
+        if (['/stocks/NSE:INFY', '/analytics'].includes(path) || path.startsWith('/strategies/')) {
+          const name = path.startsWith('/strategies/') ? 'strategy-detail' : path.split('/').filter(Boolean).join('-').replace(':', '-');
+          await page.screenshot({ path: info.outputPath(`${name}-${vp.width}-${colorScheme}.png`), fullPage: true });
+        }
+      }
+    }
+  }
+});
+
+test('login works on a phone', async ({ page }, info) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await page.goto('/login');
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: info.outputPath('login-360.png') });
+  await login(page);
+});

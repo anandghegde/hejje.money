@@ -1,32 +1,3 @@
-/**
- * Files not yet moved onto the design tokens (plan Phase 10). They may still use inline `style` props; every other file
- * may not. The list shrinks milestone by milestone and is empty at the end of the phase.
- */
-const INLINE_STYLE_ALLOW_LIST = [
-  'src/components/ApiKeysPanel.tsx',
-  'src/components/Baskets.tsx',
-  'src/components/ContextCard.tsx',
-  'src/components/DescribeStrategy.tsx',
-  'src/components/DriftPanel.tsx',
-  'src/components/EquityChart.tsx',
-  'src/components/Experiments.tsx',
-  'src/components/LegBuilder.tsx',
-  'src/components/LossInvestigation.tsx',
-  'src/components/NewsBiasPanel.tsx',
-  'src/components/NotificationsPanel.tsx',
-  'src/components/WebhooksPanel.tsx',
-  'src/pages/Agent.tsx',
-  'src/pages/Analytics.tsx',
-  'src/pages/Lab.tsx',
-  'src/pages/Login.tsx',
-  'src/pages/Options.tsx',
-  'src/pages/Policies.tsx',
-  'src/pages/Pulse.tsx',
-  'src/pages/Screener.tsx',
-  'src/pages/Stock.tsx',
-  'src/pages/StrategyDetail.tsx',
-];
-
 module.exports = {
   root: true,
   env: { browser: true, es2021: true, node: true },
@@ -42,12 +13,11 @@ module.exports = {
     '@typescript-eslint/no-explicit-any': 'off',
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
+    // Phase 10: no inline styles anywhere; colours, sizes and spacing come from web/src/styles/tokens.css through classes
+    // (docs/web.md, "Design system"). Charts take token colours through ui/useChartTheme; SVG geometry uses attributes.
     'no-restricted-syntax': ['error', {
       selector: "JSXAttribute[name.name='style']",
       message: 'No inline styles: use the design tokens and classes (web/src/styles, web/src/ui).',
     }],
   },
-  overrides: [
-    { files: INLINE_STYLE_ALLOW_LIST, rules: { 'no-restricted-syntax': 'off' } },
-  ],
 };

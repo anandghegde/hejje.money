@@ -72,6 +72,8 @@
   --text-muted: #56616e;
   --text-nav: #d6dde6;
   --text-nav-active: #ffffff;
+  --nav-hover: rgb(255 255 255 / 0.06);
+  --nav-selected: rgb(255 255 255 / 0.12);
 
   /* accent (links, primary buttons, focus) */
   --accent: #1d5fae;
@@ -121,6 +123,8 @@
     --text-muted: #919dab;
     --text-nav: #b9c3ce;
     --text-nav-active: #ffffff;
+  --nav-hover: rgb(255 255 255 / 0.06);
+  --nav-selected: rgb(255 255 255 / 0.12);
 
     --accent: #6aa9f2;
     --accent-hover: #8dbdf5;
@@ -166,6 +170,8 @@
   --text-muted: #919dab;
   --text-nav: #b9c3ce;
   --text-nav-active: #ffffff;
+  --nav-hover: rgb(255 255 255 / 0.06);
+  --nav-selected: rgb(255 255 255 / 0.12);
 
   --accent: #6aa9f2;
   --accent-hover: #8dbdf5;

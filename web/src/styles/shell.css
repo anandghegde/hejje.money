@@ -54,11 +54,11 @@
   text-decoration: none;
 }
 
-.nav-link:hover { color: var(--text-nav-active); background: rgb(255 255 255 / 0.06); }
+.nav-link:hover { color: var(--text-nav-active); background: var(--nav-hover); }
 
 .nav-link.active {
   color: var(--text-nav-active);
-  background: rgb(255 255 255 / 0.12);
+  background: var(--nav-selected);
   font-weight: var(--weight-medium);
   box-shadow: inset 3px 0 0 var(--accent);
 }
@@ -85,7 +85,7 @@
   border-color: var(--text-nav);
 }
 
-.nav-logout:hover:not(:disabled) { background: rgb(255 255 255 / 0.08); color: var(--text-nav-active); }
+.nav-logout:hover:not(:disabled) { background: var(--nav-hover); color: var(--text-nav-active); }
 
 /* ---- main column ---- */
 .shell-main {

@@ -3,7 +3,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
 import { Health } from '../api/types';
 import { BrokerAccountsView, canFailover, executorLine, ExecutorStatus } from '../lib/executor';
-import { Button, Dialog } from '../ui';
+import { Badge, Button, Card, Dialog, Page } from '../ui';
+import '../styles/system.css';
+
+const STATUS_OK = ['UP', 'HEALTHY', 'OK', 'SKIPPED', 'ENABLED'];
 
 interface Latency { name: string; op?: string; broker?: string; p50Ms: number; p95Ms: number; p99Ms: number; count: number; }
 interface Issue { id: string; kind: string; severity: string; detail: string; broker?: string; }
@@ -52,44 +55,59 @@ export function System() {
   ] : [];
 
   return (
-    <div>
-      <h1>Server</h1>
-      <p>Execution {health?.executionEnabled ? 'enabled' : 'disabled'} {health?.reasons?.length ? `— ${health.reasons.join('; ')}` : ''}</p>
-      {executor && (
-        <p data-testid="executor-role">
-          Executor: {executorLine(executor)}{' '}
-          {canFailover(executor) && <button onClick={() => setConfirmFailover(true)}>Fail over to the standby</button>}
-        </p>
-      )}
-      {message && <p>{message}</p>}
-      <table><tbody>{checks.map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
+    <Page title="Server">
+      <Card title="Health">
+        <div className="stack">
+          <p>Execution <Badge tone={health?.executionEnabled ? 'profit' : 'loss'}>{health?.executionEnabled ? 'enabled' : 'disabled'}</Badge> {health?.reasons?.length ? `— ${health.reasons.join('; ')}` : ''}</p>
+          {executor && (
+            <p data-testid="executor-role" className="cluster">
+              Executor: {executorLine(executor)}
+              {canFailover(executor) && <Button variant="danger" size="sm" onClick={() => setConfirmFailover(true)}>Fail over to the standby</Button>}
+            </p>
+          )}
+          {message && <p className="message">{message}</p>}
+          <dl className="kv">{checks.map(([k, v]) => (
+            <div key={k} className="kv-row"><dt>{k}</dt><dd><Badge tone={STATUS_OK.includes(v) ? 'profit' : v === 'DEGRADED' || v === 'STALE' ? 'warning' : 'loss'}>{v}</Badge></dd></div>
+          ))}</dl>
+        </div>
+      </Card>
       {jev && (
-        <>
-          <h3>Jev</h3>
-          <table data-testid="jev-status"><tbody>
-            <tr><td>Status</td><td>{!jev.enabled ? 'disabled' : !jev.keyPresent ? 'enabled, no API key' : `enabled, model ${jev.model}, circuit ${jev.circuit}`}</td></tr>
-            <tr><td>Today</td><td>{jev.today.calls} calls ({jev.today.ok} ok, {jev.today.cached} cached, {jev.today.timeouts} timeouts, {jev.today.failed} failed)</td></tr>
-            <tr><td>Latency</td><td>{jev.today.p50Ms != null ? `p50 ${jev.today.p50Ms} ms, p90 ${jev.today.p90Ms} ms` : '—'}</td></tr>
-            <tr><td>Cost today</td><td>₹{(jev.today.costPaise / 100).toFixed(2)}{jev.budgetExceeded ? ' (cap reached)' : ''}</td></tr>
-            {jev.lastError && <tr><td>Last error</td><td>{jev.lastError}</td></tr>}
-          </tbody></table>
-        </>
+        <Card title="Jev">
+          <dl className="kv" data-testid="jev-status">
+            <dt>Status</dt><dd>{!jev.enabled ? 'disabled' : !jev.keyPresent ? 'enabled, no API key' : `enabled, model ${jev.model}, circuit ${jev.circuit}`}</dd>
+            <dt>Today</dt><dd>{jev.today.calls} calls ({jev.today.ok} ok, {jev.today.cached} cached, {jev.today.timeouts} timeouts, {jev.today.failed} failed)</dd>
+            <dt>Latency</dt><dd>{jev.today.p50Ms != null ? `p50 ${jev.today.p50Ms} ms, p90 ${jev.today.p90Ms} ms` : '—'}</dd>
+            <dt>Cost today</dt><dd>₹{(jev.today.costPaise / 100).toFixed(2)}{jev.budgetExceeded ? ' (cap reached)' : ''}</dd>
+            {jev.lastError && <><dt>Last error</dt><dd className="tone-loss">{jev.lastError}</dd></>}
+          </dl>
+        </Card>
       )}
-      <h3>Latency (ms)</h3>
-      <table><thead><tr><th>Timer</th><th>Broker</th><th>p50</th><th>p95</th><th>p99</th><th>count</th></tr></thead>
-        <tbody>{(latency ?? []).map((l) => <tr key={l.name + (l.op ?? '') + (l.broker ?? '')}><td>{l.name}{l.op ? `:${l.op}` : ''}</td><td>{l.broker ?? ''}</td><td>{l.p50Ms}</td><td>{l.p95Ms}</td><td>{l.p99Ms}</td><td>{l.count}</td></tr>)}</tbody>
-      </table>
-      <h3>Reconciliation issues</h3>
-      <table><tbody>{(issues ?? []).map((i) => <tr key={i.id}><td>{i.severity}</td><td>{i.broker ?? ''}</td><td>{i.kind}</td><td>{i.detail}</td><td><button onClick={() => resolve(i.id)}>Resolve</button></td></tr>)}</tbody></table>
+      <Card title="Latency (ms)">
+        <div className="table-scroll">
+          <table><thead><tr><th>Timer</th><th>Broker</th><th className="num">p50</th><th className="num">p95</th><th className="num">p99</th><th className="num">count</th></tr></thead>
+            <tbody>{(latency ?? []).map((l) => <tr key={l.name + (l.op ?? '') + (l.broker ?? '')}><td>{l.name}{l.op ? `:${l.op}` : ''}</td><td>{l.broker ?? ''}</td><td className="num">{l.p50Ms}</td><td className="num">{l.p95Ms}</td><td className="num">{l.p99Ms}</td><td className="num">{l.count}</td></tr>)}</tbody>
+          </table>
+        </div>
+      </Card>
+      <Card title="Reconciliation issues">
+        {(issues ?? []).length === 0 ? <p className="muted">No open issues.</p> : (
+          <div className="table-scroll">
+            <table><tbody>{(issues ?? []).map((i) => <tr key={i.id}><td><Badge tone={i.severity === 'CRITICAL' || i.severity === 'HIGH' ? 'loss' : 'warning'}>{i.severity}</Badge></td><td>{i.broker ?? ''}</td><td>{i.kind}</td><td>{i.detail}</td><td><Button size="sm" onClick={() => resolve(i.id)}>Resolve</Button></td></tr>)}</tbody></table>
+          </div>
+        )}
+      </Card>
       {accounts && (
-        <>
-          <h3>Broker accounts</h3>
-          <p>This server runs the <b>{accounts.adapter}</b> adapter; orders go only to the active account.</p>
-          <table><tbody>{accounts.accounts.map((a) => (
-            <tr key={a.id}><td>{a.broker}</td><td>{a.accountId}</td><td>{a.active ? 'active' : ''}</td>
-              <td>{!a.active && <button onClick={() => activate(a.id)}>Make active</button>}</td></tr>
-          ))}</tbody></table>
-        </>
+        <Card title="Broker accounts">
+          <div className="stack">
+            <p>This server runs the <b>{accounts.adapter}</b> adapter; orders go only to the active account.</p>
+            <div className="table-scroll">
+              <table><tbody>{accounts.accounts.map((a) => (
+                <tr key={a.id}><td>{a.broker}</td><td className="mono">{a.accountId}</td><td>{a.active ? <Badge tone="profit">active</Badge> : ''}</td>
+                  <td>{!a.active && <Button size="sm" onClick={() => activate(a.id)}>Make active</Button>}</td></tr>
+              ))}</tbody></table>
+            </div>
+          </div>
+        </Card>
       )}
       <Dialog
         open={confirmFailover}
@@ -102,6 +120,6 @@ export function System() {
       >
         Release the executor lease on this instance? The standby takes over and this instance stops sending orders.
       </Dialog>
-    </div>
+    </Page>
   );
 }

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { pulseColor, sectorBar, sparklinePoints } from '../src/lib/pulse';
+import { pulseTone, sectorBar, sparklinePoints } from '../src/lib/pulse';
 
 describe('pulse helpers', () => {
   it('colours directions and sector labels', () => {
-    expect(pulseColor('BULLISH')).toBe(pulseColor('STRONG'));
-    expect(pulseColor('BEARISH')).toBe(pulseColor('WEAK'));
-    expect(pulseColor('UNKNOWN')).not.toBe(pulseColor('NEUTRAL'));
+    expect(pulseTone('BULLISH')).toBe(pulseTone('STRONG'));
+    expect(pulseTone('BEARISH')).toBe(pulseTone('WEAK'));
+    expect(pulseTone('BULLISH')).toBe('profit');
+    expect(pulseTone('UNKNOWN')).toBe('neutral');
   });
   it('sizes sector bars by relative change, capped at two points', () => {
     expect(sectorBar({ name: 'IT', symbol: 'x', label: 'UNKNOWN' })).toEqual({ width: 0, positive: true });
