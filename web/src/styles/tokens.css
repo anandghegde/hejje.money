@@ -1,0 +1,196 @@
+/*
+ * Design tokens: the one source of truth for colour, type, spacing, radius and elevation (plan Phase 10).
+ * Pages and components use these custom properties only, never literal colours, font sizes or spacing.
+ *
+ * Theme-independent scales live in the first :root block. Colour and elevation tokens have a light value and a
+ * dark value; the dark values appear twice (OS setting and manual override) and tests/tokens.test.ts checks that
+ * both copies agree, that every token exists in both themes and that text tokens pass WCAG AA on their surfaces.
+ */
+
+:root {
+  /* type: a UI stack, a tabular stack for numbers and a monospace stack for ids and code */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-num: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* type scale, 6 steps */
+  --text-xs: 0.75rem;   /* 12px: captions, badges */
+  --text-sm: 0.8125rem; /* 13px: table cells, hints */
+  --text-md: 0.875rem;  /* 14px: body */
+  --text-lg: 1rem;      /* 16px: card titles */
+  --text-xl: 1.25rem;   /* 20px: section headings, stat values */
+  --text-2xl: 1.625rem; /* 26px: page titles */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 650;
+
+  /* spacing, 4 px steps */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* radii */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  /* layout */
+  --content-max: 1280px;
+  --nav-width: 212px;
+  --control-h-sm: 28px;
+  --control-h-md: 36px;
+  --focus-width: 2px;
+  --duration: 120ms;
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* surfaces, from the page background up */
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --surface-2: #edf0f4;
+  --surface-nav: #1b2430;
+  --border: #d3d9e0;
+  --border-strong: #9aa5b1;
+
+  /* text */
+  --text: #16202b;
+  --text-secondary: #3d4957;
+  --text-muted: #56616e;
+  --text-nav: #d6dde6;
+  --text-nav-active: #ffffff;
+
+  /* accent (links, primary buttons, focus) */
+  --accent: #1d5fae;
+  --accent-hover: #174e90;
+  --accent-soft: #e2ecf8;
+  --on-accent: #ffffff;
+  --focus: #1d5fae;
+
+  /* semantic */
+  --profit: #11743f;
+  --profit-soft: #e1f3e8;
+  --loss: #b3261e;
+  --loss-soft: #fbe6e4;
+  --warning: #8a5300;
+  --warning-soft: #fcefd6;
+  --info: #1d5fae;
+  --info-soft: #e2ecf8;
+  --danger: #b3261e;
+  --danger-hover: #93201a;
+  --on-danger: #ffffff;
+
+  /* execution mode */
+  --mode-live: #b3261e;
+  --mode-paper: #1d5fae;
+  --mode-sim: #6a3d9e;
+  --on-mode: #ffffff;
+
+  /* elevation */
+  --shadow-1: 0 1px 2px rgb(16 24 40 / 0.08), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-2: 0 8px 24px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.1);
+  --scrim: rgb(10 15 22 / 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: #0e1319;
+    --surface: #161d25;
+    --surface-2: #1f2832;
+    --surface-nav: #11171e;
+    --border: #2d3947;
+    --border-strong: #4a5968;
+
+    --text: #e5eaf0;
+    --text-secondary: #b9c3ce;
+    --text-muted: #919dab;
+    --text-nav: #b9c3ce;
+    --text-nav-active: #ffffff;
+
+    --accent: #6aa9f2;
+    --accent-hover: #8dbdf5;
+    --accent-soft: #17304d;
+    --on-accent: #0b1520;
+    --focus: #6aa9f2;
+
+    --profit: #4fc58b;
+    --profit-soft: #12301f;
+    --loss: #f4857a;
+    --loss-soft: #3b1b19;
+    --warning: #e3b25a;
+    --warning-soft: #372a10;
+    --info: #6aa9f2;
+    --info-soft: #17304d;
+    --danger: #c7362c;
+    --danger-hover: #d9483e;
+    --on-danger: #ffffff;
+
+    --mode-live: #c42f25;
+    --mode-paper: #2560a8;
+    --mode-sim: #6d43a3;
+    --on-mode: #ffffff;
+
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 8px 24px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.4);
+    --scrim: rgb(0 0 0 / 0.6);
+  }
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0e1319;
+  --surface: #161d25;
+  --surface-2: #1f2832;
+  --surface-nav: #11171e;
+  --border: #2d3947;
+  --border-strong: #4a5968;
+
+  --text: #e5eaf0;
+  --text-secondary: #b9c3ce;
+  --text-muted: #919dab;
+  --text-nav: #b9c3ce;
+  --text-nav-active: #ffffff;
+
+  --accent: #6aa9f2;
+  --accent-hover: #8dbdf5;
+  --accent-soft: #17304d;
+  --on-accent: #0b1520;
+  --focus: #6aa9f2;
+
+  --profit: #4fc58b;
+  --profit-soft: #12301f;
+  --loss: #f4857a;
+  --loss-soft: #3b1b19;
+  --warning: #e3b25a;
+  --warning-soft: #372a10;
+  --info: #6aa9f2;
+  --info-soft: #17304d;
+  --danger: #c7362c;
+  --danger-hover: #d9483e;
+  --on-danger: #ffffff;
+
+  --mode-live: #c42f25;
+  --mode-paper: #2560a8;
+  --mode-sim: #6d43a3;
+  --on-mode: #ffffff;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 8px 24px rgb(0 0 0 / 0.55), 0 2px 6px rgb(0 0 0 / 0.4);
+  --scrim: rgb(0 0 0 / 0.6);
+}
