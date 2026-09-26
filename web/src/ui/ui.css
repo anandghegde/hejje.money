@@ -232,3 +232,64 @@
 .toast-loss { border-left-color: var(--loss); }
 .toast-profit { border-left-color: var(--profit); }
 .toast-body { font-size: var(--text-sm); color: var(--text-secondary); white-space: pre-wrap; }
+
+/* ---- layout helpers shared by pages ---- */
+.stack { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.muted { color: var(--text-muted); }
+.text-sm { font-size: var(--text-sm); }
+.mono { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-4);
+}
+
+/* key/value list: label column and value column */
+.kv {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.kv dd.num { text-align: left; }
+
+/* pass/fail check lists: the mark and the tone carry the result */
+.checks { list-style: none; padding: 0; margin: 0; font-size: var(--text-sm); }
+.checks li { padding: 2px 0; }
+.check-pass { color: var(--profit); }
+.check-fail { color: var(--loss); }
+
+/* a one-line outcome message */
+.message {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  color: var(--text);
+}
+.message-loss { background: var(--loss-soft); color: var(--loss); }
+.message-profit { background: var(--profit-soft); color: var(--profit); }
+
+/* rows as cards (phone layouts of wide tables) */
+.item-cards { display: flex; flex-direction: column; gap: var(--space-3); }
+.item-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.item-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: var(--weight-bold);
+}

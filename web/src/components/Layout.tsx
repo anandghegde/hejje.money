@@ -30,10 +30,12 @@ const QUICK = [
 
 const SEVERITY_TONE: Record<NotificationSeverity, ToastTone> = { INFO: 'info', WARNING: 'warning', CRITICAL: 'loss' };
 
-function Dot({ ok, label }: { ok: boolean; label: string }) {
+/** A health check: OK, down, or not known yet (before the first health answer). */
+function Dot({ ok, label }: { ok: boolean | undefined; label: string }) {
+  const state = ok === undefined ? 'unknown' : ok ? 'OK' : 'down';
   return (
-    <span className={ok ? 'health health-ok' : 'health health-down'} title={`${label}: ${ok ? 'OK' : 'down'}`}>
-      <span aria-hidden="true">{ok ? '●' : '✕'}</span> {label}<span className="sr-only">{ok ? ' OK' : ' down'}</span>
+    <span className={`health health-${ok === undefined ? 'unknown' : ok ? 'ok' : 'down'}`} title={`${label}: ${state}`}>
+      <span aria-hidden="true">{ok === undefined ? '○' : ok ? '●' : '✕'}</span> {label}<span className="sr-only"> {state}</span>
     </span>
   );
 }
@@ -117,9 +119,9 @@ export function Layout({ children }: { children: ReactNode }) {
               {ks === undefined ? 'Kill switch …' : ks.stopNewOrders ? '■ Kill switch: STOPPING new orders' : 'Kill switch armed'}
             </NavLink>
             {pending > 0 && <NavLink to="/approvals" data-testid="approvals-badge" className="banner-approvals">⚑ {pending} awaiting approval</NavLink>}
-            <Dot ok={health?.status === 'UP'} label="Server" />
-            <Dot ok={health?.broker.status === 'HEALTHY'} label="Broker" />
-            <Dot ok={health?.marketData.status !== 'DOWN'} label="Market Data" />
+            <Dot ok={health && health.status === 'UP'} label="Server" />
+            <Dot ok={health && health.broker.status === 'HEALTHY'} label="Broker" />
+            <Dot ok={health && health.marketData.status !== 'DOWN'} label="Market Data" />
           </span>
         </div>
         <main className="shell-content">{children}</main>

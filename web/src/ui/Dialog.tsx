@@ -9,12 +9,13 @@ interface DialogProps {
   children: ReactNode;
   /** the buttons, right-aligned; put the safe choice first so it takes the initial focus */
   actions?: ReactNode;
+  'data-testid'?: string;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /** A modal dialog: focus moves in, Tab stays inside, Escape closes, and focus returns to where it was. */
-export function Dialog({ open, title, onClose, children, actions }: DialogProps) {
+export function Dialog({ open, title, onClose, children, actions, 'data-testid': testId }: DialogProps) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
@@ -52,7 +53,7 @@ export function Dialog({ open, title, onClose, children, actions }: DialogProps)
   }
 
   return createPortal(
-    <div className="dialog-backdrop">
+    <div className="dialog-backdrop" data-testid={testId}>
       <div ref={ref} className="dialog" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={onKeyDown}>
         <h2 className="dialog-title" id={titleId}>{title}</h2>
         <div className="dialog-body">{children}</div>

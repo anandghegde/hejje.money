@@ -35,6 +35,25 @@ test('the shell and /design at 360, 768 and 1440 px', async ({ page }, info) => 
   }
 });
 
+/** M10.3: the trading pages at phone and desktop size in both themes, with no sideways page scroll. */
+test('trading pages at 390 and 1440 px in both themes', async ({ page }, info) => {
+  await login(page);
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    for (const vp of [{ width: 390, height: 844 }, { width: 1440, height: 900 }]) {
+      await page.setViewportSize(vp);
+      for (const path of ['/today', '/positions', '/orders', '/trades', '/approvals', '/risk', '/broker']) {
+        await page.goto(path);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.waitForLoadState('networkidle');
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow, `${path} scrolls sideways at ${vp.width} px`).toBeLessThanOrEqual(0);
+        await page.screenshot({ path: info.outputPath(`${path.slice(1)}-${vp.width}-${colorScheme}.png`), fullPage: true });
+      }
+    }
+  }
+});
+
 test('phone: the tab bar and the menu reach every page', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 780 });
   await login(page);

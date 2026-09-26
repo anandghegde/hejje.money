@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decisionColor, formatR, rewardRisk, secondsLeft } from '../src/lib/today';
+import { decisionTone, formatR, rewardRisk, secondsLeft } from '../src/lib/today';
 
 describe('today helpers', () => {
   it('computes reward:risk from levels', () => {
@@ -7,11 +7,13 @@ describe('today helpers', () => {
     expect(rewardRisk({ entry: 1507, stop: 1507, target: 1531 })).toBeNull();
     expect(rewardRisk({ entry: 1507, stop: 1495 })).toBeNull();
   });
-  it('formats R multiples and decision colours', () => {
+  it('formats R multiples and decision tones', () => {
     expect(formatR(0.4213)).toBe('+0.42R');
     expect(formatR(-1)).toBe('-1.00R');
     expect(formatR(null)).toBe('—');
-    expect(decisionColor('TRADE')).not.toBe(decisionColor('AVOID'));
+    expect(decisionTone('TRADE')).toBe('profit');
+    expect(decisionTone('AVOID')).toBe('loss');
+    expect(decisionTone('TRADE_WITH_CAUTION')).toBe('warning');
   });
   it('counts remaining validity without going negative', () => {
     const now = new Date('2026-09-08T04:05:00Z');

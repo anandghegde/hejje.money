@@ -1,7 +1,11 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { request, ApiError } from '../api/client';
-import { Instrument, Order, StopSuggestion } from '../api/types';
+import { Health, Instrument, Order, StopSuggestion } from '../api/types';
 import { sizeByRisk } from '../lib/sizing';
+import { validateTicket } from '../lib/ticket';
+import { Button, Card, Dialog, Field, toNumber } from '../ui';
+import '../styles/trading.css';
 
 export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
   const [symbol, setSymbol] = useState('NSE:INFY');
@@ -18,6 +22,9 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
   const stopEdited = useRef(false); // a stop the user typed is not overwritten when the side changes
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [confirmLive, setConfirmLive] = useState(false);
+  const { data: health } = useQuery({ queryKey: ['health'], queryFn: () => request<Health>('/server/health') });
+  const live = health?.mode === 'CONFIRM' || health?.mode === 'AUTO';
 
   async function suggestStop(inst: Instrument, forSide: string, entry: string, prefill: boolean) {
     try {
@@ -52,9 +59,27 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
     catch { return null; }
   })();
 
-  async function submit(e: FormEvent) {
+  const errors = validateTicket({
+    side, orderType, quantity, limitPrice, stopPrice, targetPrice, riskRupees, sizedQty,
+    entry: toNumber(limitPrice) ?? toNumber(suggestion?.entry),
+  });
+  const valid = Object.keys(errors).length === 0;
+  const summary = instrument && [
+    `${side} ${sizedQty ?? quantity} ${instrument.hejjeSymbol} ${orderType}${limitPrice ? ` @ ${limitPrice}` : ''}`,
+    stopPrice && `stop ${stopPrice}`, targetPrice && `target ${targetPrice}`, riskRupees && `risk ₹${riskRupees}`,
+  ].filter(Boolean).join(' · ');
+
+  function submit(e: FormEvent) {
     e.preventDefault();
     if (!instrument) { setMessage('Resolve an instrument first'); return; }
+    if (!valid) { setMessage('Fix the highlighted fields first'); return; }
+    if (live) setConfirmLive(true); // real money: one more look before it goes to the broker
+    else void place();
+  }
+
+  async function place() {
+    if (!instrument) return;
+    setConfirmLive(false);
     setBusy(true);
     setMessage('');
     try {
@@ -77,39 +102,69 @@ export function ManualOrder({ onPlaced }: { onPlaced?: () => void }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ border: '1px solid #ccc', padding: 12, maxWidth: 480 }}>
-      <h3>Manual order</h3>
-      <div>
-        <input aria-label="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
-        <button type="button" onClick={resolve}>Resolve</button>
-        {instrument && <span> {instrument.hejjeSymbol} (lot {instrument.lotSize})</span>}
-      </div>
-      <div style={{ marginTop: 8 }}>
-        <select aria-label="side" value={side} onChange={(e) => setSide(e.target.value as 'BUY' | 'SELL')}>
-          <option>BUY</option><option>SELL</option>
-        </select>
-        <select aria-label="orderType" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
-          <option>MARKET</option><option>LIMIT</option><option>SL</option><option>SL_M</option>
-        </select>
-        <input aria-label="quantity" type="number" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} style={{ width: 70 }} />
-      </div>
-      <div style={{ marginTop: 8 }}>
-        <input aria-label="limitPrice" placeholder="limit" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} style={{ width: 90 }} />
-        <input aria-label="stopPrice" placeholder="stop" value={stopPrice} onChange={(e) => { setStopPrice(e.target.value); stopEdited.current = true; }} style={{ width: 90 }} />
-        <input aria-label="targetPrice" placeholder="target" value={targetPrice} onChange={(e) => setTargetPrice(e.target.value)} style={{ width: 90 }} />
-        <input aria-label="risk" placeholder="risk ₹" value={riskRupees} onChange={(e) => setRiskRupees(e.target.value)} style={{ width: 80 }} />
-      </div>
-      {instrument && (
-        <p data-testid="stop-suggestion">
-          <button type="button" onClick={() => suggestStop(instrument, side, limitPrice, true)}>Suggest stop</button>
-          {suggestion && <> Suggested stop {suggestion.stop} ({suggestionBasis(suggestion)}, {suggestion.distancePct}% from {suggestion.entry}; limit {suggestion.maxDistancePct}%)</>}
-          {suggestionError && <> No suggestion: {suggestionError}</>}
-        </p>
-      )}
-      {sizedQty != null && <p>Risk-based qty: {sizedQty}</p>}
-      <button type="submit" disabled={busy} data-testid="place-order">{busy ? 'Placing…' : 'Place order'}</button>
-      {message && <p data-testid="order-message">{message}</p>}
-    </form>
+    <Card title="Manual order" className="ticket">
+      <form onSubmit={submit} className="stack" noValidate>
+        <div className="ticket-symbol">
+          <Field label="Symbol" hint={instrument ? `${instrument.hejjeSymbol} (lot ${instrument.lotSize})` : 'Exchange and symbol, then Resolve'}>
+            <input aria-label="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
+          </Field>
+          <Button onClick={resolve}>Resolve</Button>
+        </div>
+        <div className="ticket-row">
+          <Field label="Side">
+            <select aria-label="side" value={side} onChange={(e) => setSide(e.target.value as 'BUY' | 'SELL')}>
+              <option>BUY</option><option>SELL</option>
+            </select>
+          </Field>
+          <Field label="Order type">
+            <select aria-label="orderType" value={orderType} onChange={(e) => setOrderType(e.target.value)}>
+              <option>MARKET</option><option>LIMIT</option><option>SL</option><option>SL_M</option>
+            </select>
+          </Field>
+          <Field label="Qty" error={errors.quantity}>
+            <input aria-label="quantity" type="number" inputMode="numeric" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+          </Field>
+        </div>
+        <div className="ticket-row">
+          <Field label="Limit" error={errors.limitPrice}>
+            <input aria-label="limitPrice" inputMode="decimal" placeholder="limit" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
+          </Field>
+          <Field label="Stop" error={errors.stopPrice}>
+            <input aria-label="stopPrice" inputMode="decimal" placeholder="stop" value={stopPrice} onChange={(e) => { setStopPrice(e.target.value); stopEdited.current = true; }} />
+          </Field>
+          <Field label="Target" error={errors.targetPrice}>
+            <input aria-label="targetPrice" inputMode="decimal" placeholder="target" value={targetPrice} onChange={(e) => setTargetPrice(e.target.value)} />
+          </Field>
+          <Field label="Risk ₹" error={errors.riskRupees} hint={sizedQty != null ? `Risk-based qty: ${sizedQty}` : undefined}>
+            <input aria-label="risk" inputMode="decimal" placeholder="risk ₹" value={riskRupees} onChange={(e) => setRiskRupees(e.target.value)} />
+          </Field>
+        </div>
+        {instrument && (
+          <p data-testid="stop-suggestion" className="cluster text-sm">
+            <Button size="sm" onClick={() => suggestStop(instrument, side, limitPrice, true)}>Suggest stop</Button>
+            {suggestion && <span> Suggested stop {suggestion.stop} ({suggestionBasis(suggestion)}, {suggestion.distancePct}% from {suggestion.entry}; limit {suggestion.maxDistancePct}%)</span>}
+            {suggestionError && <span> No suggestion: {suggestionError}</span>}
+          </p>
+        )}
+        {summary && <p data-testid="order-summary" className="message ticket-summary">{summary}</p>}
+        <div className="cluster">
+          <Button type="submit" variant="primary" disabled={busy} data-testid="place-order">{busy ? 'Placing…' : 'Place order'}</Button>
+        </div>
+        {message && <p data-testid="order-message" className={message.startsWith('Rejected') || message === 'Failed' ? 'message message-loss' : 'message'}>{message}</p>}
+      </form>
+      <Dialog
+        open={confirmLive}
+        title="Place a LIVE order?"
+        onClose={() => setConfirmLive(false)}
+        actions={<>
+          <Button onClick={() => setConfirmLive(false)}>Back</Button>
+          <Button variant="danger" data-testid="confirm-live-order" onClick={() => void place()}>Place LIVE order</Button>
+        </>}
+      >
+        <p>{summary}</p>
+        <p>This goes to the broker with real money ({health?.mode}).</p>
+      </Dialog>
+    </Card>
   );
 }
 

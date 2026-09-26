@@ -17,21 +17,14 @@ const INLINE_STYLE_ALLOW_LIST = [
   'src/components/WebhooksPanel.tsx',
   'src/pages/Agent.tsx',
   'src/pages/Analytics.tsx',
-  'src/pages/Approvals.tsx',
-  'src/pages/Broker.tsx',
   'src/pages/Lab.tsx',
   'src/pages/Login.tsx',
-  'src/pages/ManualOrder.tsx',
   'src/pages/Options.tsx',
-  'src/pages/Orders.tsx',
   'src/pages/Policies.tsx',
-  'src/pages/Positions.tsx',
   'src/pages/Pulse.tsx',
-  'src/pages/Risk.tsx',
   'src/pages/Screener.tsx',
   'src/pages/Stock.tsx',
   'src/pages/StrategyDetail.tsx',
-  'src/pages/Today.tsx',
 ];
 
 module.exports = {
