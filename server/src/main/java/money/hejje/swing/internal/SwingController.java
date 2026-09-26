@@ -168,6 +168,19 @@ class SwingController {
         return backtests.run(r);
     }
 
+    record ClosePositionRequest(@jakarta.validation.constraints.NotNull String symbol) {}
+
+    /** Exits one swing position (its GTT is cancelled in the same operation); {@code hejje swing close <symbol>}. */
+    @PostMapping("/positions/close")
+    @PreAuthorize("hasAuthority('SCOPE_positions:close')")
+    java.util.Map<String, Object> closePosition(@jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody ClosePositionRequest body,
+            @org.springframework.web.bind.annotation.RequestHeader(name = "Idempotency-Key", required = false) String key) {
+        if (key == null || key.isBlank()) {
+            throw new IllegalArgumentException("Idempotency-Key header is required");
+        }
+        return java.util.Map.of("orderId", swing.closePosition(properties.mode(), body.symbol()));
+    }
+
     /** Runs the holdings and GTT reconciliation now (it also runs at startup, before the open and after the close). */
     @PostMapping("/reconcile")
     @PreAuthorize("hasAuthority('SCOPE_admin')")

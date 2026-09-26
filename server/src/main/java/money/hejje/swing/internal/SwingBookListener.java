@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.Objects;
 import java.util.Optional;
 import money.hejje.common.Ids;
@@ -41,7 +43,13 @@ class SwingBookListener {
 
     private final money.hejje.swing.SwingEntries entries;
 
-    SwingBookListener(OrderService orders, SwingStore store, HejjeClock clock, money.hejje.swing.SwingEntries entries) {
+    private final money.hejje.execution.GttService gtts;
+    private final org.springframework.context.ApplicationEventPublisher events;
+
+    SwingBookListener(OrderService orders, SwingStore store, HejjeClock clock, money.hejje.swing.SwingEntries entries, money.hejje.execution.GttService gtts,
+            org.springframework.context.ApplicationEventPublisher events) {
+        this.gtts = gtts;
+        this.events = events;
         this.entries = entries;
         this.orders = orders;
         this.store = store;
@@ -77,9 +85,14 @@ class SwingBookListener {
             BigDecimal goal = intent.map(OrderIntent::targetPrice).map(t -> t.value()).orElse(null);
             // a swing deployment's positions trail when its params say so (plan M11.4); manual ones do not
             boolean trail = entries.deploymentOfStrategy(p.strategyId()).map(entries::trail).orElse(false);
-            store.insertOpen(new SwingPosition(Ids.newId(), p.mode(), p.id(), p.instrumentId(), p.strategyId(), entry.orderId(), entry.ts(),
+            UUID id = Ids.newId();
+            boolean inserted = store.insertOpen(new SwingPosition(id, p.mode(), p.id(), p.instrumentId(), p.strategyId(), entry.orderId(), entry.ts(),
                     entry.ts().atZone(clock.zone()).toLocalDate(), p.netQuantity(), p.averagePrice(), stop, goal, SwingPosition.Status.OPEN, null, null, null,
                     null, trail), now);
+            if (inserted) {
+                notify("ENTRY_FILLED", id, p.instrumentId(), Map.of("quantity", p.netQuantity(), "entry", p.averagePrice().toPlainString(),
+                        "stop", stop == null ? "none" : stop.toPlainString(), "goal", goal == null ? "none" : goal.toPlainString()));
+            }
         } else if (open.isPresent()) {
             SwingPosition s = open.get();
             // the exit: the delivery sells since the entry
@@ -92,8 +105,30 @@ class SwingBookListener {
             }
             Instant closedAt = sells.stream().map(Trade::ts).max(Comparator.naturalOrder()).orElse(now);
             LocalDate exitDate = closedAt.atZone(clock.zone()).toLocalDate();
-            store.close(s.id(), closedAt, exitDate, exit, clock.sessionsBetween(s.entryDate(), exitDate));
+            int held = clock.sessionsBetween(s.entryDate(), exitDate);
+            if (store.close(s.id(), closedAt, exitDate, exit, held) && exit != null) {
+                notifyGttExit(s, p, exit, held);
+            }
         }
+    }
+
+    /** Plan M11.6: a close the position's GTT made is a stop or a goal hit, flagged when the session opened through the level. */
+    private void notifyGttExit(SwingPosition s, Position p, BigDecimal exit, int held) {
+        gtts.history(p.id()).stream().filter(g -> g.status() == money.hejje.execution.PositionGtt.Status.TRIGGERED && !g.updatedAt().isBefore(s.openedAt()))
+                .reduce((a, b) -> b).ifPresent(g -> {
+                    boolean stop = g.goal() == null || exit.compareTo(g.stop().add(g.goal()).divide(BigDecimal.valueOf(2), 2, RoundingMode.HALF_UP)) < 0;
+                    boolean gap = stop ? exit.compareTo(g.stop()) < 0 : exit.compareTo(g.goal()) > 0;
+                    notify(stop ? "STOP_HIT" : "GOAL_HIT", s.id(), s.instrumentId(), Map.of("exit", exit.toPlainString(), "stop", g.stop().toPlainString(),
+                            "goal", g.goal() == null ? "none" : g.goal().toPlainString(), "gapThrough", gap, "holdingDays", held, "gttId", g.brokerGttId()));
+                });
+    }
+
+    private void notify(String event, UUID id, UUID instrumentId, Map<String, Object> extra) {
+        Map<String, Object> data = new java.util.LinkedHashMap<>(extra);
+        data.put("event", event);
+        data.put("id", id.toString());
+        data.put("instrumentId", instrumentId.toString());
+        events.publishEvent(new money.hejje.common.ClientNotification("swing", data));
     }
 
     /** The position's delivery fills (same instrument, strategy and product), oldest first. */

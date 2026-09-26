@@ -28,7 +28,8 @@ class AgentToolsIT extends AbstractIntegrationTest {
 
     static final List<String> READ_TOOLS = List.of("calculate_position_size", "compare_strategies", "compare_strategy_versions", "get_account_risk",
             "get_audit_trail", "get_event_calendar", "get_market_regime", "get_market_snapshot", "get_news_context", "get_orders", "get_positions", "get_pulse",
-            "get_strategy", "get_strategy_backtest", "get_strategy_rankings", "get_strategy_signal", "get_trades", "list_strategies");
+            "get_strategy", "get_strategy_backtest", "get_strategy_rankings", "get_strategy_signal", "get_swing_book", "get_swing_risk", "get_trades",
+            "list_strategies");
 
     @Autowired
     ToolRegistry registry;
@@ -202,6 +203,8 @@ class AgentToolsIT extends AbstractIntegrationTest {
         assertThat(output(call(admin, "get_orders", Map.of("limit", 5)))).containsKey("orders");
         assertThat(output(call(admin, "get_trades", Map.of()))).containsKey("trades");
         assertThat(output(call(admin, "get_account_risk", Map.of()))).containsEntry("mode", "PAPER");
+        assertThat(output(call(admin, "get_swing_book", Map.of()))).containsEntry("mode", "PAPER").containsEntry("paperOnly", true).containsKeys("positions", "setups");
+        assertThat(output(call(admin, "get_swing_risk", Map.of()))).containsKeys("overnight", "limits");
         Map<String, Object> sizing = output(call(admin, "calculate_position_size", Map.of("entry", 100, "stop", 98, "riskRupees", 1000, "instrument", "NSE:INFY")));
         assertThat(sizing).containsEntry("quantity", 500).containsEntry("lotSize", 1);
         assertThat(((Number) sizing.get("totalRisk")).doubleValue()).isEqualTo(1000.0);

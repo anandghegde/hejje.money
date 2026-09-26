@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { request } from '../api/client';
 import { KillSwitch, RiskDashboard } from '../api/types';
 import { formatPaise } from '../lib/sizing';
+import { riskUse } from '../lib/swing';
 import { Badge, Button, Card, Dialog, Field, Page, Stat, signed, tone } from '../ui';
 import '../styles/trading.css';
 
@@ -62,6 +63,20 @@ export function Risk() {
               ? (data.allowance != null ? `allowance ${data.allowanceUsed}/${data.allowance} (${data.allowanceReason})` : `allowance mode, not triggered (${data.consecutiveLosses} in a row)`)
               : `${data.consecutiveLosses} in a row (block)`}</dd>
           </dl>
+        </Card>
+      )}
+      {data && data.overnightRisk && data.overnightRiskBudget && (
+        <Card title="Swing book (overnight)" actions={<Link to="/swing">Swing →</Link>}>
+          <div className="stat-grid">
+            <Stat label="Overnight risk (gap-adjusted)" data-testid="risk-overnight" value={rupees(data.overnightRisk.paise)} />
+            <Stat label="Budget" value={rupees(data.overnightRiskBudget.paise)} />
+            <Stat label="Budget used" value={(() => {
+              const use = riskUse(data.overnightRisk.paise, data.overnightRiskBudget.paise);
+              return use.pct == null ? '—' : <Badge tone={use.tone}>{`${use.pct}%`}</Badge>;
+            })()} />
+            <Stat label="Swing positions" value={String(data.swingPositions ?? 0)} />
+          </div>
+          <p className="muted">The kill switch stops new swing entries but leaves swing positions with their GTTs; close them on the Swing page.</p>
         </Card>
       )}
       <Dialog

@@ -46,7 +46,7 @@ func rootCmd() *cobra.Command {
 	root.PersistentFlags().BoolVar(&jsonOut, "json", false, "output JSON for scripting")
 	root.AddCommand(statusCmd(), positionsCmd(), ordersCmd(), orderCmd(), cancelCmd(), closeCmd(), closeAllCmd(),
 		riskCmd(), brokerCmd(), serverCmd(), logsCmd(), killCmd(), orderPlaceCmd(),
-		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd(), experimentsCmd(), basketsCmd(), splitsCmd(), chainCmd(), notifyCmd(), executorCmd(), failoverCmd(), harnessCmd(), screenCmd(), stockCmd(), analogsCmd(), watchCmd(), trackCmd(), calibrationCmd(), reviewsCmd(), analyticsCmd())
+		bestCmd(), strategiesCmd(), strategyCmd(), signalsCmd(), executeCmd(), skipCmd(), pulseCmd(), aiCmd(), approvalsCmd(), approveCmd(), rejectCmd(), experimentsCmd(), basketsCmd(), splitsCmd(), chainCmd(), notifyCmd(), executorCmd(), failoverCmd(), harnessCmd(), screenCmd(), stockCmd(), analogsCmd(), watchCmd(), trackCmd(), calibrationCmd(), reviewsCmd(), analyticsCmd(), swingCmd())
 	return root
 }
 
@@ -200,6 +200,9 @@ func riskCmd() *cobra.Command {
 				fmt.Printf("Loss-streak allowance %d/%d since %s\n", *r.AllowanceUsed, *r.Allowance, deref(r.AllowanceReason))
 			} else if r.LossStreakMode != "" {
 				fmt.Printf("Loss streak %d in a row (%s)\n", r.ConsecutiveLosses, strings.ToLower(r.LossStreakMode))
+			}
+			if line := ui.OvernightRiskLine(r); line != "" { // plan M11.6
+				fmt.Println(line)
 			}
 		})
 		return nil

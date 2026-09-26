@@ -1665,3 +1665,11 @@ Scope: `strategies:read`. Body (all optional but `from`): `{ "from": "2024-01-01
 byRegime, walkForward: [ { fold, from, to, stats } ], notTraded: { FAILED: n, … }, trades: [ { plan, entryDate, entry,
 exitDate, exit, reason, gapFill, quantity, holdingDays, grossR, gross, costs, net, netR } ] }`; `stats` = `{ trades, hitGoal,
 stopped, timeExit, gapFills, winners, meanR, meanNetR, net, profitFactor, meanHoldingDays }` (docs/backtesting.md, "Swing").
+
+## Swing surfaces (Phase 11, M11.6)
+
+### `POST /api/v1/swing/positions/close`
+
+Scope: `positions:close`; header `Idempotency-Key` required. Body `{ "symbol": "NSE:TCS" }` (or the bare symbol). Exits
+the open swing position in that symbol at market; its GTT is cancelled in the same operation. Returns `{ "orderId" }`;
+400 when there is no open swing position in the symbol.

@@ -90,7 +90,7 @@ test('every page at 360, 768 and 1440 px in both themes', async ({ page, request
   const API = process.env.API_URL ?? 'http://localhost:8080/api/v1';
   const token = (await (await request.post(`${API}/auth/login`, { data: { username: 'admin', password: PASSWORD } })).json()).accessToken;
   const strategies = await (await request.get(`${API}/strategies`, { headers: { Authorization: `Bearer ${token}` } })).json();
-  const pages = ['/today', '/approvals', '/orders', '/positions', '/trades', '/risk', '/risk/policies', '/broker', '/options', '/screener',
+  const pages = ['/today', '/approvals', '/orders', '/positions', '/trades', '/risk', '/swing', '/risk/policies', '/broker', '/options', '/screener',
     '/stocks/NSE:INFY', '/pulse', '/strategies', `/strategies/${strategies[0].id}`, '/lab', '/reviews', '/analytics', '/agent', '/system',
     '/settings', '/design'];
   await login(page);

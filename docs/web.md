@@ -164,3 +164,14 @@ Rules for new pages and components:
    cards below 640 px (`useMediaQuery(PHONE)`). Other wide tables scroll inside `.table-scroll` or the DataTable, never
    the page.
 6. Keep the existing `data-testid`s and accessible names. Specs depend on them. Add new ones rather than renaming.
+
+## Swing (Phase 11, M11.6)
+
+`/swing` (Trade group; linked from the Risk page) shows the swing book, labelled PAPER only: the overnight risk
+(gap-adjusted total, budget, the share used as a toned badge, positions, capital deployed, gap allowance), the open
+positions (entry date, sessions held, quantity, entry, last, stop, goal, R, unrealized P&L and the GTT state as a badge
+with a mark: ✓ active, ✗ missing, ⚠ none) with an Exit button that confirms through a `Dialog` (`POST
+/swing/positions/close`), and the setups watched today with the watcher's state. Below 640 px the positions are cards.
+The Risk page adds a "Swing book (overnight)" card (`data-testid="risk-overnight"`). Helpers in `lib/swing.ts`
+(`tests/swing.test.ts`); e2e `tests-e2e/swing.spec.ts` places a PAPER delivery entry and checks the page against the
+API's numbers, the Risk page, the phone cards and the exit; `ui-shell.spec.ts` covers `/swing` at every width in both themes.

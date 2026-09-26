@@ -101,6 +101,10 @@ type RiskDashboard struct {
 	AllowanceUsed           *int    `json:"allowanceUsed"`
 	Allowance               *int    `json:"allowance"`
 	AllowanceReason         *string `json:"allowanceReason"`
+	// the swing book's gap-adjusted overnight risk against its budget (plan M11.3); nil without a swing module
+	OvernightRisk       *Paise `json:"overnightRisk"`
+	OvernightRiskBudget *Paise `json:"overnightRiskBudget"`
+	SwingPositions      *int   `json:"swingPositions"`
 }
 
 type KillSwitch struct {

@@ -1,0 +1,10 @@
+Swing book, PAPER (swing is PAPER only)  2/6 open  overnight risk 16616.90 of 10000.00  deployed 161463.10 of 500000.00  gap 3.0%
+
+SYMBOL    ENTRY DATE  DAYS  QTY  ENTRY    LAST     STOP     GOAL     R      UNREAL ₹  GTT
+NSE:INFY  2026-12-01  3     233  100.70   107.00   93.00    120.00   +0.82  1467.90   ACTIVE 112127
+NSE:TCS   2026-11-20  11    40   3450.00  3390.00  3208.50  4140.00  -0.25  -2400.00  MISSING !
+
+Setups watched today
+SYMBOL        TYPE         PIVOT    BUY TO   STOP     GOAL     LAST     PACE   STATE
+NSE:HDFCBANK  FLAT_BASE    1650.00  1732.50  1534.50  1980.00  1622.30  0.80x  WAIT
+NSE:SBIN      MA_REVERSAL  812.00   852.60   798.10   876.95   —        —      WATCHING

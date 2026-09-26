@@ -53,13 +53,15 @@ public class SwingService {
     private final String universe;
     private final SwingEntries entries;
     private final SwingProperties swingProperties;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     SwingService(SwingStore store, MarketService market, InstrumentService instruments, ReconciliationService reconciliation, GttService gtts,
             HejjeClock clock, money.hejje.swing.internal.SwingLimitsStore limitsStore, money.hejje.orders.OrderService orders,
             money.hejje.events.EventService events, money.hejje.ratings.RatingsService ratings, money.hejje.instruments.UniverseCatalog universes,
             money.hejje.broker.BrokerAdapter broker, @org.springframework.context.annotation.Lazy money.hejje.execution.ExecutionEngine engine,
             money.hejje.audit.AuditService audit, @org.springframework.beans.factory.annotation.Value("${hejje.swing.universe:nifty500}") String universe,
-            SwingEntries entries, SwingProperties swingProperties) {
+            SwingEntries entries, SwingProperties swingProperties, org.springframework.context.ApplicationEventPublisher publisher) {
+        this.publisher = publisher;
         this.entries = entries;
         this.swingProperties = swingProperties;
         this.limitsStore = limitsStore;
@@ -183,6 +185,40 @@ public class SwingService {
         for (SwingPosition p : open(mode)) {
             if (clock.sessionsBetween(p.entryDate(), clock.today()) > maxHoldingDays(p)) {
                 out.add(row(p));
+            }
+        }
+        return out;
+    }
+
+    /**
+     * Exits one swing position by its symbol (plan M11.6, {@code hejje swing close}): a market sell of the whole delivery
+     * position, cancelling its GTT in the same operation. Returns the exit order's id.
+     */
+    public UUID closePosition(ExecutionMode mode, String symbol) {
+        String wanted = symbol == null ? "" : symbol.trim().toUpperCase(java.util.Locale.ROOT);
+        SwingPosition p = open(mode).stream().filter(s -> symbolOf(s.instrumentId()).equals(wanted) || symbolOf(s.instrumentId()).equals("NSE:" + wanted))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("no open swing position in " + symbol));
+        return engine.closePosition(p.instrumentId(), money.hejje.common.Product.CNC, p.strategyId()).id();
+    }
+
+    private String symbolOf(UUID instrumentId) {
+        return instruments.findById(instrumentId).map(i -> i.hejjeSymbol().format()).orElse(instrumentId.toString());
+    }
+
+    /**
+     * After the close (plan M11.6): announces the positions whose time exit falls on the next open (their holding limit is
+     * reached with today's session). Returns them.
+     */
+    public List<SwingBookRow> announceTimeExits(ExecutionMode mode) {
+        java.time.LocalDate next = clock.nextTradingDay(clock.today());
+        List<SwingBookRow> out = new ArrayList<>();
+        for (SwingPosition p : open(mode)) {
+            int max = maxHoldingDays(p);
+            if (clock.sessionsBetween(p.entryDate(), next) > max && clock.sessionsBetween(p.entryDate(), clock.today()) <= max) {
+                SwingBookRow row = row(p);
+                out.add(row);
+                publisher.publishEvent(new money.hejje.common.ClientNotification("swing", java.util.Map.of("event", "TIME_EXIT_DUE", "id", p.id().toString(),
+                        "symbol", row.symbol(), "daysHeld", row.daysHeld(), "maxHoldingDays", max, "date", next.toString())));
             }
         }
         return out;

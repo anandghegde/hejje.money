@@ -25,6 +25,11 @@ rules, with rate limiting and a delivery log. Off the trading core: a channel fa
 | `ENTERED_BUY_ZONE`, `NEAR_PIVOT`, `SETUP_STOPPED`, `SETUP_HIT_GOAL` | INFO | a base of a Leader (or a watchlist symbol) changed status in the nightly run (`docs/ratings.md`); informational, Hejje does not trade the setups; at most one per symbol per day; seeded with in-app rules |
 | `DAILY_CONTEXT_DIGEST` | INFO | the evening digest line after the nightly context run: market condition, new buy-zone entries, top five of the ranked analog list with counts; seeded with an in-app rule |
 | `GTT_MISSING` | CRITICAL | an open swing (delivery) position has no confirmed GTT at the broker (`docs/swing.md`); seeded with an in-app rule |
+| `GTT_PLACED` | INFO | a swing position's GTT was placed at the broker (stop, goal, quantity); seeded with an in-app rule (M11.6) |
+| `SWING_ENTRY_FILLED` | INFO | a swing (delivery) entry filled; seeded with an in-app rule |
+| `SWING_STOP_HIT` | WARNING | a swing position's GTT stop fired; the title says `gap-through` when the session opened through the stop (filled at the open); seeded with an in-app rule |
+| `SWING_GOAL_HIT` | INFO | a swing position's GTT goal fired (also flagged `gap-through` above the goal); seeded with an in-app rule |
+| `SWING_TIME_EXIT_DUE` | WARNING | after the close: a swing position reaches its holding limit and is closed at the next open; seeded with an in-app rule |
 | `GTT_MISMATCH` | WARNING | a GTT at the broker has the wrong quantity or stop, or protects no open position (orphan); seeded with an in-app rule |
 | `MARKET_CONDITION_CHANGED` | INFO (WARNING into `DOWNTREND`) | the final regime label's market condition differs from the previous session's (`docs/regime.md`); seeded with an in-app rule |
 | `TEST` | INFO | `POST /notifications/test` |

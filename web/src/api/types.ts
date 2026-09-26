@@ -52,6 +52,8 @@ export interface RiskDashboard {
   maxTradesPerDay: number; consecutiveLosses: number; marginUsedPct: number; killSwitchStopNewOrders: boolean;
   /** Plan M9.7: BLOCK or ALLOWANCE, and the day's loss-streak allowance once it triggered. */
   lossStreakMode?: string; allowanceUsed?: number | null; allowance?: number | null; allowanceReason?: string | null;
+  /** Plan M11.3: the swing book's gap-adjusted overnight risk against its budget, and its open positions. */
+  overnightRisk?: { paise: number } | null; overnightRiskBudget?: { paise: number } | null; swingPositions?: number | null;
 }
 
 export interface KillSwitch { mode: ExecutionMode; stopNewOrders: boolean; reason?: string; }

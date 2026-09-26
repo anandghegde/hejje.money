@@ -13,7 +13,7 @@ import '../styles/shell.css';
 const NAV: { group: string; items: { name: string; to?: string }[] }[] = [
   { group: 'Trade', items: [
     { name: 'Today', to: '/today' }, { name: 'Approvals', to: '/approvals' }, { name: 'Orders', to: '/orders' },
-    { name: 'Positions', to: '/positions' }, { name: 'Trades', to: '/trades' }, { name: 'Risk', to: '/risk' },
+    { name: 'Positions', to: '/positions' }, { name: 'Trades', to: '/trades' }, { name: 'Risk', to: '/risk' }, { name: 'Swing', to: '/swing' },
   ] },
   { group: 'Research', items: [
     { name: 'Screener', to: '/screener' }, { name: 'Pulse' }, { name: 'Strategies', to: '/strategies' },

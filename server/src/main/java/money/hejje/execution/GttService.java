@@ -62,9 +62,11 @@ public class GttService {
     private final ReconciliationService reconciliation;
     private final HejjeClock clock;
     private final HejjeProperties properties;
+    private final org.springframework.context.ApplicationEventPublisher events;
 
     GttService(BrokerAdapter broker, OrderService orders, GttStore store, MarketService market, AuditService audit,
-            ReconciliationService reconciliation, HejjeClock clock, HejjeProperties properties) {
+            ReconciliationService reconciliation, HejjeClock clock, HejjeProperties properties, org.springframework.context.ApplicationEventPublisher events) {
+        this.events = events;
         this.broker = broker;
         this.orders = orders;
         this.store = store;
@@ -89,6 +91,11 @@ public class GttService {
 
     public List<PositionGtt> live(ExecutionMode mode) {
         return store.live(mode);
+    }
+
+    /** Every GTT a position has had, oldest first (placed, replaced, triggered, cancelled). */
+    public List<PositionGtt> history(UUID positionId) {
+        return store.history(positionId);
     }
 
     /** Open (long) delivery positions without an ACTIVE GTT for their whole quantity: new swing entries wait until these are fixed. */
@@ -170,6 +177,9 @@ public class GttService {
         audit.record(AuditEvent.of(AuditEventType.GTT_PLACED, ActorType.SYSTEM).withActorId(actor).withBrokerRef(gttId)
                 .withPayload(payload(g, Map.of("replaced", existing.isPresent()))));
         log.info("GTT {} placed for delivery position {}: {} @ stop {} goal {}", gttId, p.id(), p.netQuantity(), stop, goal);
+        Map<String, Object> note = new LinkedHashMap<>(payload(g, Map.of()));
+        note.put("event", "GTT_PLACED");
+        events.publishEvent(new money.hejje.common.ClientNotification("swing", note)); // plan M11.6
         return g;
     }
 

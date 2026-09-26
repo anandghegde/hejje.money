@@ -211,7 +211,34 @@ class NotifyListeners {
             case "llm_budget" -> async("llm budget", () -> notifications.notify(NotificationType.LLM_BUDGET_EXCEEDED, "LLM daily budget reached",
                     "Spent " + d.get("spentPaise") + " of " + d.get("capPaise") + " paise today; LLM features pause until tomorrow.", d,
                     "llm-budget:" + d.get("date")));
+            case "swing" -> swing(d);
             default -> { } // "notification" (our own push) and the rest are not notifications
+        }
+    }
+
+    /** Plan M11.6: the swing book's events (published by the swing and execution modules as {@code ClientNotification("swing")}). */
+    private void swing(Map<String, Object> d) {
+        String event = String.valueOf(d.get("event"));
+        String symbol = d.get("symbol") != null ? String.valueOf(d.get("symbol"))
+                : d.get("instrumentId") == null ? "?" : symbol(java.util.UUID.fromString(String.valueOf(d.get("instrumentId"))));
+        switch (event) {
+            case "GTT_PLACED" -> async("gtt placed", () -> notifications.notify(NotificationType.GTT_PLACED, symbol + ": GTT placed",
+                    "Stop " + d.get("stop") + ", goal " + d.get("goal") + " for " + d.get("quantity") + " shares (GTT " + d.get("gttId") + ")", d,
+                    "gtt-placed:" + d.get("gttId") + ":" + d.get("quantity")));
+            case "ENTRY_FILLED" -> async("swing entry", () -> notifications.notify(NotificationType.SWING_ENTRY_FILLED, symbol + ": swing entry filled",
+                    d.get("quantity") + " at " + d.get("entry") + ", stop " + d.get("stop") + ", goal " + d.get("goal"), d, "swing-entry:" + d.get("id")));
+            case "STOP_HIT", "GOAL_HIT" -> {
+                boolean stop = "STOP_HIT".equals(event);
+                boolean gap = Boolean.TRUE.equals(d.get("gapThrough"));
+                async("swing exit", () -> notifications.notify(stop ? NotificationType.SWING_STOP_HIT : NotificationType.SWING_GOAL_HIT,
+                        symbol + (stop ? ": swing stop hit" : ": swing goal hit") + (gap ? " (gap-through)" : ""),
+                        "Exited at " + d.get("exit") + (gap ? ", the session opened through the " + (stop ? "stop " + d.get("stop") : "goal " + d.get("goal")) : "")
+                                + "; held " + d.get("holdingDays") + " sessions", d, "swing-exit:" + d.get("id")));
+            }
+            case "TIME_EXIT_DUE" -> async("swing time exit", () -> notifications.notify(NotificationType.SWING_TIME_EXIT_DUE, symbol + ": time exit at the next open",
+                    "Held " + d.get("daysHeld") + " sessions (limit " + d.get("maxHoldingDays") + ") without reaching goal or stop", d,
+                    "swing-time-exit:" + d.get("id") + ":" + d.get("date")));
+            default -> { }
         }
     }
 

@@ -217,3 +217,14 @@ still below their entry.
 `POST /api/v1/swing/backtest` runs the SWING backtest on D1 bars with the live swing rules (or, `rules: LEDGER`, the
 H5 ledger's rules, which reproduce the ledger within costs). The rules, the gap-through fills, the report and the
 parity test are in `docs/backtesting.md` ("Swing"). The intraday backtester refuses a `swing` strategy.
+
+## Surfaces and notifications (M11.6)
+
+- **Web** `/swing` and the Risk page's swing card (`docs/web.md`, "Swing"); **TUI** `hejje swing`, `hejje swing close
+  <symbol>` and the overnight line of `hejje risk` (`docs/tui.md`, "Swing"); `POST /api/v1/swing/positions/close
+  {symbol}` exits one position (its GTT is cancelled in the same operation).
+- **Notifications** (`docs/notifications.md`): `SWING_ENTRY_FILLED`, `GTT_PLACED`, `GTT_MISSING`, `SWING_STOP_HIT` and
+  `SWING_GOAL_HIT` (a GTT that fired; `gap-through` when the session opened through the level), `SWING_TIME_EXIT_DUE`
+  (announced after the close for the next open). The swing book publishes them as `ClientNotification("swing")`.
+- **Agent tools** (read-only): `get_swing_book` (positions with their GTTs and today's setups, `market:read`) and
+  `get_swing_risk` (overnight risk and the swing limits, `risk:read`).

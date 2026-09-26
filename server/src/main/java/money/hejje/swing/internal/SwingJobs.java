@@ -59,6 +59,11 @@ class SwingJobs {
         } catch (RuntimeException e) {
             log.warn("Trailing swing stops failed: {}", e.getMessage());
         }
+        try {
+            swing.announceTimeExits(properties.mode());
+        } catch (RuntimeException e) {
+            log.warn("Announcing swing time exits failed: {}", e.getMessage());
+        }
         reconcile("after the close");
     }
 

@@ -24,6 +24,7 @@ import { Analytics } from './pages/Analytics';
 import { Agent } from './pages/Agent';
 import { Approvals } from './pages/Approvals';
 import { Design } from './pages/Design';
+import { Swing } from './pages/Swing';
 import { ReactNode } from 'react';
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -58,6 +59,7 @@ export function App() {
             <Route path="/trades" element={<Protected><Trades /></Protected>} />
             <Route path="/options" element={<Protected><Options /></Protected>} />
             <Route path="/risk" element={<Protected><Risk /></Protected>} />
+            <Route path="/swing" element={<Protected><Swing /></Protected>} />
             <Route path="/risk/policies" element={<Protected><Policies /></Protected>} />
             <Route path="/broker" element={<Protected><Broker /></Protected>} />
             <Route path="/system" element={<Protected><System /></Protected>} />

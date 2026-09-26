@@ -142,3 +142,13 @@ in R, and Jev's reading when there is one (docs/analytics.md "Trade cause"). `--
 `hejje analytics pace [--from --to --mode --strategy]` prints the pace report: expectancy (R with its count, and
 rupees net of costs), win rate and net P&L by trades that day, by sequence in the day and by entry hour
 (docs/analytics.md). `hejje risk` adds the loss-streak line (the allowance used on an ALLOWANCE day).
+
+## Swing (Phase 11, M11.6)
+
+`hejje swing` shows the swing book (PAPER only): the open delivery positions with entry date, sessions held, quantity,
+entry, last, the stop in force, goal, R, unrealized P&L and the GTT (`ACTIVE <id>`, `MISSING !`, `NONE`); the overnight
+risk against its budget, capital deployed and the gap allowance; and the setups watched today with their pivot, buy
+zone, stop, goal, last close, volume pace and state (`GET /swing/positions`, `/swing/risk`, `/swing/setups`; the numbers
+are the API's). `hejje swing close <symbol>` exits one swing position at market after a confirmation (its GTT is
+cancelled in the same operation). `hejje risk` adds `Swing overnight risk X of Y (n%, gap-adjusted)  k swing position(s)`.
+Golden `TestSwingBookGolden`.

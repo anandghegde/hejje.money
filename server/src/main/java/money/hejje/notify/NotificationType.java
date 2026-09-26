@@ -27,6 +27,16 @@ public enum NotificationType {
     GTT_MISSING(Severity.CRITICAL),
     /** Plan M11.2: a GTT at the broker has the wrong quantity or stop, or protects no open position (orphan). */
     GTT_MISMATCH(Severity.WARNING),
+    /** Plan M11.6: a swing position's GTT was placed at the broker. */
+    GTT_PLACED(Severity.INFO),
+    /** Plan M11.6: a swing (delivery) entry filled. */
+    SWING_ENTRY_FILLED(Severity.INFO),
+    /** Plan M11.6: a swing position's GTT stop fired (a gap through it fills at the open). */
+    SWING_STOP_HIT(Severity.WARNING),
+    /** Plan M11.6: a swing position's GTT goal fired. */
+    SWING_GOAL_HIT(Severity.INFO),
+    /** Plan M11.6: a swing position reaches its holding limit and is closed at the next open. */
+    SWING_TIME_EXIT_DUE(Severity.WARNING),
     TEST(Severity.INFO);
 
     private final Severity severity;

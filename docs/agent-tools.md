@@ -35,6 +35,8 @@ with an `AGENT_TOOL_CALLED` audit event. See `docs/agents.md` for sessions, pres
 | `get_strategy_backtest` | `strategies:read` | read | A backtest by id, or the base backtest of a version: metrics overall and per split (IS / validation / OOS), quality warnings, data coverage and the result hash. |
 | `get_strategy_rankings` | `strategies:read` | read | Today's ranked recommendations as PRD 29 decision objects (score, TRADE / TRADE_WITH_CAUTION / WAIT / AVOID, direction, entry/stop/target, risk, regime, news bias, event risk, hard blocks, cautions) and the best one. |
 | `get_strategy_signal` | `strategies:read` | read | A signal by id, today's signals with a given status, or (default) every active signal: side, reference price, stop, target, validity and the evidence that fired it. |
+| `get_swing_book` | `market:read` | read | The swing book: open delivery (CNC) positions with entry date, sessions held, entry, the stop in force, goal, R, unrealized P&L and the state of the broker-side GTT stop (ACTIVE, MISSING, NONE), plus the base setups watched today with their trigger state. Swing trading is PAPER-only. |
+| `get_swing_risk` | `risk:read` | read | The swing book's overnight risk: per position quantity × (stop distance + gap allowance) at the last price, the total against its budget, capital deployed, and the swing limits. |
 | `get_trades` | `market:read` | read | Fills between two dates (default today, at most 31 days) in the current execution mode. |
 | `list_strategies` | `strategies:read` | read | Every strategy in the library with its latest version, lifecycle status and headline Hejje Score. |
 | `modify_order_intent` | `orders:prepare` | transactional | Asks a human to approve modifying an open order (quantity, order type, limit or trigger price). |
@@ -3446,6 +3448,333 @@ Output schema:
           }
         }
       }
+    }
+  }
+}
+```
+
+## `get_swing_book`
+
+The swing book: open delivery (CNC) positions with entry date, sessions held, entry, the stop in force, goal, R, unrealized P&L and the state of the broker-side GTT stop (ACTIVE, MISSING, NONE), plus the base setups watched today with their trigger state. Swing trading is PAPER-only.
+
+Scope `market:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : { },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "paperOnly" : {
+      "type" : "boolean"
+    },
+    "positions" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "instrumentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "strategyId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "openedAt" : {
+            "type" : "string"
+          },
+          "entryDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "daysHeld" : {
+            "type" : "integer"
+          },
+          "quantity" : {
+            "type" : "integer"
+          },
+          "entryPrice" : {
+            "type" : "number"
+          },
+          "stop" : {
+            "type" : "number"
+          },
+          "goal" : {
+            "type" : "number"
+          },
+          "lastPrice" : {
+            "type" : "number"
+          },
+          "r" : {
+            "type" : "number"
+          },
+          "unrealizedPnl" : {
+            "type" : "object",
+            "properties" : {
+              "paise" : {
+                "type" : "integer"
+              }
+            },
+            "required" : [ "paise" ]
+          },
+          "gtt" : {
+            "type" : "string"
+          },
+          "gttId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "daysHeld", "quantity" ]
+      }
+    },
+    "setups" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "deploymentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "baseId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "instrumentId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "symbol" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "pivot" : {
+            "type" : "number"
+          },
+          "buyHigh" : {
+            "type" : "number"
+          },
+          "stop" : {
+            "type" : "number"
+          },
+          "goal" : {
+            "type" : "number"
+          },
+          "avgVolume50" : {
+            "type" : "integer"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "lastClose" : {
+            "type" : "number"
+          },
+          "pace" : {
+            "type" : "number"
+          },
+          "signalId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      }
+    }
+  },
+  "required" : [ "paperOnly" ]
+}
+```
+
+## `get_swing_risk`
+
+The swing book's overnight risk: per position quantity × (stop distance + gap allowance) at the last price, the total against its budget, capital deployed, and the swing limits.
+
+Scope `risk:read`, read-only.
+
+Input schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : { },
+  "additionalProperties" : false
+}
+```
+
+Output schema:
+
+```json
+{
+  "type" : "object",
+  "properties" : {
+    "mode" : {
+      "type" : "string"
+    },
+    "overnight" : {
+      "type" : "object",
+      "properties" : {
+        "mode" : {
+          "type" : "string",
+          "enum" : [ "PAPER", "CONFIRM", "AUTO", "SIM" ]
+        },
+        "overnightRisk" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "budget" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "gapAllowancePct" : {
+          "type" : "number"
+        },
+        "openPositions" : {
+          "type" : "integer"
+        },
+        "maxOpenPositions" : {
+          "type" : "integer"
+        },
+        "deployed" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "capital" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "positions" : {
+          "type" : "array",
+          "items" : {
+            "type" : "object",
+            "properties" : {
+              "instrumentId" : {
+                "type" : "string",
+                "format" : "uuid"
+              },
+              "symbol" : {
+                "type" : "string"
+              },
+              "quantity" : {
+                "type" : "integer"
+              },
+              "price" : {
+                "type" : "number"
+              },
+              "stop" : {
+                "type" : "number"
+              },
+              "industry" : {
+                "type" : "string"
+              },
+              "risk" : {
+                "type" : "object",
+                "properties" : {
+                  "paise" : {
+                    "type" : "integer"
+                  }
+                },
+                "required" : [ "paise" ]
+              }
+            },
+            "required" : [ "quantity" ]
+          }
+        }
+      },
+      "required" : [ "openPositions", "maxOpenPositions" ]
+    },
+    "limits" : {
+      "type" : "object",
+      "properties" : {
+        "mode" : {
+          "type" : "string",
+          "enum" : [ "PAPER", "CONFIRM", "AUTO", "SIM" ]
+        },
+        "swingCapital" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "maxOpenPositions" : {
+          "type" : "integer"
+        },
+        "maxRiskPerPosition" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "gapAllowancePct" : {
+          "type" : "number"
+        },
+        "maxOvernightRisk" : {
+          "type" : "object",
+          "properties" : {
+            "paise" : {
+              "type" : "integer"
+            }
+          },
+          "required" : [ "paise" ]
+        },
+        "maxPositionsPerIndustry" : {
+          "type" : "integer"
+        },
+        "blockBeforeEvents" : {
+          "type" : "boolean"
+        },
+        "blockSurveillance" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [ "maxOpenPositions", "maxPositionsPerIndustry", "blockBeforeEvents", "blockSurveillance" ]
     }
   }
 }

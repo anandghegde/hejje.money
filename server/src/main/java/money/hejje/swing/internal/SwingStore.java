@@ -25,8 +25,8 @@ public class SwingStore {
     }
 
     /** Inserts an OPEN row unless the position already has one (the listener may see two fills of one entry at once). */
-    public void insertOpen(SwingPosition p, Instant now) {
-        jdbc.sql("""
+    public boolean insertOpen(SwingPosition p, Instant now) {
+        return jdbc.sql("""
                 INSERT INTO swing_position (id, mode, position_id, instrument_id, strategy_id, entry_order_id, opened_at, entry_date, quantity, entry_price,
                     initial_stop, goal, status, updated_at, trail)
                 VALUES (:id, :mode, :positionId, :instrumentId, :strategyId, :entryOrderId, :openedAt, :entryDate, :quantity, :entryPrice, :initialStop, :goal,
@@ -36,7 +36,7 @@ public class SwingStore {
                 .param("id", p.id()).param("mode", p.mode().name()).param("positionId", p.positionId()).param("instrumentId", p.instrumentId())
                 .param("strategyId", p.strategyId(), Types.OTHER).param("entryOrderId", p.entryOrderId()).param("openedAt", ts(p.openedAt()))
                 .param("entryDate", p.entryDate()).param("quantity", p.quantity()).param("entryPrice", p.entryPrice())
-                .param("initialStop", p.initialStop(), Types.NUMERIC).param("goal", p.goal(), Types.NUMERIC).param("now", ts(now)).param("trail", p.trail()).update();
+                .param("initialStop", p.initialStop(), Types.NUMERIC).param("goal", p.goal(), Types.NUMERIC).param("now", ts(now)).param("trail", p.trail()).update() > 0;
     }
 
     public void updateOpen(UUID id, int quantity, java.math.BigDecimal entryPrice, Instant now) {
@@ -44,13 +44,13 @@ public class SwingStore {
                 .param("q", quantity).param("p", entryPrice).param("now", ts(now)).param("id", id).update();
     }
 
-    public void close(UUID id, Instant closedAt, java.time.LocalDate exitDate, java.math.BigDecimal exitPrice, int holdingDays) {
-        jdbc.sql("""
+    public boolean close(UUID id, Instant closedAt, java.time.LocalDate exitDate, java.math.BigDecimal exitPrice, int holdingDays) {
+        return jdbc.sql("""
                 UPDATE swing_position SET status = 'CLOSED', closed_at = :closedAt, exit_date = :exitDate, exit_price = :exitPrice, holding_days = :days,
                     updated_at = :closedAt
                 WHERE id = :id AND status = 'OPEN'
                 """).param("closedAt", ts(closedAt)).param("exitDate", exitDate).param("exitPrice", exitPrice, Types.NUMERIC)
-                .param("days", holdingDays).param("id", id).update();
+                .param("days", holdingDays).param("id", id).update() > 0;
     }
 
     public Optional<SwingPosition> findOpen(UUID positionId) {
