@@ -1,6 +1,8 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { Button, Field } from '../ui';
+import '../styles/system.css';
 
 export function Login() {
   const { login } = useAuth();
@@ -17,12 +19,18 @@ export function Login() {
   }
 
   return (
-    <form onSubmit={submit} style={{ maxWidth: 320, margin: '80px auto', fontFamily: 'system-ui' }}>
-      <h1>Hejje</h1>
-      <input aria-label="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" style={{ display: 'block', width: '100%', margin: '8px 0' }} />
-      <input aria-label="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" style={{ display: 'block', width: '100%', margin: '8px 0' }} />
-      <button type="submit">Log in</button>
-      {error && <p style={{ color: '#c0392b' }} role="alert">{error}</p>}
-    </form>
+    <main className="login">
+      <form onSubmit={submit} className="login-card stack">
+        <h1>Hejje</h1>
+        <Field label="Username">
+          <input aria-label="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="username" />
+        </Field>
+        <Field label="Password">
+          <input aria-label="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="password" />
+        </Field>
+        <Button type="submit" variant="primary">Log in</Button>
+        {error && <p className="message message-loss" role="alert">{error}</p>}
+      </form>
+    </main>
   );
 }

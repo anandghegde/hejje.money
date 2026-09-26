@@ -1,0 +1,46 @@
+/* System, settings, policies, Hejje AI and login. */
+
+/* ---- Login ---- */
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-12) var(--space-4);
+  background: var(--bg);
+}
+.login-card {
+  width: min(360px, 100%);
+  padding: var(--space-6);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2);
+}
+.login-card input { width: 100%; }
+
+/* ---- Hejje AI ---- */
+.agent-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: var(--space-4); align-items: start; }
+.ai-question-text { font-weight: var(--weight-bold); }
+.ai-answer {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ai-grounding { margin-top: var(--space-2); font-size: var(--text-xs); }
+.ai-proposal { margin-top: var(--space-2); }
+.unverified { background: var(--warning-soft); color: var(--warning); border-radius: 2px; }
+.ai-form { display: flex; gap: var(--space-2); }
+.ai-form input { flex: 1 1 auto; min-width: 0; }
+
+/* ---- Settings: notifications inbox ---- */
+.inbox { display: flex; flex-direction: column; gap: var(--space-2); }
+.inbox-item { display: flex; flex-direction: column; gap: var(--space-1); }
+.inbox-read { opacity: 0.65; }
+.inbox-body { white-space: pre-wrap; color: var(--text-secondary); font-size: var(--text-sm); }
+
+@media (max-width: 900px) {
+  .agent-grid { grid-template-columns: minmax(0, 1fr); }
+}

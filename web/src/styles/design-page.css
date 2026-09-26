@@ -1,0 +1,57 @@
+/* The /design style page only. */
+
+.design-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  gap: var(--space-4);
+}
+
+.design-theme {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.design-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
+.design-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--space-4); }
+.design-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); }
+.design-tab-panel { margin-top: var(--space-3); }
+.design-theme .toast { margin-bottom: var(--space-2); }
+
+.design-type { display: flex; flex-direction: column; gap: var(--space-1); }
+.design-2xl { font-size: var(--text-2xl); font-weight: var(--weight-bold); }
+.design-xl { font-size: var(--text-xl); font-weight: var(--weight-bold); }
+.design-lg { font-size: var(--text-lg); font-weight: var(--weight-bold); }
+.design-sm { font-size: var(--text-sm); }
+.design-xs { font-size: var(--text-xs); color: var(--text-muted); }
+.design-type .num { text-align: left; }
+
+.design-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-2); }
+.design-swatch { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); min-width: 0; }
+.design-chip {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+}
+.design-chip-bg { background: var(--bg); }
+.design-chip-surface { background: var(--surface); }
+.design-chip-surface-2 { background: var(--surface-2); }
+.design-chip-border { background: var(--border); }
+.design-chip-text { background: var(--text); }
+.design-chip-text-secondary { background: var(--text-secondary); }
+.design-chip-text-muted { background: var(--text-muted); }
+.design-chip-accent { background: var(--accent); }
+.design-chip-profit { background: var(--profit); }
+.design-chip-loss { background: var(--loss); }
+.design-chip-warning { background: var(--warning); }
+.design-chip-info { background: var(--info); }
+.design-chip-mode-live { background: var(--mode-live); }
+.design-chip-mode-paper { background: var(--mode-paper); }
+.design-chip-mode-sim { background: var(--mode-sim); }

@@ -16,6 +16,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: [],
+    css: { include: [/styles\/tokens\.css/] },
     include: ['tests/**/*.test.{ts,tsx}'],
   },
 });

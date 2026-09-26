@@ -1,8 +1,9 @@
 import { DeploymentDrift, DriftStatus } from '../api/types';
 import { formatR } from './today';
+import type { BadgeTone } from '../ui';
 
-export const DRIFT_COLOR: Record<DriftStatus, string> = {
-  INSUFFICIENT_DATA: '#616161', HEALTHY: '#2e7d32', WATCH: '#b7791f', DEGRADING: '#ef6c00', FAILED: '#c0392b',
+export const DRIFT_TONE: Record<DriftStatus, BadgeTone> = {
+  INSUFFICIENT_DATA: 'neutral', HEALTHY: 'profit', WATCH: 'warning', DEGRADING: 'warning', FAILED: 'loss',
 };
 
 const pct = (x?: number) => (x == null ? '—' : `${Math.round(x * 100)}%`);

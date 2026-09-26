@@ -1,0 +1,38 @@
+/* Trading pages (Today, Positions, Orders, Approvals, Risk, Broker): what the shared components do not cover. */
+
+/* ---- Approvals ---- */
+.approval-card { border-left: 4px solid var(--warning); }
+.approval-rationale { margin: 0; font-style: italic; }
+.approval-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.approval-actions input { flex: 1 1 160px; min-width: 0; }
+
+/* ---- Risk ---- */
+.risk-kill { border-left: 4px solid var(--danger); }
+.risk-kill-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.risk-close-all { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); }
+.risk-streak { margin-top: var(--space-4); }
+
+/* ---- Manual order ticket ---- */
+.ticket { max-width: 640px; }
+.ticket-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: var(--space-3); }
+.ticket-symbol { display: flex; align-items: flex-end; gap: var(--space-2); }
+.ticket-symbol .field { flex: 1 1 auto; }
+.ticket-summary { font-weight: var(--weight-medium); }
+
+/* ---- Today ---- */
+.today-header { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.today-header b { font-variant-numeric: tabular-nums; }
+.best-card { border: 2px solid var(--profit); max-width: 720px; }
+.best-score { font-size: var(--text-2xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+.best-decision { font-size: var(--text-lg); }
+.today-no-trade { font-size: var(--text-lg); color: var(--text-secondary); }
+.execute-checks { max-height: 180px; overflow: auto; }
+.ranked-cards { list-style: none; padding: 0; margin: 0; }
+
+@media (max-width: 639px) {
+  .risk-kill-actions > .btn,
+  .risk-close-all,
+  .risk-close-all .btn { width: 100%; }
+  .risk-close-all .field { flex: 1 1 100%; }
+  .approval-actions .btn { flex: 1 1 auto; }
+}

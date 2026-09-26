@@ -1,8 +1,9 @@
 import { Recommendation } from '../api/types';
+import type { BadgeTone } from '../ui';
 
-/** Colour for a PRD 15 decision. */
-export function decisionColor(decision: Recommendation['decision']): string {
-  return decision === 'TRADE' ? '#1a9f57' : decision === 'TRADE_WITH_CAUTION' ? '#d97706' : decision === 'AVOID' ? '#c0392b' : '#b7791f';
+/** Badge tone for a PRD 15 decision. */
+export function decisionTone(decision: Recommendation['decision']): BadgeTone {
+  return decision === 'TRADE' ? 'profit' : decision === 'AVOID' ? 'loss' : decision === 'WAIT' ? 'neutral' : 'warning';
 }
 
 /** Reward:risk of a recommendation from its levels, or null when a level is missing. */

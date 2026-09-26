@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '../api/client';
 import { PolicyDecision, PolicyRule, PolicyView } from '../api/types';
 import { actionsText, decisionsFor, parseParams, sortRules } from '../lib/policies';
+import { Button, Card, Page } from '../ui';
+import '../styles/system.css';
 
 function RuleRow({ rule, onSaved }: { rule: PolicyRule; onSaved: () => void }) {
   const [enabled, setEnabled] = useState(rule.enabled);
@@ -24,22 +26,23 @@ function RuleRow({ rule, onSaved }: { rule: PolicyRule; onSaved: () => void }) {
   }
 
   return (
-    <tr data-testid={`policy-${rule.name}`} style={{ opacity: enabled ? 1 : 0.5 }}>
-      <td><input type="number" value={priority} style={{ width: 56 }} onChange={(e) => setPriority(Number(e.target.value))} /></td>
-      <td><b>{rule.name}</b><div style={{ fontSize: 12, color: '#616161' }}>{rule.description}</div></td>
+    <tr data-testid={`policy-${rule.name}`} className={enabled ? undefined : 'row-disabled'}>
+      <td><input className="input-xs" type="number" aria-label={`${rule.name} priority`} value={priority} onChange={(e) => setPriority(Number(e.target.value))} /></td>
+      <td><b>{rule.name}</b><div className="muted text-sm">{rule.description}</div></td>
       <td>{rule.condition}</td>
       <td>{actionsText(rule)}</td>
       <td>
-        <select value={decision} onChange={(e) => setDecision(e.target.value as PolicyDecision)}>
+        <select aria-label={`${rule.name} decision`} value={decision} onChange={(e) => setDecision(e.target.value as PolicyDecision)}>
           {decisionsFor(rule).map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
       </td>
-      <td><input value={paramsText} onChange={(e) => setParamsText(e.target.value)} style={{ width: 160, borderColor: params ? undefined : '#c0392b' }} /></td>
-      <td><input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /></td>
+      <td><input className="input-md" aria-label={`${rule.name} params`} aria-invalid={params ? undefined : true} value={paramsText} onChange={(e) => setParamsText(e.target.value)} />
+        {!params && <div className="field-error">Not valid JSON</div>}</td>
+      <td><input type="checkbox" aria-label={`${rule.name} enabled`} checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /></td>
       <td>
-        <button disabled={!dirty || !params} onClick={save}>Save</button>
-        {error && <div style={{ color: '#c0392b', fontSize: 12 }}>{error}</div>}
-        <div style={{ fontSize: 11, color: '#616161' }}>{rule.updatedBy} · {new Date(rule.updatedAt).toLocaleString()}</div>
+        <Button size="sm" disabled={!dirty || !params} onClick={save}>Save</Button>
+        {error && <div className="field-error">{error}</div>}
+        <div className="muted text-xs">{rule.updatedBy} · {new Date(rule.updatedAt).toLocaleString()}</div>
       </td>
     </tr>
   );
@@ -49,11 +52,14 @@ function RuleRow({ rule, onSaved }: { rule: PolicyRule; onSaved: () => void }) {
 export function Policies() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: ['policies'], queryFn: () => request<PolicyView>('/risk/policies') });
-  if (!data) return <p>Loading…</p>;
+  if (!data) return <Page title="Approval policies"><p>Loading…</p></Page>;
   return (
-    <div>
-      <h1>Approval policies</h1>
-      <ul>{data.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+    <Page title="Approval policies">
+      <Card>
+        <ul>{data.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      </Card>
+      <Card>
+      <div className="table-scroll">
       <table>
         <thead><tr><th>Priority</th><th>Rule</th><th>Condition</th><th>Actions</th><th>Decision</th><th>Params</th><th>On</th><th></th></tr></thead>
         <tbody>
@@ -62,7 +68,9 @@ export function Policies() {
           ))}
         </tbody>
       </table>
-      <p>When no rule matches: <b>{data.defaultDecision}</b></p>
-    </div>
+      </div>
+      <p className="section">When no rule matches: <b>{data.defaultDecision}</b></p>
+      </Card>
+    </Page>
   );
 }

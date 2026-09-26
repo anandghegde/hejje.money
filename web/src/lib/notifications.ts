@@ -1,6 +1,6 @@
 import { NotificationChannel, NotificationDelivery, NotificationRule, NotificationSeverity } from '../api/types';
 
-export const SEVERITY_COLOR: Record<NotificationSeverity, string> = { INFO: '#2c6fbb', WARNING: '#b7791f', CRITICAL: '#c0392b' };
+export const SEVERITY_TONE: Record<NotificationSeverity, 'info' | 'warning' | 'loss'> = { INFO: 'info', WARNING: 'warning', CRITICAL: 'loss' };
 export const CHANNELS: NotificationChannel[] = ['IN_APP', 'EMAIL', 'TELEGRAM'];
 
 export interface RuleRow { eventType: string; rules: Partial<Record<NotificationChannel, NotificationRule>>; }

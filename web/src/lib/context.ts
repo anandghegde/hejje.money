@@ -1,4 +1,5 @@
 import { AnalogMatch, AnalogOutcome, Base, ScreenFilter } from '../api/types';
+import type { BadgeTone } from '../ui';
 
 /** Daily context helpers (plan M8.7). Pure functions so they can be unit tested. */
 
@@ -9,21 +10,20 @@ export const LIST_LABEL: Record<string, string> = {
 export const LOOKBACKS = [5, 10, 15, 20, 25, 30, 40, 50];
 export const OPS: ScreenFilter['op'][] = ['gte', 'lte', 'gt', 'lt', 'eq', 'ne', 'in'];
 
-export function conditionColor(condition?: string): string {
+export function conditionTone(condition?: string): BadgeTone {
   switch (condition) {
-    case 'CONFIRMED_UPTREND': case 'Confirmed uptrend': return '#1a9f57';
-    case 'UPTREND_UNDER_PRESSURE': case 'Uptrend under pressure': return '#b7791f';
-    case 'RALLY_ATTEMPT': case 'Rally attempt': return '#2b6cb0';
-    case 'DOWNTREND': case 'Downtrend': return '#c0392b';
-    default: return '#616161';
+    case 'CONFIRMED_UPTREND': case 'Confirmed uptrend': return 'profit';
+    case 'UPTREND_UNDER_PRESSURE': case 'Uptrend under pressure': return 'warning';
+    case 'RALLY_ATTEMPT': case 'Rally attempt': return 'info';
+    case 'DOWNTREND': case 'Downtrend': return 'loss';
+    default: return 'neutral';
   }
 }
 
-export function directionColor(direction?: string): string {
-  if (!direction) return '#616161';
-  if (direction.startsWith('BULLISH')) return '#1a9f57';
-  if (direction.startsWith('BEARISH')) return '#c0392b';
-  return '#616161';
+export function directionTone(direction?: string): BadgeTone {
+  if (direction?.startsWith('BULLISH')) return 'profit';
+  if (direction?.startsWith('BEARISH')) return 'loss';
+  return 'neutral';
 }
 
 /** A rate is never shown without its count: "27 of 40 (68 %)". */

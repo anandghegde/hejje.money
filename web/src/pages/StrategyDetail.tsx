@@ -9,6 +9,10 @@ import { NewsBiasPanel } from '../components/NewsBiasPanel';
 import { formatPaise } from '../lib/sizing';
 import { formatR } from '../lib/today';
 import { EquityChart } from '../components/EquityChart';
+import { Button, Card, Dialog, Field, Page, signed, tone } from '../ui';
+import '../styles/research.css';
+
+const net = (paise: number) => <span className={`tone-${tone(paise)}`}>{signed(paise / 100)}</span>;
 
 function Rules({ definition }: { definition: any }) {
   if (!definition) return null;
@@ -26,39 +30,40 @@ function Rules({ definition }: { definition: any }) {
 function Metrics({ b }: { b: Backtest }) {
   const m = b.metrics;
   if (!m) return <p>{b.status} {b.error ?? ''}</p>;
+  const stat = (label: string, value: React.ReactNode) => <div className="stat"><div className="stat-label">{label}</div><div className="stat-value num">{value}</div></div>;
   return (
-    <table>
-      <tbody>
-        <tr><td>Trades</td><td>{m.totalTrades}</td><td>Win rate</td><td>{Math.round(m.winRate * 100)}%</td></tr>
-        <tr><td>Expectancy</td><td>{formatR(m.expectancyR)}</td><td>Profit factor</td><td>{m.profitFactor?.toFixed(2) ?? '—'}</td></tr>
-        <tr><td>Max DD</td><td>-{m.maxDrawdownR.toFixed(1)}R</td><td>Sharpe</td><td>{m.sharpe?.toFixed(2) ?? '—'}</td></tr>
-        <tr><td>Gross</td><td>{formatPaise(m.grossPnl.paise)}</td><td>Costs</td><td>{formatPaise(m.totalCosts.paise)}</td></tr>
-        <tr><td>Net</td><td>{formatPaise(m.netPnl.paise)}</td><td>Sessions</td><td>{b.sessionsWithData}/{b.sessionsExpected}</td></tr>
-      </tbody>
-    </table>
+    <div className="stat-grid">
+      {stat('Trades', m.totalTrades)}{stat('Win rate', `${Math.round(m.winRate * 100)}%`)}
+      {stat('Expectancy', <span className={`tone-${tone(m.expectancyR)}`}>{formatR(m.expectancyR)}</span>)}{stat('Profit factor', m.profitFactor?.toFixed(2) ?? '—')}
+      {stat('Max DD', `-${m.maxDrawdownR.toFixed(1)}R`)}{stat('Sharpe', m.sharpe?.toFixed(2) ?? '—')}
+      {stat('Gross', net(m.grossPnl.paise))}{stat('Costs', formatPaise(m.totalCosts.paise))}
+      {stat('Net', net(m.netPnl.paise))}{stat('Sessions', `${b.sessionsWithData}/${b.sessionsExpected}`)}
+    </div>
   );
 }
 
 function Regimes({ r }: { r: RegimeBreakdown }) {
   return (
-    <div data-testid="regime-breakdown">
+    <div data-testid="regime-breakdown" className="stack-sm">
       <h4>By regime ({r.dims.join(' × ')})</h4>
       <p>
         {r.similar
           ? <>Similar regime <b>{r.similar.current}</b>: {r.similar.trades} trades, {formatR(r.similar.expectancyR)} expectancy vs {formatR(r.similar.overallExpectancyR)} overall</>
           : <>Similar regime: {r.note ?? 'n/a'}</>}
       </p>
-      <table>
-        <thead><tr><th>Regime</th><th>Trades</th><th>Win rate</th><th>Expectancy</th><th>PF</th><th>Net</th></tr></thead>
-        <tbody>
-          {r.byRegime.map((b) => (
-            <tr key={b.key}>
-              <td>{b.key}</td><td>{b.trades}</td><td>{Math.round(b.winRate * 100)}%</td><td>{formatR(b.expectancyR)}</td>
-              <td>{b.profitFactor?.toFixed(2) ?? '—'}</td><td>{formatPaise(b.netPnl.paise)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table>
+          <thead><tr><th>Regime</th><th className="num">Trades</th><th className="num">Win rate</th><th className="num">Expectancy</th><th className="num">PF</th><th className="num">Net</th></tr></thead>
+          <tbody>
+            {r.byRegime.map((b) => (
+              <tr key={b.key}>
+                <td>{b.key}</td><td className="num">{b.trades}</td><td className="num">{Math.round(b.winRate * 100)}%</td><td className="num">{formatR(b.expectancyR)}</td>
+                <td className="num">{b.profitFactor?.toFixed(2) ?? '—'}</td><td className="num">{net(b.netPnl.paise)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -69,6 +74,8 @@ export function StrategyDetail() {
   const [selected, setSelected] = useState<number | null>(null);
   const [compareA, setCompareA] = useState<number | null>(null);
   const [backtestId, setBacktestId] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState('');
+  const [confirmRetire, setConfirmRetire] = useState(false);
   const { data: strategy } = useQuery({ queryKey: ['strategy', id], queryFn: () => request<Strategy>(`/strategies/${id}`) });
   const { data: versions } = useQuery({ queryKey: ['versions', id], queryFn: () => request<StrategyVersion[]>(`/strategies/${id}/versions`) });
   const version = versions?.find((v) => v.version === (selected ?? strategy?.latestVersion));
@@ -100,89 +107,127 @@ export function StrategyDetail() {
     qc.invalidateQueries({ queryKey: ['deployments'] });
   }
   async function setStatus(status: string) {
-    await request(`/strategies/${id}/versions/${version!.version}/status`, { method: 'POST', body: { status } }).catch((e) => alert(e.message));
+    setConfirmRetire(false);
+    setStatusError('');
+    await request(`/strategies/${id}/versions/${version!.version}/status`, { method: 'POST', body: { status } }).catch((e) => setStatusError(e.message));
     qc.invalidateQueries({ queryKey: ['versions', id] });
   }
 
-  if (!strategy || !versions) return <p>Loading…</p>;
+  if (!strategy || !versions) return <Page title="Strategy"><p>Loading…</p></Page>;
   return (
-    <div>
-      <h1>{strategy.slug} <small>({strategy.family})</small></h1>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        Version:
-        <select value={version?.version ?? ''} onChange={(e) => setSelected(Number(e.target.value))}>
-          {versions.map((v) => <option key={v.id} value={v.version}>v{v.version} — {v.status} — {v.changeNote}</option>)}
-        </select>
-        <Link to={`/lab?strategyId=${id}&version=${version?.version ?? ''}`}>Edit in Lab</Link>
-        Compare with:
-        <select value={compareA ?? ''} onChange={(e) => setCompareA(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">—</option>
-          {versions.filter((v) => v.version !== version?.version).map((v) => <option key={v.id} value={v.version}>v{v.version}</option>)}
-        </select>
-      </div>
-      {comparison && (
-        <div style={{ marginTop: 8, padding: 8, background: '#f4f6f8' }}>
-          <b>{comparison.verdict}</b>
-          <table><tbody>{comparison.deltas.map((d: any) => <tr key={d.metric}><td>{d.metric}</td><td>{d.a ?? '—'}</td><td>{d.b ?? '—'}</td><td>{d.changePct != null ? `${d.changePct}%` : ''}</td></tr>)}</tbody></table>
+    <Page title={<>{strategy.slug} <small className="muted">({strategy.family})</small></>}
+      actions={<Link to={`/lab?strategyId=${id}&version=${version?.version ?? ''}`}>Edit in Lab</Link>}>
+      <Card>
+        <div className="cluster">
+          <Field label="Version">
+            <select value={version?.version ?? ''} onChange={(e) => setSelected(Number(e.target.value))}>
+              {versions.map((v) => <option key={v.id} value={v.version}>v{v.version} — {v.status} — {v.changeNote}</option>)}
+            </select>
+          </Field>
+          <Field label="Compare with">
+            <select value={compareA ?? ''} onChange={(e) => setCompareA(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">—</option>
+              {versions.filter((v) => v.version !== version?.version).map((v) => <option key={v.id} value={v.version}>v{v.version}</option>)}
+            </select>
+          </Field>
         </div>
-      )}
+        {comparison && (
+          <div className="panel section">
+            <b>{comparison.verdict}</b>
+            <div className="table-scroll">
+              <table><tbody>{comparison.deltas.map((d: any) => <tr key={d.metric}><td>{d.metric}</td><td className="num">{d.a ?? '—'}</td><td className="num">{d.b ?? '—'}</td><td className="num">{d.changePct != null ? `${d.changePct}%` : ''}</td></tr>)}</tbody></table>
+            </div>
+          </div>
+        )}
+      </Card>
       {version && (
         <>
-          <h3>Rules (v{version.version}, {version.status})</h3>
-          <Rules definition={version.definition} />
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['BACKTESTED', 'VALIDATED', 'PAPER', 'LIVE', 'PAUSED', 'RETIRED'].map((s) => <button key={s} onClick={() => setStatus(s)}>→ {s}</button>)}
-          </div>
-          <h3>Hejje Score {score?.breakdown ? <span data-testid="score-final">{score.breakdown.finalScore}</span> : '—'}</h3>
-          {score?.breakdown && (
-            <table>
-              <tbody>
-                {score.breakdown.components.map((c) => <tr key={c.name}><td>{c.name}</td><td>{(c.weight * 100).toFixed(0)}%</td><td>{c.score}</td><td>{c.contribution}</td></tr>)}
-                <tr><td><b>Base</b></td><td></td><td></td><td>{score.breakdown.base} {score.breakdown.cap ? `(${score.breakdown.cap})` : ''}</td></tr>
-                {score.breakdown.adjustments.map((a) => <tr key={a.name}><td>{a.name}</td><td></td><td></td><td>{a.delta >= 0 ? '+' : ''}{a.delta}</td></tr>)}
-                <tr><td><b>Final</b></td><td></td><td></td><td><b>{score.breakdown.finalScore}</b></td></tr>
-              </tbody>
-            </table>
-          )}
-          {eventRisk && (
-            <p data-testid="next-event">
-              Event risk <b>{eventRisk.level}</b>
-              {eventRisk.nextEvent ? <> · Next event — {eventRisk.nextEvent.title} {eventRisk.nextEvent.allDay ? new Date(eventRisk.nextEvent.startsAt).toLocaleDateString() : new Date(eventRisk.nextEvent.startsAt).toLocaleString()}</> : ' · no scheduled events'}
-            </p>
-          )}
-          <NewsBiasPanel instrumentId={firstInstrument} />
-          {contextCard && <ContextCard context={contextCard} />}
-          <h3>Deployments</h3>
-          <button onClick={deploy} disabled={!['PAPER', 'LIVE'].includes(version.status)}>Deploy (PAPER, ₹2,000 risk)</button>
-          <ul>
-            {(deployments ?? []).map((d) => (
-              <li key={d.id}>{d.mode} · {d.instrumentIds.length} instrument(s) · {d.enabled ? 'enabled' : `paused (${d.pauseReason ?? ''})`}
-                {d.sizeMultiplier < 1 && <> · size ×{d.sizeMultiplier.toFixed(2)}</>}
-                <button onClick={() => toggle(d)} style={{ marginLeft: 8 }}>{d.enabled ? 'Pause' : 'Enable'}</button></li>
-            ))}
-          </ul>
-          <DriftPanel strategyId={strategy.id} />
-          <h3>Backtests</h3>
-          <select value={shown?.id ?? ''} onChange={(e) => setBacktestId(e.target.value)}>
-            {(backtests ?? []).map((b) => <option key={b.id} value={b.id}>{new Date(b.createdAt).toLocaleString()} — {b.status} {b.progressPct}%</option>)}
-          </select>
-          {shown && <Metrics b={shown} />}
-          {regimes && <Regimes r={regimes} />}
-          {shown?.metrics && <EquityChart points={shown.metrics.equityCurve} />}
-          {shown?.warnings?.length ? <ul>{shown.warnings.map((w) => <li key={w.code} style={{ color: w.severity === 'FAIL' ? '#c0392b' : '#b7791f' }}>{w.code}: {w.message}</li>)}</ul> : null}
-          {trades && (
-            <table style={{ marginTop: 8 }}>
-              <thead><tr><th>Entry</th><th>Exit</th><th>Side</th><th>Qty</th><th>In</th><th>Out</th><th>Net</th><th>R</th><th>Reason</th></tr></thead>
-              <tbody>
-                {trades.slice(0, 200).map((t) => (
-                  <tr key={t.id}><td>{new Date(t.entryTime).toLocaleString()}</td><td>{new Date(t.exitTime).toLocaleTimeString()}</td><td>{t.side}</td><td>{t.qty}</td>
-                    <td>{t.entryPrice}</td><td>{t.exitPrice}</td><td>{formatPaise(t.netPnl.paise)}</td><td>{formatR(t.rMultiple)}</td><td>{t.exitReason}</td></tr>
+          <Card title={<>Rules (v{version.version}, {version.status})</>}>
+            <div className="stack">
+              <Rules definition={version.definition} />
+              <div className="cluster">
+                {['BACKTESTED', 'VALIDATED', 'PAPER', 'LIVE', 'PAUSED', 'RETIRED'].map((s) => (
+                  <Button key={s} size="sm" variant={s === 'RETIRED' ? 'danger' : 'secondary'} onClick={() => (s === 'RETIRED' ? setConfirmRetire(true) : setStatus(s))}>→ {s}</Button>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+              {statusError && <p className="message message-loss">{statusError}</p>}
+            </div>
+          </Card>
+          <Card title={<>Hejje Score {score?.breakdown ? <span data-testid="score-final">{score.breakdown.finalScore}</span> : '—'}</>}>
+            <div className="stack">
+              {score?.breakdown && (
+                <div className="table-scroll">
+                  <table>
+                    <tbody>
+                      {score.breakdown.components.map((c) => <tr key={c.name}><td>{c.name}</td><td className="num">{(c.weight * 100).toFixed(0)}%</td><td className="num">{c.score}</td><td className="num">{c.contribution}</td></tr>)}
+                      <tr><td><b>Base</b></td><td></td><td></td><td className="num">{score.breakdown.base} {score.breakdown.cap ? `(${score.breakdown.cap})` : ''}</td></tr>
+                      {score.breakdown.adjustments.map((a) => <tr key={a.name}><td>{a.name}</td><td></td><td></td><td className="num">{a.delta >= 0 ? '+' : ''}{a.delta}</td></tr>)}
+                      <tr><td><b>Final</b></td><td></td><td></td><td className="num"><b>{score.breakdown.finalScore}</b></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {eventRisk && (
+                <p data-testid="next-event">
+                  Event risk <b>{eventRisk.level}</b>
+                  {eventRisk.nextEvent ? <> · Next event — {eventRisk.nextEvent.title} {eventRisk.nextEvent.allDay ? new Date(eventRisk.nextEvent.startsAt).toLocaleDateString() : new Date(eventRisk.nextEvent.startsAt).toLocaleString()}</> : ' · no scheduled events'}
+                </p>
+              )}
+              <NewsBiasPanel instrumentId={firstInstrument} />
+              {contextCard && <ContextCard context={contextCard} />}
+            </div>
+          </Card>
+          <Card title="Deployments" actions={<Button variant="primary" onClick={deploy} disabled={!['PAPER', 'LIVE'].includes(version.status)}>Deploy (PAPER, ₹2,000 risk)</Button>}>
+            {(deployments ?? []).length === 0 ? <p className="muted">No deployments.</p> : (
+              <ul className="plain-list">
+                {(deployments ?? []).map((d) => (
+                  <li key={d.id} className="cluster">{d.mode} · {d.instrumentIds.length} instrument(s) · {d.enabled ? 'enabled' : `paused (${d.pauseReason ?? ''})`}
+                    {d.sizeMultiplier < 1 && <> · size ×{d.sizeMultiplier.toFixed(2)}</>}
+                    <Button size="sm" onClick={() => toggle(d)}>{d.enabled ? 'Pause' : 'Enable'}</Button></li>
+                ))}
+              </ul>
+            )}
+          </Card>
+          <DriftPanel strategyId={strategy.id} />
+          <Card title="Backtests">
+            <div className="stack">
+              <Field label="Run">
+                <select value={shown?.id ?? ''} onChange={(e) => setBacktestId(e.target.value)}>
+                  {(backtests ?? []).map((b) => <option key={b.id} value={b.id}>{new Date(b.createdAt).toLocaleString()} — {b.status} {b.progressPct}%</option>)}
+                </select>
+              </Field>
+              {shown && <Metrics b={shown} />}
+              {regimes && <Regimes r={regimes} />}
+              {shown?.metrics && <EquityChart points={shown.metrics.equityCurve} />}
+              {shown?.warnings?.length ? <ul>{shown.warnings.map((w) => <li key={w.code} className={w.severity === 'FAIL' ? 'tone-loss' : 'tone-warning'}>{w.severity === 'FAIL' ? '✗' : '⚠'} {w.code}: {w.message}</li>)}</ul> : null}
+              {trades && (
+                <div className="table-scroll">
+                  <table>
+                    <thead><tr><th>Entry</th><th>Exit</th><th>Side</th><th className="num">Qty</th><th className="num">In</th><th className="num">Out</th><th className="num">Net</th><th className="num">R</th><th>Reason</th></tr></thead>
+                    <tbody>
+                      {trades.slice(0, 200).map((t) => (
+                        <tr key={t.id}><td>{new Date(t.entryTime).toLocaleString()}</td><td>{new Date(t.exitTime).toLocaleTimeString()}</td><td>{t.side}</td><td className="num">{t.qty}</td>
+                          <td className="num">{t.entryPrice}</td><td className="num">{t.exitPrice}</td><td className="num">{net(t.netPnl.paise)}</td><td className="num">{formatR(t.rMultiple)}</td><td>{t.exitReason}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </Card>
+          <Dialog
+            open={confirmRetire}
+            title={`Retire v${version.version}?`}
+            onClose={() => setConfirmRetire(false)}
+            actions={<>
+              <Button onClick={() => setConfirmRetire(false)}>Keep it</Button>
+              <Button variant="danger" onClick={() => setStatus('RETIRED')}>Retire</Button>
+            </>}
+          >
+            A retired version can no longer be deployed.
+          </Dialog>
         </>
       )}
-    </div>
+    </Page>
   );
 }

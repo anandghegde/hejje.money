@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ColumnDef, SortingState, flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { ColumnDef } from '@tanstack/react-table';
 import { ApiError, request } from '../api/client';
 import { RatingsList, SavedScreen, ScreenFilter, ScreenResult, ScreenRow } from '../api/types';
-import { LISTS, LIST_LABEL, OPS, buildFilter, conditionColor, describeFilter, directionColor, rateWithCount, signedPct, surveillanceLabel } from '../lib/context';
+import { Badge, Button, Card, DataTable, Field, Page } from '../ui';
+import '../styles/research.css';
+import { LISTS, LIST_LABEL, OPS, buildFilter, conditionTone, describeFilter, directionTone, rateWithCount, signedPct, surveillanceLabel } from '../lib/context';
 
 interface Regime { marketCondition?: string; evidence?: string[] }
 
@@ -14,16 +16,16 @@ export function MarketConditionBanner() {
   const condition = data?.marketCondition ?? 'UNKNOWN';
   const sentence = data?.evidence?.find((e) => e.startsWith('Market condition'));
   return (
-    <div data-testid="market-condition" style={{ padding: 10, borderRadius: 6, background: '#f4f6f8', borderLeft: `6px solid ${conditionColor(condition)}` }}>
-      <b style={{ color: conditionColor(condition) }}>{condition.replace(/_/g, ' ')}</b>
-      {sentence ? <span style={{ marginLeft: 12, color: '#424242' }}>{sentence.replace(/^Market condition [A-Z_]+: /, '')}</span> : null}
+    <div data-testid="market-condition" className={`market-condition market-condition-${conditionTone(condition)}`}>
+      <Badge tone={conditionTone(condition)}>{condition.replace(/_/g, ' ')}</Badge>
+      {sentence ? <span>{sentence.replace(/^Market condition [A-Z_]+: /, '')}</span> : null}
     </div>
   );
 }
 
 export function Disabled({ what, error }: { what: string; error: unknown }) {
   const off = error instanceof ApiError && error.status === 503;
-  return <p data-testid="context-disabled">{off ? `${what} are switched off on this server (${(error as Error).message}).` : `${what} unavailable: ${(error as Error).message}`}</p>;
+  return <p data-testid="context-disabled" className="message">{off ? `${what} are switched off on this server (${(error as Error).message}).` : `${what} unavailable: ${(error as Error).message}`}</p>;
 }
 
 /** NSE's ASM/GSM measure as a badge; nothing when the stock is not under surveillance. Display only: it changes no score. */
@@ -32,8 +34,8 @@ export function SurveillanceBadge({ flag, code, asOf, stale }: { flag?: string |
   if (!label) return null;
   const title = `NSE ${code ?? flag}${asOf ? `, lists of ${asOf}` : ''}${stale ? ' (stale: not refreshed for this session)' : ''}. Display only.`;
   return (
-    <span data-testid="surveillance-badge" title={title} style={{ fontSize: 12, fontWeight: 700, color: '#fff', borderRadius: 4, padding: '1px 6px',
-      background: label.startsWith('GSM') ? '#c0392b' : '#b7791f', opacity: stale ? 0.6 : 1 }}>{label}{stale ? ' (stale)' : ''}</span>
+    <Badge data-testid="surveillance-badge" title={title} tone={label.startsWith('GSM') ? 'loss' : 'warning'} className={stale ? 'badge-stale' : undefined}>
+      {label}{stale ? ' (stale)' : ''}</Badge>
   );
 }
 
@@ -48,57 +50,41 @@ function toRows(list: RatingsList): ScreenRow[] {
   }));
 }
 
-const COLUMNS: ColumnDef<ScreenRow>[] = [
+const pct = (v: number | null) => <span className={`tone-${v == null || v === 0 ? 'neutral' : v > 0 ? 'profit' : 'loss'}`}>{signedPct(v, 1)}</span>;
+
+const COLUMNS: ColumnDef<ScreenRow, any>[] = [
   { accessorKey: 'symbol', header: 'Symbol', cell: (c) => <Link to={`/stocks/${encodeURIComponent(String(c.getValue()))}`}>{String(c.getValue())}</Link> },
   { accessorKey: 'surveillance', header: 'Surv.', cell: (c) => <SurveillanceBadge flag={c.getValue() as string | null} /> },
-  { accessorKey: 'close', header: 'Close' },
-  { accessorKey: 'changePct', header: 'Chg', cell: (c) => signedPct(c.getValue() as number | null, 1) },
-  { accessorKey: 'rsRating', header: 'RS' },
+  { accessorKey: 'close', header: 'Close', meta: { numeric: true } },
+  { accessorKey: 'changePct', header: 'Chg', meta: { numeric: true }, cell: (c) => pct(c.getValue() as number | null) },
+  { accessorKey: 'rsRating', header: 'RS', meta: { numeric: true } },
   { accessorKey: 'adGrade', header: 'A/D' },
-  { accessorKey: 'techComposite', header: 'Tech comp.' },
-  { accessorKey: 'offHighPct', header: 'Off high', cell: (c) => (c.getValue() == null ? '—' : `-${(c.getValue() as number).toFixed(1)} %`) },
-  { accessorKey: 'volVsAvg50Pct', header: 'Vol vs 50d', cell: (c) => signedPct(c.getValue() as number | null, 0) },
-  { accessorKey: 'groupRank', header: 'Group rank' },
+  { accessorKey: 'techComposite', header: 'Tech comp.', meta: { numeric: true } },
+  { accessorKey: 'offHighPct', header: 'Off high', meta: { numeric: true }, cell: (c) => (c.getValue() == null ? '—' : `-${(c.getValue() as number).toFixed(1)} %`) },
+  { accessorKey: 'volVsAvg50Pct', header: 'Vol vs 50d', meta: { numeric: true }, cell: (c) => signedPct(c.getValue() as number | null, 0) },
+  { accessorKey: 'groupRank', header: 'Group rank', meta: { numeric: true } },
   { id: 'setup', header: 'Setup', accessorFn: (r) => (r.baseType ? `${r.baseType} ${r.baseStatus}${r.volumeConfirmed ? ' (volume)' : ''}` : '') },
-  { accessorKey: 'pivot', header: 'Pivot' },
+  { accessorKey: 'pivot', header: 'Pivot', meta: { numeric: true } },
   { id: 'analog', header: 'Analogs (15d → 5d)', accessorFn: (r) => (r.analogWinRate5 as number | undefined) ?? -1,
     cell: (c) => {
       const r = c.row.original;
       if (r.analogCount5 == null) return '—';
-      return <span style={{ color: directionColor(r.analogDirection as string) }}>{String(r.analogDirection ?? '')} · {rateWithCount(r.analogWinRate5 as number, r.analogCount5 as number)}</span>;
+      return <span className={`tone-${directionTone(r.analogDirection as string)}`}>{String(r.analogDirection ?? '')} · {rateWithCount(r.analogWinRate5 as number, r.analogCount5 as number)}</span>;
     } },
 ];
 
 function RowsTable({ rows }: { rows: ScreenRow[] }) {
-  const [sorting, setSorting] = useState<SortingState>([]);
-  const table = useReactTable({ data: rows, columns: COLUMNS, state: { sorting }, onSortingChange: setSorting, getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel() });
-  if (rows.length === 0) return <p>Nothing matches.</p>;
-  return (
-    <table data-testid="screener-table">
-      <thead>
-        {table.getHeaderGroups().map((g) => (
-          <tr key={g.id}>{g.headers.map((h) => (
-            <th key={h.id} onClick={h.column.getToggleSortingHandler()} style={{ cursor: 'pointer', textAlign: 'left', paddingRight: 12 }}>
-              {flexRender(h.column.columnDef.header, h.getContext())}{{ asc: ' ▲', desc: ' ▼' }[h.column.getIsSorted() as string] ?? ''}
-            </th>))}
-          </tr>))}
-      </thead>
-      <tbody>
-        {table.getRowModel().rows.map((row) => (
-          <tr key={row.id}>{row.getVisibleCells().map((cell) => <td key={cell.id} style={{ paddingRight: 12 }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>)}</tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  return <DataTable data-testid="screener-table" columns={COLUMNS} data={rows} empty="Nothing matches." />;
 }
 
 function Groups({ list }: { list: RatingsList }) {
   return (
-    <table data-testid="groups-table">
-      <thead><tr><th>Rank</th><th style={{ textAlign: 'left' }}>Group</th><th>Strength (median RS raw)</th><th>Members</th></tr></thead>
-      <tbody>{(list.groups ?? []).map((g) => <tr key={g.groupId}><td>{g.rank}</td><td>{g.name}</td><td>{signedPct(g.strength * 100, 1)}</td><td>{g.members}</td></tr>)}</tbody>
-    </table>
+    <div className="table-scroll">
+      <table data-testid="groups-table">
+        <thead><tr><th className="num">Rank</th><th>Group</th><th className="num">Strength (median RS raw)</th><th className="num">Members</th></tr></thead>
+        <tbody>{(list.groups ?? []).map((g) => <tr key={g.groupId}><td className="num">{g.rank}</td><td>{g.name}</td><td className="num">{pct(g.strength * 100)}</td><td className="num">{g.members}</td></tr>)}</tbody>
+      </table>
+    </div>
   );
 }
 
@@ -108,8 +94,8 @@ function ListTab({ name }: { name: string }) {
   if (error) return <Disabled what="Daily ratings" error={error} />;
   if (!data) return <p>Loading…</p>;
   return (
-    <div>
-      <p style={{ color: '#616161' }}>Session {data.date || '—'}{name === 'setups' ? ' · in the buy zone, then triggered, then near the pivot; each by technical composite' : ''}</p>
+    <div className="stack">
+      <p className="muted">Session {data.date || '—'}{name === 'setups' ? ' · in the buy zone, then triggered, then near the pivot; each by technical composite' : ''}</p>
       {name === 'groups' ? <Groups list={data} /> : <RowsTable rows={rows} />}
     </div>
   );
@@ -137,34 +123,36 @@ function ScreenTab() {
   }
 
   return (
-    <div>
-      <div data-testid="saved-screens" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+    <div className="stack">
+      <div data-testid="saved-screens" className="chips">
         {(saved ?? []).map((s) => (
-          <span key={s.id} style={{ border: '1px solid #cfd8dc', borderRadius: 12, padding: '2px 8px' }}>
+          <span key={s.id} className="chip">
             <a href="#" onClick={(e) => { e.preventDefault(); setFilters(s.definition.filters ?? []); setSort(s.definition.sort ?? '-techComposite'); }}>{s.name}</a>
-            {!s.seeded && <button aria-label={`delete ${s.name}`} onClick={() => remove.mutate(s.id)} style={{ marginLeft: 6 }}>×</button>}
+            {!s.seeded && <button aria-label={`delete ${s.name}`} onClick={() => remove.mutate(s.id)}>×</button>}
           </span>))}
       </div>
-      <div data-testid="filter-builder" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="chips">
         {filters.map((f, i) => (
-          <span key={i} style={{ background: '#e3f2fd', borderRadius: 4, padding: '2px 6px' }}>
+          <span key={i} className="chip chip-accent">
             {describeFilter(f)} <button aria-label={`remove filter ${i}`} onClick={() => setFilters(filters.filter((_, k) => k !== i))}>×</button>
           </span>))}
-        <select aria-label="field" value={field} onChange={(e) => setField(e.target.value)}>{(fields ?? [field]).map((f) => <option key={f}>{f}</option>)}</select>
-        <select aria-label="operator" value={op} onChange={(e) => setOp(e.target.value as ScreenFilter['op'])}>{OPS.map((o) => <option key={o}>{o}</option>)}</select>
-        <input aria-label="value" value={value} onChange={(e) => setValue(e.target.value)} placeholder="value (a,b for in)" />
-        <button onClick={add}>Add filter</button>
-        <label>sort <select aria-label="sort" value={sort} onChange={(e) => setSort(e.target.value)}>
-          {(fields ?? ['techComposite']).flatMap((f) => [`-${f}`, f]).map((f) => <option key={f}>{f}</option>)}</select></label>
-        <button data-testid="run-screen" onClick={() => run.mutate()}>Run</button>
-        <input aria-label="screen name" value={name} onChange={(e) => setName(e.target.value)} placeholder="save as…" />
-        <button disabled={!name.trim()} onClick={() => save.mutate()}>Save</button>
+      </div>
+      <div data-testid="filter-builder" className="filter-builder">
+        <Field label="Field"><select aria-label="field" value={field} onChange={(e) => setField(e.target.value)}>{(fields ?? [field]).map((f) => <option key={f}>{f}</option>)}</select></Field>
+        <Field label="Operator"><select aria-label="operator" value={op} onChange={(e) => setOp(e.target.value as ScreenFilter['op'])}>{OPS.map((o) => <option key={o}>{o}</option>)}</select></Field>
+        <Field label="Value"><input aria-label="value" value={value} onChange={(e) => setValue(e.target.value)} placeholder="value (a,b for in)" /></Field>
+        <Button onClick={add}>Add filter</Button>
+        <Field label="Sort"><select aria-label="sort" value={sort} onChange={(e) => setSort(e.target.value)}>
+          {(fields ?? ['techComposite']).flatMap((f) => [`-${f}`, f]).map((f) => <option key={f}>{f}</option>)}</select></Field>
+        <Button variant="primary" data-testid="run-screen" onClick={() => run.mutate()}>Run</Button>
+        <Field label="Save as"><input aria-label="screen name" value={name} onChange={(e) => setName(e.target.value)} placeholder="save as…" /></Field>
+        <Button disabled={!name.trim()} onClick={() => save.mutate()}>Save</Button>
       </div>
       {run.error ? <Disabled what="Daily ratings" error={run.error} /> : null}
-      {save.error ? <p style={{ color: '#c0392b' }}>{(save.error as Error).message}</p> : null}
+      {save.error ? <p className="message message-loss">{(save.error as Error).message}</p> : null}
       {run.data && (
-        <div>
-          <p data-testid="screen-summary" style={{ color: '#616161' }}>Session {run.data.date || '—'} · {run.data.matched} of {run.data.universe} stocks match</p>
+        <div className="stack">
+          <p data-testid="screen-summary" className="muted">Session {run.data.date || '—'} · {run.data.matched} of {run.data.universe} stocks match</p>
           <RowsTable rows={run.data.rows} />
         </div>)}
     </div>
@@ -174,18 +162,20 @@ function ScreenTab() {
 export function Screener() {
   const [tab, setTab] = useState<string>('setups');
   return (
-    <div>
-      <h2>Screener</h2>
+    <Page title="Screener">
       <MarketConditionBanner />
-      <p style={{ color: '#616161', fontSize: 13 }}>Daily context over the NIFTY 500 (D1). Evidence only: not validated, so it changes no
+      <p className="muted text-sm">Daily context over the NIFTY 500 (D1). Evidence only: not validated, so it changes no
         score or decision (protocol: docs/strategies/context-validation.md). Technical ratings only, no fundamentals.</p>
-      <div data-testid="screener-tabs" style={{ display: 'flex', gap: 4, margin: '12px 0' }}>
-        {[...LISTS, 'screen'].map((t) => (
-          <button key={t} onClick={() => setTab(t)} style={{ fontWeight: tab === t ? 700 : 400, borderBottom: tab === t ? '2px solid #1565c0' : '2px solid transparent' }}>
-            {t === 'screen' ? 'Custom screen' : LIST_LABEL[t]}
-          </button>))}
-      </div>
-      {tab === 'screen' ? <ScreenTab /> : <ListTab name={tab} />}
-    </div>
+      <Card>
+        {/* buttons, not a tablist: each loads a different list */}
+        <div data-testid="screener-tabs" className="tabs">
+          {[...LISTS, 'screen'].map((t) => (
+            <button key={t} type="button" className="tab" aria-pressed={tab === t} onClick={() => setTab(t)}>
+              {t === 'screen' ? 'Custom screen' : LIST_LABEL[t]}
+            </button>))}
+        </div>
+        <div className="section">{tab === 'screen' ? <ScreenTab /> : <ListTab name={tab} />}</div>
+      </Card>
+    </Page>
   );
 }
