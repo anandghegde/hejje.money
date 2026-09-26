@@ -49,6 +49,7 @@ class NotifyListeners {
     private final ScoringService scoring;
     private final OrderService orders;
     private final InstrumentService instruments;
+    private final money.hejje.execution.ReconciliationService reconciliation;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "notify-events"); // a platform thread: it blocks on JDBC
         t.setDaemon(true);
@@ -56,7 +57,8 @@ class NotifyListeners {
     });
 
     NotifyListeners(NotificationService notifications, NotifyProperties properties, SignalService signals, StrategyService strategies, ScoringService scoring,
-            OrderService orders, InstrumentService instruments) {
+            OrderService orders, InstrumentService instruments, @org.springframework.context.annotation.Lazy money.hejje.execution.ReconciliationService reconciliation) {
+        this.reconciliation = reconciliation;
         this.notifications = notifications;
         this.properties = properties;
         this.signals = signals;
@@ -211,6 +213,21 @@ class NotifyListeners {
                     "llm-budget:" + d.get("date")));
             default -> { } // "notification" (our own push) and the rest are not notifications
         }
+    }
+
+    /** Plan M11.2: a GTT issue of the swing book (missing, wrong quantity or stop, orphan) is an incident to notify. */
+    @TransactionalEventListener(fallbackExecution = true)
+    void onReconciliationIssue(money.hejje.execution.ReconciliationIssueEvent event) {
+        if (!event.kind().startsWith("GTT_")) {
+            return;
+        }
+        async("gtt issue", () -> {
+            String detail = reconciliation.openIssues().stream().filter(i -> i.id().equals(event.issueId())).findFirst()
+                    .map(i -> symbol(i.instrumentId()) + ": " + i.detail()).orElse(event.kind());
+            NotificationType type = money.hejje.execution.GttService.GTT_MISSING.equals(event.kind()) ? NotificationType.GTT_MISSING : NotificationType.GTT_MISMATCH;
+            notifications.notify(type, type == NotificationType.GTT_MISSING ? "Swing position unprotected" : "GTT mismatch at the broker", detail,
+                    Map.of("kind", event.kind(), "issueId", event.issueId().toString()), "gtt:" + event.issueId());
+        });
     }
 
     @jakarta.annotation.PreDestroy

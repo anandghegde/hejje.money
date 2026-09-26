@@ -87,5 +87,19 @@ public enum AuditEventType {
     SCREEN_SAVED,
     SCREEN_DELETED,
     JEV_BUDGET_EXCEEDED,
-    JEV_CIRCUIT_OPEN
+    JEV_CIRCUIT_OPEN,
+    /** Plan M11.2: a delivery position's stop (GTT) was placed at the broker. */
+    GTT_PLACED,
+    /** Plan M11.2: a GTT's stop or quantity changed (a stop only tightens unless a manual widening is recorded). */
+    GTT_MODIFIED,
+    /** Plan M11.2: a GTT fired and its exit order was taken over. */
+    GTT_TRIGGERED,
+    /** Plan M11.2: a GTT was cancelled with its position's close. */
+    GTT_CANCELLED,
+    /** Plan M11.2: an open delivery position has no confirmed GTT at the broker (an incident). */
+    GTT_MISSING,
+    /** Plan M11.3: the swing limits were edited. */
+    SWING_LIMITS_UPDATED,
+    /** Plan M11.3: the "close swing book" action exited every swing position. */
+    SWING_BOOK_CLOSED
 }

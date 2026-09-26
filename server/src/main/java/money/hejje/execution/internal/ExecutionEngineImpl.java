@@ -64,10 +64,13 @@ public class ExecutionEngineImpl implements ExecutionEngine {
     private final ApplicationEventPublisher events;
     private final MeterRegistry meters;
     private final ExecutorLease lease;
+    private final money.hejje.execution.GttService gtts;
 
     ExecutionEngineImpl(BrokerAdapter broker, OrderService orders, OrderValidator validator, RiskEngine risk,
             RiskDecisionStore riskDecisions, IdempotencyStore idempotency, UnknownOrderResolver unknownResolver, AuditService audit,
-            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events, MeterRegistry meters, ExecutorLease lease) {
+            HejjeClock clock, HejjeProperties properties, ApplicationEventPublisher events, MeterRegistry meters, ExecutorLease lease,
+            @org.springframework.context.annotation.Lazy money.hejje.execution.GttService gtts) {
+        this.gtts = gtts;
         this.lease = lease;
         this.broker = broker;
         this.orders = orders;
@@ -286,16 +289,35 @@ public class ExecutionEngineImpl implements ExecutionEngine {
         OrderIntentCommand command = new OrderIntentCommand(systemClientId(), "close-" + Ids.newId(), ActorType.SYSTEM, "close-position",
                 strategyId, null, instrumentId, side, money.hejje.common.Quantity.of(Math.abs(position.netQuantity())),
                 money.hejje.common.OrderType.MARKET, product, null, null, null, null, null, OrderReason.POSITION_CLOSE);
-        HejjeOrder order = submit(command);
+        // a delivery position's GTT goes with the close in the same operation, and comes back if the close fails (plan M11.2)
+        java.util.Optional<money.hejje.execution.PositionGtt> gtt = product == money.hejje.common.Product.CNC ? gtts.active(position.id()) : java.util.Optional.empty();
+        gtt.ifPresent(g -> gtts.cancel(position.id(), "position closed", "close-position"));
+        HejjeOrder order;
+        try {
+            order = submit(command);
+        } catch (RuntimeException e) {
+            gtt.ifPresent(g -> gtts.protect(position, g.stop(), g.goal(), "close-failed"));
+            throw e;
+        }
+        if (gtt.isPresent() && order.state() == OrderState.REJECTED) {
+            gtts.protect(position, gtt.get().stop(), gtt.get().goal(), "close-rejected");
+        }
         audit.record(AuditEvent.of(AuditEventType.POSITION_CLOSED, ActorType.SYSTEM).withOrderId(order.id())
                 .withPayload(Map.of("instrumentId", instrumentId.toString(), "quantity", Math.abs(position.netQuantity()))));
         return order;
     }
 
+    /**
+     * Closes the intraday book. Delivery (CNC) positions are the swing book: they keep their positions and GTTs and are
+     * closed only by the swing book's own "close swing book" action (plan M11.3).
+     */
     @Override
     public int closeAllPositions() {
         int closed = 0;
         for (Position position : orders.openPositions(properties.mode())) {
+            if (position.product() == money.hejje.common.Product.CNC) {
+                continue;
+            }
             try {
                 closePosition(position.instrumentId(), position.product(), position.strategyId());
                 closed++;

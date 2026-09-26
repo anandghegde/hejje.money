@@ -11,9 +11,15 @@ import money.hejje.common.Side;
  *
  * @param strategyId null for manual trades (attributed to {@code MANUAL})
  * @param versionId  the strategy version when the entry order came from a signal, else null
+ * @param horizon    SWING for delivery (CNC) fills, else INTRADAY (plan M11.1); the two never share a round trip
  */
 public record RoundTrip(UUID instrumentId, UUID strategyId, UUID versionId, UUID signalId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice,
-        BigDecimal exitPrice, Instant openedAt, Instant closedAt, Money grossPnl, Money fees) {
+        BigDecimal exitPrice, Instant openedAt, Instant closedAt, Money grossPnl, Money fees, Horizon horizon) {
+
+    public RoundTrip(UUID instrumentId, UUID strategyId, UUID versionId, UUID signalId, UUID entryOrderId, Side side, int quantity, BigDecimal entryPrice,
+            BigDecimal exitPrice, Instant openedAt, Instant closedAt, Money grossPnl, Money fees) {
+        this(instrumentId, strategyId, versionId, signalId, entryOrderId, side, quantity, entryPrice, exitPrice, openedAt, closedAt, grossPnl, fees, Horizon.INTRADAY);
+    }
 
     public Money netPnl() {
         return grossPnl.minus(fees);

@@ -114,6 +114,10 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     private volatile boolean brokerSideValid = true;
     private final Money startingCapital;
     private Money cash;
+    /** Delivery fills become holdings from the next session (plan M11.1). In memory: the fake keeps nothing across restarts. */
+    private final money.hejje.broker.paper.SimulatedHoldings delivery;
+    /** GTTs (plan M11.2), fired by injected ticks. In memory. */
+    private final money.hejje.broker.paper.SimulatedGtts gtts;
 
     @Autowired
     FakeBrokerAdapter(FakeBrokerProperties properties, BrokerOrderUpdates updates, BrokerInstrumentResolver instruments, HejjeClock clock,
@@ -125,6 +129,8 @@ public class FakeBrokerAdapter implements BrokerAdapter {
         this.connected = properties.connected();
         this.startingCapital = Money.ofRupees(properties.startingCapital());
         this.cash = startingCapital;
+        this.delivery = new money.hejje.broker.paper.SimulatedHoldings(clock, money.hejje.broker.paper.PaperStateStore.IN_MEMORY, BROKER_CODE);
+        this.gtts = new money.hejje.broker.paper.SimulatedGtts(clock, money.hejje.broker.paper.PaperStateStore.IN_MEMORY, BROKER_CODE + ".gtts");
     }
 
     // --- records ---------------------------------------------------------------------------------------------------
@@ -270,24 +276,7 @@ public class FakeBrokerAdapter implements BrokerAdapter {
         boolean dropThisAck = dropAck.getAndSet(false);
         FakeOrder order;
         synchronized (this) {
-            order = new FakeOrder();
-            order.id = nextId();
-            order.instrumentId = request.instrumentId();
-            Optional<BrokerInstrumentRef> ref = instruments.forInstrument(request.instrumentId(), BROKER_CODE);
-            order.tradingSymbol = ref.map(BrokerInstrumentRef::tradingSymbol).orElse(request.instrumentId().toString());
-            order.exchangeSegment = ref.map(BrokerInstrumentRef::exchangeSegment).orElse("NSE");
-            order.side = request.side();
-            order.quantity = request.quantity().value();
-            order.type = request.orderType();
-            order.product = request.product();
-            order.limit = request.limitPrice() == null ? null : request.limitPrice().value();
-            order.trigger = request.triggerPrice() == null ? null : request.triggerPrice().value();
-            order.validity = request.validity();
-            order.tag = request.tag();
-            order.placedAt = clock.now();
-            order.updatedAt = order.placedAt;
-            order.status = order.type == OrderType.SL || order.type == OrderType.SL_M ? BrokerOrderStatus.TRIGGER_PENDING : BrokerOrderStatus.OPEN;
-            orders.put(order.id, order);
+            order = newOrder(request);
             if (!dropThisAck) {
                 publish(order);
                 match(order, quotes.get(order.instrumentId));
@@ -298,6 +287,76 @@ public class FakeBrokerAdapter implements BrokerAdapter {
             throw new BrokerException(BrokerException.Kind.TIMEOUT, "simulated: acknowledgement lost", true, null);
         }
         return new BrokerOrderRef(order.id);
+    }
+
+    private FakeOrder newOrder(BrokerOrderRequest request) {
+        FakeOrder order = new FakeOrder();
+        order.id = nextId();
+        order.instrumentId = request.instrumentId();
+        Optional<BrokerInstrumentRef> ref = instruments.forInstrument(request.instrumentId(), BROKER_CODE);
+        order.tradingSymbol = ref.map(BrokerInstrumentRef::tradingSymbol).orElse(request.instrumentId().toString());
+        order.exchangeSegment = ref.map(BrokerInstrumentRef::exchangeSegment).orElse("NSE");
+        order.side = request.side();
+        order.quantity = request.quantity().value();
+        order.type = request.orderType();
+        order.product = request.product();
+        order.limit = request.limitPrice() == null ? null : request.limitPrice().value();
+        order.trigger = request.triggerPrice() == null ? null : request.triggerPrice().value();
+        order.validity = request.validity();
+        order.tag = request.tag();
+        order.placedAt = clock.now();
+        order.updatedAt = order.placedAt;
+        order.status = order.type == OrderType.SL || order.type == OrderType.SL_M ? BrokerOrderStatus.TRIGGER_PENDING : BrokerOrderStatus.OPEN;
+        orders.put(order.id, order);
+        return order;
+    }
+
+    // --- GTT (plan M11.2): simulated, fired by injected ticks ------------------------------------------------------------
+
+    @Override
+    public String placeGtt(money.hejje.broker.Gtt.Request request) {
+        requireSession("placeGtt");
+        script();
+        Optional<BrokerInstrumentRef> ref = instruments.forInstrument(request.instrumentId(), BROKER_CODE);
+        if (ref.isEmpty()) {
+            throw new BrokerException(BrokerException.Kind.INPUT, "instrument " + request.instrumentId() + " has no fake mapping");
+        }
+        return gtts.place(request, ref.get().tradingSymbol());
+    }
+
+    @Override
+    public String modifyGtt(String gttId, money.hejje.broker.Gtt.Request request) {
+        requireSession("modifyGtt");
+        script();
+        return gtts.modify(gttId, request);
+    }
+
+    @Override
+    public String cancelGtt(String gttId) {
+        requireSession("cancelGtt");
+        script();
+        return gtts.cancel(gttId);
+    }
+
+    @Override
+    public List<money.hejje.broker.Gtt.Snapshot> getGtts() {
+        requireSession("getGtts");
+        return gtts.list();
+    }
+
+    /** The broker drops a GTT on its own (a GTT that disappears at the broker, plan M11.2). */
+    public void disableGtt(String gttId) {
+        gtts.disable(gttId);
+    }
+
+    /** A met trigger places its leg's order, which fills against the current quote (at the open after a gap). */
+    private void fire(money.hejje.broker.paper.SimulatedGtts.Fired fired) {
+        money.hejje.broker.Gtt.Leg leg = fired.leg();
+        FakeOrder order = newOrder(new BrokerOrderRequest(fired.instrumentId(), leg.side(), money.hejje.common.Quantity.of(leg.quantity()), leg.orderType(),
+                leg.product(), leg.orderType() == OrderType.LIMIT ? money.hejje.common.Price.of(leg.price()) : null, null, Validity.DAY, null));
+        gtts.triggeredOrder(fired.gttId(), order.id);
+        publish(order);
+        match(order, quotes.get(order.instrumentId));
     }
 
     @Override
@@ -372,13 +431,27 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     @Override
     public synchronized List<BrokerPosition> getPositions() {
         requireSession("getPositions");
-        return positions.values().stream().map(this::toBrokerPosition).toList();
+        // delivery positions are today's CNC fills only; earlier ones are holdings (plan M11.1)
+        List<BrokerPosition> out = new ArrayList<>(positions.values().stream().filter(p -> p.product != Product.CNC).map(this::toBrokerPosition).toList());
+        out.addAll(delivery.positions(this::quotedPrice));
+        return out;
     }
 
     @Override
-    public List<BrokerHolding> getHoldings() {
+    public synchronized List<BrokerHolding> getHoldings() {
         requireSession("getHoldings");
-        return List.of();
+        return delivery.holdings(this::quotedPrice);
+    }
+
+    private BigDecimal quotedPrice(UUID instrumentId) {
+        Quote q = quotes.get(instrumentId);
+        return q == null ? null : q.lastPrice();
+    }
+
+    /** Seeds a delivery holding bought on {@code date} outside Hejje (reconciliation tests). */
+    public synchronized void seedHolding(UUID instrumentId, int quantity, BigDecimal averagePrice, java.time.LocalDate date) {
+        FakePosition p = position(instrumentId, Product.CNC);
+        delivery.seed(instrumentId, p.tradingSymbol, p.exchangeSegment, quantity, averagePrice.setScale(2, RoundingMode.HALF_UP), date);
     }
 
     @Override
@@ -434,6 +507,7 @@ public class FakeBrokerAdapter implements BrokerAdapter {
                     match(order, quote);
                 }
             }
+            gtts.onPrice(tick.instrumentId(), tick.lastPrice()).forEach(this::fire);
         }
     }
 
@@ -538,6 +612,8 @@ public class FakeBrokerAdapter implements BrokerAdapter {
         dropAck.set(false);
         delayNextMs = 0;
         cash = startingCapital;
+        delivery.clear();
+        gtts.clear();
         connected = true;
         brokerSideValid = true;
         // sequence is intentionally not reset so broker order ids stay unique across resets
@@ -643,6 +719,9 @@ public class FakeBrokerAdapter implements BrokerAdapter {
     }
 
     private void applyFill(FakeOrder order, int quantity, BigDecimal price) {
+        if (order.product == Product.CNC) {
+            delivery.onFill(order.instrumentId, order.tradingSymbol, order.exchangeSegment, order.side, quantity, price);
+        }
         FakePosition p = position(order.instrumentId, order.product);
         p.tradingSymbol = order.tradingSymbol;
         p.exchangeSegment = order.exchangeSegment;

@@ -85,6 +85,12 @@ class ZerodhaContractTest extends BrokerAdapterContractTest {
         return kite;
     }
 
+    /** Kite's GTT API: its mapping is tested against WireMock in ZerodhaKiteAdapterWireMockTest. */
+    @Override
+    protected GttSupport gttSupport() {
+        return GttSupport.BROKER;
+    }
+
     @Override
     protected void givenQuote(String lastPrice) {
         wiremock.stubFor(get(urlPathEqualTo("/quote")).willReturn(json(200, """

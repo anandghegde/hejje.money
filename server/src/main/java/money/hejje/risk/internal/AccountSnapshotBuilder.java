@@ -38,8 +38,12 @@ public class AccountSnapshotBuilder {
         this.clock = clock;
     }
 
+    /**
+     * The intraday book's snapshot: delivery (CNC) positions and fills are the swing book (plan M11.1) and count against
+     * the swing limits only, never against the intraday ones.
+     */
     public AccountSnapshot build(ExecutionMode mode) {
-        List<Position> positions = orders.positions(mode);
+        List<Position> positions = orders.positions(mode).stream().filter(p -> p.product() != money.hejje.common.Product.CNC).toList();
         Money realized = Money.ZERO;
         Money unrealized = Money.ZERO;
         Money gross = Money.ZERO;
@@ -57,7 +61,7 @@ public class AccountSnapshotBuilder {
         }
 
         Instant startOfDay = clock.today().atStartOfDay(clock.zone()).toInstant();
-        List<Trade> todaysTrades = orders.trades(mode, startOfDay, clock.now());
+        List<Trade> todaysTrades = orders.trades(mode, startOfDay, clock.now()).stream().filter(t -> !t.isDelivery()).toList();
         Map<UUID, Instant> lastTradeAt = new HashMap<>();
         for (Trade t : todaysTrades) {
             lastTradeAt.merge(t.instrumentId(), t.ts(), (a, b) -> a.isAfter(b) ? a : b);

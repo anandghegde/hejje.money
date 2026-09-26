@@ -82,8 +82,21 @@ public class PaperBrokerAdapter implements BrokerAdapter {
     /** SIM (plan M7.2): a MARKET order waits for the next tick instead of filling at the price already seen. */
     private volatile boolean fillOnNextTick;
 
+    /** Delivery fills become holdings from the next session (plan M11.1); kept in the state store across restarts. */
+    private final SimulatedHoldings delivery;
+    /** GTTs (plan M11.2), fired by live (or replayed) ticks; kept in the state store across restarts. */
+    private final SimulatedGtts gtts;
+
     public PaperBrokerAdapter(BrokerAdapter delegate, BrokerInstrumentResolver instruments, BrokerOrderUpdates updates,
             HejjeClock clock, PaperBrokerProperties properties) {
+        this(delegate, instruments, updates, clock, properties, PaperStateStore.IN_MEMORY);
+    }
+
+    /** @param state where the simulated delivery book lives (the database in PAPER mode, so it survives a restart) */
+    public PaperBrokerAdapter(BrokerAdapter delegate, BrokerInstrumentResolver instruments, BrokerOrderUpdates updates,
+            HejjeClock clock, PaperBrokerProperties properties, PaperStateStore state) {
+        this.delivery = new SimulatedHoldings(clock, state, BROKER_CODE + ".holdings");
+        this.gtts = new SimulatedGtts(clock, state, BROKER_CODE + ".gtts");
         this.delegate = delegate;
         this.instruments = instruments;
         this.updates = updates;
@@ -205,8 +218,13 @@ public class PaperBrokerAdapter implements BrokerAdapter {
 
     @Override public synchronized List<BrokerOrder> getOrders() { return orders.values().stream().map(this::toBrokerOrder).toList(); }
     @Override public synchronized List<BrokerTrade> getTrades() { return List.copyOf(trades); }
-    @Override public synchronized List<BrokerPosition> getPositions() { return positions.values().stream().map(this::toBrokerPosition).toList(); }
-    @Override public List<BrokerHolding> getHoldings() { return List.of(); }
+    /** Delivery positions are today's CNC fills only; earlier ones are holdings (plan M11.1). */
+    @Override public synchronized List<BrokerPosition> getPositions() {
+        List<BrokerPosition> out = new java.util.ArrayList<>(positions.values().stream().filter(p -> p.product != Product.CNC).map(this::toBrokerPosition).toList());
+        out.addAll(delivery.positions(lastPrice::get));
+        return out;
+    }
+    @Override public synchronized List<BrokerHolding> getHoldings() { return delivery.holdings(lastPrice::get); }
 
     @Override public synchronized Funds getFunds() {
         return new Funds(cash, startingCapital.minus(cash).abs(), cash, startingCapital, Map.of("simulated", true, "paper", true));
@@ -232,6 +250,28 @@ public class PaperBrokerAdapter implements BrokerAdapter {
                 match(order, tick.lastPrice());
             }
         }
+        gtts.onPrice(tick.instrumentId(), tick.lastPrice()).forEach(this::fire);
+    }
+
+    // --- GTT (plan M11.2): simulated against live prices, never sent to the broker --------------------------------------
+
+    @Override public synchronized String placeGtt(money.hejje.broker.Gtt.Request request) {
+        BrokerInstrumentRef ref = instruments.forInstrument(request.instrumentId(), delegate.brokerCode()).orElseThrow(() -> new BrokerException(
+                BrokerException.Kind.INPUT, "instrument " + request.instrumentId() + " has no " + delegate.brokerCode() + " mapping", false, null));
+        return gtts.place(request, ref.tradingSymbol());
+    }
+
+    @Override public synchronized String modifyGtt(String gttId, money.hejje.broker.Gtt.Request request) { return gtts.modify(gttId, request); }
+    @Override public synchronized String cancelGtt(String gttId) { return gtts.cancel(gttId); }
+    @Override public synchronized List<money.hejje.broker.Gtt.Snapshot> getGtts() { return gtts.list(); }
+
+    /** A met trigger places its leg's order; a MARKET leg fills at this tick's price with slippage (at the open after a gap). */
+    private void fire(SimulatedGtts.Fired fired) {
+        money.hejje.broker.Gtt.Leg leg = fired.leg();
+        BrokerOrderRef ref = placeOrder(new BrokerOrderRequest(fired.instrumentId(), leg.side(), money.hejje.common.Quantity.of(leg.quantity()),
+                leg.orderType(), leg.product(), leg.orderType() == OrderType.LIMIT ? money.hejje.common.Price.of(leg.price()) : null, null,
+                Validity.DAY, null));
+        gtts.triggeredOrder(fired.gttId(), ref.brokerOrderId());
     }
 
     private BigDecimal currentPrice(UUID instrumentId) {
@@ -298,6 +338,9 @@ public class PaperBrokerAdapter implements BrokerAdapter {
     }
 
     private void applyFill(PaperOrder order, int quantity, BigDecimal price) {
+        if (order.product == Product.CNC) {
+            delivery.onFill(order.instrumentId, order.tradingSymbol, order.exchangeSegment, order.side, quantity, price);
+        }
         PaperPosition p = positions.computeIfAbsent(order.instrumentId + "/" + order.product, k -> {
             PaperPosition np = new PaperPosition();
             np.instrumentId = order.instrumentId;
@@ -366,6 +409,8 @@ public class PaperBrokerAdapter implements BrokerAdapter {
         orders.clear();
         trades.clear();
         positions.clear();
+        delivery.clear();
+        gtts.clear();
         lastPrice.clear();
         startingCapital = capital;
         cash = capital;

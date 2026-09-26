@@ -63,6 +63,11 @@ class FakeBrokerContractTest extends BrokerAdapterContractTest {
     }
 
     @Override
+    protected GttSupport gttSupport() {
+        return GttSupport.SIMULATED;
+    }
+
+    @Override
     protected void assertNoOrderSent() {
         org.assertj.core.api.Assertions.assertThat(fake.getOrders()).isEmpty();
     }

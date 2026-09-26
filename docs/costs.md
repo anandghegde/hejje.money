@@ -18,6 +18,11 @@ and, later, the backtester.
 Fills apply their cost at the orders layer: Position.realizedPnl stays gross, Position.fees accumulates costs, and
 Position.netRealizedPnl() is realized minus fees. GET /trades/{id}/costs recomputes a fill's breakdown deterministically.
 
+Depository (DP) charge (plan M11.1): a delivery (CNC) sell of an equity pays hejje.costs.dp-charge (15.34 rupees: 3.50
+CDSL + 9.50 Zerodha + 2.34 GST, per zerodha.com/charges, checked 2026-09-26) once per scrip and IST day, whatever the
+quantity or the number of sell fills; it is itemized as dpCharges (GST included, not in the gst item). The orders layer
+charges it to the day's first delivery sell fill of the scrip; CostFill.dpCharge=false prices a later one.
+
 ## Paper mode (PRD 50)
 
 hejje.mode=PAPER runs paper trading. With the fake adapter (dev/test) the fake itself simulates fills. With the real

@@ -125,16 +125,28 @@ public class OrderService {
         return trades.query(mode, from, to);
     }
 
+    /** One instrument's fills in {@code [from, to]}, oldest first, without the list's row cap (swing round trips span weeks). */
+    public List<Trade> trades(ExecutionMode mode, UUID instrumentId, Instant from, Instant to) {
+        return trades.queryInstrument(mode, instrumentId, from, to);
+    }
+
     public List<Trade> tradesForOrder(UUID orderId) {
         return trades.byOrder(orderId);
     }
 
-    /** The transaction cost of a fill, computed deterministically from the trade and its instrument. */
+    /**
+     * The transaction cost of a fill, computed deterministically from the trade, its instrument and (for the depository
+     * charge of a delivery sell) the same day's earlier delivery sells of the scrip.
+     */
     public CostBreakdown cost(Trade trade) {
         Instrument instrument = instruments.findById(trade.instrumentId()).orElse(null);
         money.hejje.common.InstrumentType type = instrument == null ? money.hejje.common.InstrumentType.EQ : instrument.type();
-        money.hejje.common.Product product = orders.findById(trade.orderId()).map(HejjeOrder::product).orElse(money.hejje.common.Product.MIS);
-        return costModel.compute(new CostFill(type, product, trade.side(), trade.quantity(), trade.price()));
+        money.hejje.common.Product product = trade.product() != null ? trade.product()
+                : orders.findById(trade.orderId()).map(HejjeOrder::product).orElse(money.hejje.common.Product.MIS);
+        // the depository charge is paid once per scrip and day on delivery sells (plan M11.1)
+        boolean dp = product == money.hejje.common.Product.CNC && trade.side() == Side.SELL
+                && !trades.hasEarlierDeliverySell(trade, clock.zone());
+        return costModel.compute(new CostFill(type, product, trade.side(), trade.quantity(), trade.price(), dp));
     }
 
     public java.util.Optional<Trade> findTrade(UUID tradeId, ExecutionMode mode) {
@@ -290,7 +302,7 @@ public class OrderService {
         UUID strategyId = order.intentId() == null ? null : intents.findById(order.intentId()).map(OrderIntent::strategyId).orElse(null);
         String brokerTradeId = update.brokerOrderId() + ":" + update.filledQuantity();
         Trade trade = new Trade(Ids.newId(), order.id(), brokerTradeId, order.instrumentId(), order.side(), delta, price, clock.now(),
-                order.mode(), strategyId);
+                order.mode(), strategyId, order.product());
         boolean fresh = trades.insertIfAbsent(trade);
         if (fresh) {
             money.hejje.common.Money fee = cost(trade).total();

@@ -136,4 +136,25 @@ public class RateLimitedBrokerAdapter implements BrokerAdapter {
         limiter.acquireRead(BrokerRateLimiter.Op.GENERAL);
         return timed("getOrderMargins", () -> delegate.getOrderMargins(requests));
     }
+
+    // GTT calls are not orders at the broker (Kite counts them with the other endpoints), so they use the general bucket
+    @Override public String placeGtt(money.hejje.broker.Gtt.Request request) {
+        limiter.acquireRead(BrokerRateLimiter.Op.GENERAL);
+        return timed("placeGtt", () -> delegate.placeGtt(request));
+    }
+
+    @Override public String modifyGtt(String gttId, money.hejje.broker.Gtt.Request request) {
+        limiter.acquireRead(BrokerRateLimiter.Op.GENERAL);
+        return timed("modifyGtt", () -> delegate.modifyGtt(gttId, request));
+    }
+
+    @Override public String cancelGtt(String gttId) {
+        limiter.acquireRead(BrokerRateLimiter.Op.GENERAL);
+        return timed("cancelGtt", () -> delegate.cancelGtt(gttId));
+    }
+
+    @Override public List<money.hejje.broker.Gtt.Snapshot> getGtts() {
+        limiter.acquireRead(BrokerRateLimiter.Op.GENERAL);
+        return timed("getGtts", delegate::getGtts);
+    }
 }

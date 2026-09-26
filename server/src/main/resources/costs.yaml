@@ -9,6 +9,8 @@ hejje:
     brokerage-pct: 0.0003     # 0.03%
     gst-pct: 0.18             # 18% on brokerage + exchange txn + SEBI
     sebi-pct: 0.000001        # 10 per crore
+    dp-charge: 15.34          # rupees per scrip and sell day on a delivery sell, GST incl. (3.50 CDSL + 9.50 Zerodha + 2.34 GST;
+                              # zerodha.com/charges, checked 2026-09-26; plan M11.1)
     equity-intraday:
       stt-pct: 0.00025        # 0.025% on sell
       stt-on-sell-only: true

@@ -82,6 +82,12 @@ class PaperBrokerContractTest extends BrokerAdapterContractTest {
         return Set.of();
     }
 
+    /** GTTs are simulated against the ticks and never reach the delegate. */
+    @Override
+    protected GttSupport gttSupport() {
+        return GttSupport.SIMULATED;
+    }
+
     @Override
     protected void assertNoOrderSent() {
         verify(delegate, never()).placeOrder(any());

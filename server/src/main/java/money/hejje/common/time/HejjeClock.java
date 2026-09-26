@@ -53,6 +53,26 @@ public final class HejjeClock {
         return !holidays.isHoliday(date, Exchange.NSE);
     }
 
+    /** Last trading day strictly before {@code date}. */
+    public LocalDate previousTradingDay(LocalDate date) {
+        LocalDate candidate = date.minusDays(1);
+        while (!isTradingDay(candidate)) {
+            candidate = candidate.minusDays(1);
+        }
+        return candidate;
+    }
+
+    /** Trading days in {@code (from, to]}: the sessions a position opened on {@code from} has been held by {@code to}. */
+    public int sessionsBetween(LocalDate from, LocalDate to) {
+        int n = 0;
+        for (LocalDate d = from.plusDays(1); !d.isAfter(to); d = d.plusDays(1)) {
+            if (isTradingDay(d)) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     /** Next trading day strictly after {@code date}. */
     public LocalDate nextTradingDay(LocalDate date) {
         LocalDate candidate = date.plusDays(1);

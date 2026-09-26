@@ -40,6 +40,7 @@ public class ReviewService {
 
     private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
     private static final Duration LOOKBACK = Duration.ofDays(7);
+    private static final Duration SWING_LOOKBACK = Duration.ofDays(400);
 
     private final AnalyticsService analytics;
     private final OrderService orders;
@@ -86,7 +87,7 @@ public class ReviewService {
             return Optional.empty();
         }
         Position p = position.get();
-        List<RoundTrip> trips = roundTrips(p.mode(), p.instrumentId(), p.strategyId());
+        List<RoundTrip> trips = roundTrips(p.mode(), p.instrumentId(), p.strategyId(), Horizon.of(p.product()));
         if (trips.isEmpty()) {
             return Optional.empty();
         }
@@ -101,19 +102,24 @@ public class ReviewService {
 
     /** Reviews the round trip of a strategy position the engine has closed (idempotent per entry order). */
     public Optional<TradeReview> reviewClosedStrategyPosition(ExecutionMode mode, UUID instrumentId, UUID strategyId, UUID entryOrderId) {
-        Optional<RoundTrip> trip = roundTrips(mode, instrumentId, strategyId).stream().filter(r -> r.entryOrderId().equals(entryOrderId)).findFirst();
+        Horizon horizon = Horizon.of(orders.findById(entryOrderId).map(money.hejje.orders.HejjeOrder::product).orElse(null));
+        Optional<RoundTrip> trip = roundTrips(mode, instrumentId, strategyId, horizon).stream().filter(r -> r.entryOrderId().equals(entryOrderId)).findFirst();
         Optional<Position> position = orders.positions(mode).stream()
-                .filter(p -> p.instrumentId().equals(instrumentId) && java.util.Objects.equals(p.strategyId(), strategyId)).findFirst();
+                .filter(p -> p.instrumentId().equals(instrumentId) && java.util.Objects.equals(p.strategyId(), strategyId) && Horizon.of(p.product()) == horizon)
+                .findFirst();
         if (trip.isEmpty() || position.isEmpty()) {
             return Optional.empty(); // e.g. ENTRY_FAILED, or a DEPLOYMENT_STOPPED position still open at the broker: reviewed when it goes flat
         }
         return review(position.get(), trip.get());
     }
 
-    private List<RoundTrip> roundTrips(ExecutionMode mode, UUID instrumentId, UUID strategyId) {
+    /** A swing round trip can span weeks (plan M11.1): it is rebuilt from the instrument's own fills over a longer window. */
+    private List<RoundTrip> roundTrips(ExecutionMode mode, UUID instrumentId, UUID strategyId, Horizon horizon) {
         Instant now = clock.now();
-        return analytics.roundTrips(mode, now.minus(LOOKBACK), now.plusSeconds(60)).stream()
-                .filter(r -> r.instrumentId().equals(instrumentId) && java.util.Objects.equals(r.strategyId(), strategyId)).toList();
+        List<RoundTrip> trips = horizon == Horizon.SWING ? analytics.roundTrips(mode, instrumentId, now.minus(SWING_LOOKBACK), now.plusSeconds(60))
+                : analytics.roundTrips(mode, now.minus(LOOKBACK), now.plusSeconds(60));
+        return trips.stream().filter(r -> r.instrumentId().equals(instrumentId) && java.util.Objects.equals(r.strategyId(), strategyId) && r.horizon() == horizon)
+                .toList();
     }
 
     private Optional<TradeReview> review(Position p, RoundTrip trip) {
@@ -293,7 +299,7 @@ public class ReviewService {
         return new TradeReview(Ids.newId(), p.mode(), p.id(), sp.map(StrategyPosition::id).orElse(null), strategyId, version.map(StrategyVersion::id).orElse(null),
                 signal.map(Signal::id).orElse(null), trip.instrumentId(), trip.entryOrderId(), trip.side(), trip.quantity(), trip.entryPrice(), trip.exitPrice(),
                 trip.openedAt(), trip.closedAt(), trip.grossPnl(), trip.fees(), trip.netPnl(), outcomeR, setupValid, entrySlippage, exitSlippage, adherence, closeReason,
-                context, notes, clock.now());
+                context, notes, clock.now(), null, trip.horizon(), analytics.holdingDays(trip));
     }
 
     /** Did the definition's entry rules pass on the last bar closed at or before the entry? Warms up from history. */
