@@ -37,6 +37,9 @@ test('the shell and /design at 360, 768 and 1440 px', async ({ page }, info) => 
 
 /** M10.3: the trading pages at phone and desktop size in both themes, with no sideways page scroll. */
 test('trading pages at 390 and 1440 px in both themes', async ({ page }, info) => {
+  // 28 page loads, each waiting for network idle; /today alone takes 3-4 s on the fake-broker stack (its header quotes the
+  // index watchlist through the 1/s quote limiter), so the sweep takes ~27 s locally and ~35 s on a CI runner
+  test.setTimeout(90_000);
   await login(page);
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme });

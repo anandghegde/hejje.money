@@ -23,7 +23,19 @@ export class ApiError extends Error {
   }
 }
 
-async function refresh(): Promise<boolean> {
+let refreshing: Promise<boolean> | null = null;
+
+/**
+ * One refresh at a time: the server rotates the refresh token, so a second call sent with the same cookie gets a 401
+ * that also clears the cookie, and the session ends (StrictMode's double effect on reload, or several queries hitting
+ * an expired token at once). Concurrent callers share the call in flight.
+ */
+function refresh(): Promise<boolean> {
+  refreshing ??= refreshOnce().finally(() => { refreshing = null; });
+  return refreshing;
+}
+
+async function refreshOnce(): Promise<boolean> {
   try {
     const res = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
     if (!res.ok) return false;

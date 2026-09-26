@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { request, setAccessToken, ApiError } from '../src/api/client';
+import { request, setAccessToken, ApiError, tryRefresh, getAccessToken } from '../src/api/client';
 
 describe('api client', () => {
   beforeEach(() => setAccessToken('tok'));
@@ -18,6 +18,21 @@ describe('api client', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: 'nope', reasons: ['x'] }), { status: 422, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', fetchMock);
     await expect(request('/orders/intents', { method: 'POST', idempotent: true, retryOn401: false })).rejects.toBeInstanceOf(ApiError);
+    vi.unstubAllGlobals();
+  });
+
+  it('shares one refresh between concurrent callers (the server rotates the refresh token)', async () => {
+    setAccessToken(null);
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      if (fetchMock.mock.calls.length > 1) return new Response('{}', { status: 401 }); // a second call with the rotated cookie
+      return new Response(JSON.stringify({ accessToken: 'fresh' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await Promise.all([tryRefresh(), tryRefresh()])).toEqual([true, true]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(getAccessToken()).toBe('fresh');
+    expect(await tryRefresh()).toBe(false); // the next refresh is a new call
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.unstubAllGlobals();
   });
 });
