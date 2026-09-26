@@ -1654,3 +1654,14 @@ stop, goal, avgVolume50, state, lastClose, pace, signalId } ]`, `state` one of `
 
 Scope: `market:read`. Rows of `GET /swing/positions`: the positions held at least 10 sessions and below their entry; the
 positions past their holding limit (closed at the next open).
+
+## Swing backtest (Phase 11, M11.5)
+
+### `POST /api/v1/swing/backtest`
+
+Scope: `strategies:read`. Body (all optional but `from`): `{ "from": "2024-01-01", "to": "2025-12-31", "symbols": ["NSE:INFY"],
+"types": ["FLAT_BASE"], "rules": "SWING" | "LEDGER", "volumeFilter": true, "volumePace": 1.4, "maxHoldingDays": 30,
+"gapAllowancePct": 3, "riskRupees": 2500, "folds": 4 }`. Returns `{ rules, config, from, to, setups, summary, byType,
+byRegime, walkForward: [ { fold, from, to, stats } ], notTraded: { FAILED: n, … }, trades: [ { plan, entryDate, entry,
+exitDate, exit, reason, gapFill, quantity, holdingDays, grossR, gross, costs, net, netR } ] }`; `stats` = `{ trades, hitGoal,
+stopped, timeExit, gapFills, winners, meanR, meanNetR, net, profitFactor, meanHoldingDays }` (docs/backtesting.md, "Swing").

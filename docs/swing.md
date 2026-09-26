@@ -211,3 +211,9 @@ A position that has made neither goal nor stop after its deployment's `max_holdi
 its GTT). `GET /api/v1/swing/time-exits` lists the positions due. The weekly review (`hejje.swing.review-cron`, Friday
 15:50; `GET /api/v1/swing/review`) lists the positions held at least `hejje.swing.review-after-days` (10) sessions and
 still below their entry.
+
+## Multi-day backtests (M11.5)
+
+`POST /api/v1/swing/backtest` runs the SWING backtest on D1 bars with the live swing rules (or, `rules: LEDGER`, the
+H5 ledger's rules, which reproduce the ledger within costs). The rules, the gap-through fills, the report and the
+parity test are in `docs/backtesting.md` ("Swing"). The intraday backtester refuses a `swing` strategy.

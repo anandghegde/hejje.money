@@ -143,3 +143,31 @@ fills **at the limit, with no slippage**, on the first later bar that trades **s
 low below the limit), within `cancel_after_seconds` of the signal; otherwise it is dropped at that time (or at the
 session's end) and counted as not filled, and the rules may signal again. There are no re-quotes on candles. A
 `market` definition (the default) replays exactly as before. The `PASSIVE_ENTRY_NOT_FILLED` warning reports the counts.
+
+## Swing (Phase 11, M11.5)
+
+Swing strategies are not replayed by this backtester (a `swing` family definition is refused): `POST /api/v1/swing/backtest`
+runs the SWING backtest (`SwingBacktest`, `SwingBacktestService`) on **D1 bars** over the M8.4 ledger's setups detected in a
+range (their plans as recorded at detection; an untriggered cup the ledger replaced by its cup-with-handle is dropped on
+that day, as the ledger does).
+
+| Rule | SWING (live-like, default) | LEDGER (the H5 ledger's, for parity) |
+|---|---|---|
+| Trigger | the day's range reaches the pivot, the day did not open above the buy zone; bases also need the day's volume ≥ `volumePace` × the 50-session average. A day that closed at or above the pivot without an entry consumes the setup (the live watcher no longer sees it READY) | the first close at or above the pivot |
+| Entry | the pivot, or the open when the day opened above it | the same |
+| Exits | from the entry session itself (the GTT is placed as soon as the entry fills): stop first, then goal | from the next session |
+| Stop / goal | a low at or below the stop fills at the stop, or at the open when the session **gapped through it**; a high at or above the goal at the goal or a higher open; both in one bar: the stop (the order inside a bar is resolved against the trade) | the same |
+| Time exit | after `maxHoldingDays` (30) sessions, at the next session's open | after the ledger's 120 sessions, at the close |
+| Before the trigger | a base closing below its base low (a reversal trading at its stop) FAILED; 60 sessions after detection EXPIRED | the same |
+
+The quantity risks `riskRupees` (2,500) on the gap-adjusted distance (`entry − stop + gap% × entry`, gap 3 %); delivery
+costs (STT both sides, stamp, the DP charge on the sell) come off the gross. The report has the trades (gross R as the
+ledger measures it, net R after costs, holding days, gap fills), the summary, a breakdown per base type and per regime
+of the entry session (`trend × volatility`), walk-forward folds (`folds`, 4: consecutive groups of trades by entry date)
+and the setups that produced no trade by reason (`FAILED`, `EXPIRED`, `NO_VOLUME`, `ABOVE_BUY_ZONE`, `OPEN`, `NO_DATA`).
+
+**Parity with the H5 ledger** (`SwingParityTest`): with `rules: LEDGER` the SWING backtest reproduces the ledger's lifecycle
+on the golden fixture universe (the base-detector and lifecycle series): the same setups trigger on the same sessions at the
+same entries and close on the same sessions at the same exits for the same reasons with the same R; its net R is the
+ledger's R less the delivery costs over the money at risk. The SWING rules differ from the ledger's only where the live
+path does (range trigger, volume, the entry session's exits, the time exit), which is why the two are reported apart.

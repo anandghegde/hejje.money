@@ -23,7 +23,10 @@ class SwingController {
 
     private final money.hejje.swing.SwingEntries entries;
 
-    SwingController(SwingService swing, HejjeProperties properties, money.hejje.swing.SwingEntries entries) {
+    private final money.hejje.swing.SwingBacktestService backtests;
+
+    SwingController(SwingService swing, HejjeProperties properties, money.hejje.swing.SwingEntries entries, money.hejje.swing.SwingBacktestService backtests) {
+        this.backtests = backtests;
         this.entries = entries;
         this.swing = swing;
         this.properties = properties;
@@ -156,6 +159,13 @@ class SwingController {
     @PreAuthorize("hasAuthority('SCOPE_market:read')")
     List<SwingBookRow> timeExits() {
         return swing.timeExitsDue(properties.mode());
+    }
+
+    /** The SWING backtest (plan M11.5) over the ledger's setups detected in a range, on D1 bars, with delivery costs. */
+    @PostMapping("/backtest")
+    @PreAuthorize("hasAuthority('SCOPE_strategies:read')")
+    money.hejje.swing.SwingBacktestService.Report backtest(@org.springframework.web.bind.annotation.RequestBody money.hejje.swing.SwingBacktestService.Request r) {
+        return backtests.run(r);
     }
 
     /** Runs the holdings and GTT reconciliation now (it also runs at startup, before the open and after the close). */
