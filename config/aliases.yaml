@@ -11,6 +11,7 @@ instruments:
   - { symbol: "NSE:BAJAJFINSV", sector: Financials, names: ["Bajaj Finserv"] }
   - { symbol: "NSE:BEL", sector: Defence, names: ["Bharat Electronics", "BEL"] }
   - { symbol: "NSE:BHARTIARTL", sector: Telecom, names: ["Bharti Airtel", "Airtel"] }
+  - { symbol: "NSE:BSE", sector: Financials, names: ["BSE Ltd", "BSE Limited"] }
   - { symbol: "NSE:CIPLA", sector: Pharma, names: ["Cipla"] }
   - { symbol: "NSE:COALINDIA", sector: Metal, names: ["Coal India"] }
   - { symbol: "NSE:DRREDDY", sector: Pharma, names: ["Dr Reddy's", "Dr. Reddy's", "Dr Reddys"] }
@@ -20,12 +21,11 @@ instruments:
   - { symbol: "NSE:HCLTECH", sector: IT, names: ["HCL Technologies", "HCLTech"] }
   - { symbol: "NSE:HDFCBANK", sector: Banking, names: ["HDFC Bank"] }
   - { symbol: "NSE:HDFCLIFE", sector: Financials, names: ["HDFC Life"] }
-  - { symbol: "NSE:HEROMOTOCO", sector: Auto, names: ["Hero MotoCorp"] }
   - { symbol: "NSE:HINDALCO", sector: Metal, names: ["Hindalco"] }
   - { symbol: "NSE:HINDUNILVR", sector: FMCG, names: ["Hindustan Unilever", "HUL"] }
   - { symbol: "NSE:ICICIBANK", sector: Banking, names: ["ICICI Bank"] }
-  - { symbol: "NSE:INDUSINDBK", sector: Banking, names: ["IndusInd Bank"] }
   - { symbol: "NSE:INFY", sector: IT, names: ["Infosys", "Infy"] }
+  - { symbol: "NSE:INDIGO", sector: Other, names: ["InterGlobe Aviation", "IndiGo"] }
   - { symbol: "NSE:ITC", sector: FMCG, names: ["ITC"] }
   - { symbol: "NSE:JIOFIN", sector: Financials, names: ["Jio Financial"] }
   - { symbol: "NSE:JSWSTEEL", sector: Metal, names: ["JSW Steel"] }
@@ -33,6 +33,7 @@ instruments:
   - { symbol: "NSE:LT", sector: Infrastructure, names: ["Larsen & Toubro", "Larsen and Toubro", "L&T"] }
   - { symbol: "NSE:M&M", sector: Auto, names: ["Mahindra & Mahindra", "Mahindra and Mahindra", "M&M"] }
   - { symbol: "NSE:MARUTI", sector: Auto, names: ["Maruti Suzuki", "Maruti"] }
+  - { symbol: "NSE:MAXHEALTH", sector: Pharma, names: ["Max Healthcare"] }
   - { symbol: "NSE:NESTLEIND", sector: FMCG, names: ["Nestle India", "Nestlé India"] }
   - { symbol: "NSE:NTPC", sector: Energy, names: ["NTPC"] }
   - { symbol: "NSE:ONGC", sector: Energy, names: ["ONGC", "Oil and Natural Gas Corporation"] }
@@ -43,12 +44,11 @@ instruments:
   - { symbol: "NSE:SHRIRAMFIN", sector: Financials, names: ["Shriram Finance"] }
   - { symbol: "NSE:SUNPHARMA", sector: Pharma, names: ["Sun Pharma", "Sun Pharmaceutical"] }
   - { symbol: "NSE:TATACONSUM", sector: FMCG, names: ["Tata Consumer"] }
-  - { symbol: "NSE:TATAMOTORS", sector: Auto, names: ["Tata Motors"] }
+  - { symbol: "NSE:TMPV", sector: Auto, names: ["Tata Motors Passenger Vehicles", "TMPV", "Jaguar Land Rover", "JLR"] }
   - { symbol: "NSE:TATASTEEL", sector: Metal, names: ["Tata Steel"] }
   - { symbol: "NSE:TCS", sector: IT, names: ["Tata Consultancy Services", "TCS"] }
   - { symbol: "NSE:TECHM", sector: IT, names: ["Tech Mahindra"] }
   - { symbol: "NSE:TITAN", sector: Consumer, names: ["Titan Company", "Titan"] }
   - { symbol: "NSE:TRENT", sector: Consumer, names: ["Trent", "Westside", "Zudio"] }
   - { symbol: "NSE:ULTRACEMCO", sector: Infrastructure, names: ["UltraTech Cement", "UltraTech"] }
-  - { symbol: "NSE:WIPRO", sector: IT, names: ["Wipro"] }
 sectors: [IT, Banking, Financials, Auto, Pharma, FMCG, Metal, Energy, Infrastructure, Telecom, Consumer, Defence, Other]

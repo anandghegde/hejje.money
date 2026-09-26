@@ -1,6 +1,13 @@
 # Transaction cost rates (PRD 12.2). Percentages are fractions of turnover (0.0003 = 0.03%).
-# Verified 2026-09-19 (plan M6.1) against zerodha.com/charges and NSE circular FATAX/73524 (STT from 1 April 2026,
-# Finance Act 2026). Set verify=true again whenever a rate is changed without checking the live sheets.
+# Verified 2026-09-19 (plan M6.1) and re-checked 2026-09-26 (all rates unchanged) against:
+#   brokerage, GST base, NSE rates: https://zerodha.com/charges/
+#   STT (Finance Act 2026, from 1 April 2026): NSE circular NSE/FATAX/73524 https://nsearchives.nseindia.com/content/circulars/FATAX73524.pdf
+#   NSE transaction charges incl. IPFT (307 / 183 / 3553 per crore from 1 March 2026): NSE circular NSE/FA/73061
+#     https://nsearchives.nseindia.com/content/circulars/FA73061.pdf (do not add IPFT separately: it is inside these totals)
+#   SEBI fee, GST: https://www.nseindia.com/static/invest/first-time-investor-sebi-turnover-fees-stt-other-levies
+#   stamp duty: https://www.nseindia.com/static/invest/first-time-investor-stamp-duty-charges-taxes
+# Not modelled: BSE rates (equity 0.00375 %, options 0.0325 % of premium) and STT of 0.15 % of intrinsic value on
+# exercised long options. Set verify=true again whenever a rate is changed without checking the live sheets.
 # Loaded into hejje.costs.* (see server/src/main/resources/application.yml which imports these values).
 hejje:
   costs:

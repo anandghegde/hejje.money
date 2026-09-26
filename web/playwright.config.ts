@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 /**
  * Smoke test config. Requires the Hejje server running with the fake broker in PAPER mode and the Vite dev server.
- * In CI both are started before `npm run e2e` (see .github/workflows/ci.yml).
+ * In CI the e2e job starts the server and this config starts the Vite dev server (see .github/workflows/ci.yml).
  */
 export default defineConfig({
   testDir: './tests-e2e',

@@ -1,6 +1,9 @@
-# NIFTY 50 constituents used for equity backfills and universes. Verify against the current NSE index
-# composition before relying on it (constituents change at semi-annual reviews); last edited 2026-09-09;
-# industry per symbol copied from nifty500.yaml (NSE's classification) on 2026-09-26 so group fields work on this universe too.
+# NIFTY 50 constituents used for equity backfills and universes, in the order of NSE Indices' ind_nifty50list.csv
+# (https://nsearchives.nseindia.com/content/indices/ind_nifty50list.csv, checked 2026-09-26) with the September 2026
+# review applied (BSE in, WIPRO out, effective 2026-09-30: https://www.niftyindices.com/Press_Release/ind_prs10082026.pdf).
+# All 50 symbols resolve as EQ in the Kite NSE instrument dump (https://api.kite.trade/instruments/NSE). Re-check at the
+# semi-annual reviews (last working day of March and September; the demerged Tata Motors trades as TMPV/TMCV). Industry
+# per symbol as in nifty500.yaml (NSE's classification, identical to the CSV's Industry column).
 name: nifty50
 index: "INDEX:NIFTY 50"
 symbols:
@@ -14,6 +17,7 @@ symbols:
   - NSE:BAJAJFINSV
   - NSE:BEL
   - NSE:BHARTIARTL
+  - NSE:BSE
   - NSE:CIPLA
   - NSE:COALINDIA
   - NSE:DRREDDY
@@ -23,37 +27,36 @@ symbols:
   - NSE:HCLTECH
   - NSE:HDFCBANK
   - NSE:HDFCLIFE
-  - NSE:HEROMOTOCO
   - NSE:HINDALCO
   - NSE:HINDUNILVR
   - NSE:ICICIBANK
-  - NSE:INDUSINDBK
-  - NSE:INFY
   - NSE:ITC
-  - NSE:JIOFIN
+  - NSE:INFY
+  - NSE:INDIGO
   - NSE:JSWSTEEL
+  - NSE:JIOFIN
   - NSE:KOTAKBANK
   - NSE:LT
   - NSE:M&M
   - NSE:MARUTI
-  - NSE:NESTLEIND
+  - NSE:MAXHEALTH
   - NSE:NTPC
+  - NSE:NESTLEIND
   - NSE:ONGC
   - NSE:POWERGRID
   - NSE:RELIANCE
   - NSE:SBILIFE
-  - NSE:SBIN
   - NSE:SHRIRAMFIN
+  - NSE:SBIN
   - NSE:SUNPHARMA
-  - NSE:TATACONSUM
-  - NSE:TATAMOTORS
-  - NSE:TATASTEEL
   - NSE:TCS
+  - NSE:TATACONSUM
+  - NSE:TMPV
+  - NSE:TATASTEEL
   - NSE:TECHM
   - NSE:TITAN
   - NSE:TRENT
   - NSE:ULTRACEMCO
-  - NSE:WIPRO
 industry:
   "NSE:ADANIENT": "Metals & Mining"
   "NSE:ADANIPORTS": "Services"
@@ -65,6 +68,7 @@ industry:
   "NSE:BAJAJFINSV": "Financial Services"
   "NSE:BEL": "Capital Goods"
   "NSE:BHARTIARTL": "Telecommunication"
+  "NSE:BSE": "Financial Services"
   "NSE:CIPLA": "Healthcare"
   "NSE:COALINDIA": "Oil Gas & Consumable Fuels"
   "NSE:DRREDDY": "Healthcare"
@@ -74,34 +78,33 @@ industry:
   "NSE:HCLTECH": "Information Technology"
   "NSE:HDFCBANK": "Financial Services"
   "NSE:HDFCLIFE": "Financial Services"
-  "NSE:HEROMOTOCO": "Automobile and Auto Components"
   "NSE:HINDALCO": "Metals & Mining"
   "NSE:HINDUNILVR": "Fast Moving Consumer Goods"
   "NSE:ICICIBANK": "Financial Services"
-  "NSE:INDUSINDBK": "Financial Services"
-  "NSE:INFY": "Information Technology"
   "NSE:ITC": "Fast Moving Consumer Goods"
-  "NSE:JIOFIN": "Financial Services"
+  "NSE:INFY": "Information Technology"
+  "NSE:INDIGO": "Services"
   "NSE:JSWSTEEL": "Metals & Mining"
+  "NSE:JIOFIN": "Financial Services"
   "NSE:KOTAKBANK": "Financial Services"
   "NSE:LT": "Construction"
   "NSE:M&M": "Automobile and Auto Components"
   "NSE:MARUTI": "Automobile and Auto Components"
-  "NSE:NESTLEIND": "Fast Moving Consumer Goods"
+  "NSE:MAXHEALTH": "Healthcare"
   "NSE:NTPC": "Power"
+  "NSE:NESTLEIND": "Fast Moving Consumer Goods"
   "NSE:ONGC": "Oil Gas & Consumable Fuels"
   "NSE:POWERGRID": "Power"
   "NSE:RELIANCE": "Oil Gas & Consumable Fuels"
   "NSE:SBILIFE": "Financial Services"
-  "NSE:SBIN": "Financial Services"
   "NSE:SHRIRAMFIN": "Financial Services"
+  "NSE:SBIN": "Financial Services"
   "NSE:SUNPHARMA": "Healthcare"
-  "NSE:TATAMOTORS": "Automobile and Auto Components"
-  "NSE:TATACONSUM": "Fast Moving Consumer Goods"
-  "NSE:TATASTEEL": "Metals & Mining"
   "NSE:TCS": "Information Technology"
+  "NSE:TATACONSUM": "Fast Moving Consumer Goods"
+  "NSE:TMPV": "Automobile and Auto Components"
+  "NSE:TATASTEEL": "Metals & Mining"
   "NSE:TECHM": "Information Technology"
   "NSE:TITAN": "Consumer Durables"
   "NSE:TRENT": "Consumer Services"
   "NSE:ULTRACEMCO": "Construction Materials"
-  "NSE:WIPRO": "Information Technology"

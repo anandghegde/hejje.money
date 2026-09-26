@@ -11,7 +11,10 @@ hejje:
     computed:
       enabled: true
       expiry-underlyings: [NIFTY, BANKNIFTY]
-      index-rebalance-dates: []       # e.g. [2026-09-30, 2027-03-31]; announced by NSE Indices ahead of the semi-annual review
+      # the session whose close the semi-annual NSE Indices reconstitution trades at (the day before the effective date):
+      # March 2026 effective 30 Mar (https://www.niftyindices.com/Press_Release/ind_prs23022026.pdf), September 2026
+      # effective 30 Sep (https://www.niftyindices.com/Press_Release/ind_prs10082026.pdf); add March 2027 when announced
+      index-rebalance-dates: [2026-03-27, 2026-09-29]
     curated:
       enabled: true
       files:

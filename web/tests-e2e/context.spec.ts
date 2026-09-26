@@ -6,7 +6,7 @@ const PASSWORD = process.env.HEJJE_ADMIN_PASSWORD ?? 'admin-password';
 /**
  * Daily context smoke (plan M8.7): seed D1 candles for the fixture equities, compute ratings, bases and daily analogs,
  * then open the Screener and a stock page. Requires the server with HEJJE_RATINGS_ENABLED=true HEJJE_ANALOGS_ENABLED=true
- * HEJJE_RATINGS_UNIVERSE=nifty50 HEJJE_ANALOGS_UNIVERSE=nifty50 (of which the fake broker's master resolves eight symbols).
+ * HEJJE_RATINGS_UNIVERSE=nifty50 HEJJE_ANALOGS_UNIVERSE=nifty50 (of which the fake broker's master resolves seven symbols).
  */
 test('screener lists the rated universe and the stock page shows ratings, chart and analogs', async ({ page, request }) => {
   const login = await request.post(`${API}/auth/login`, { data: { username: 'admin', password: PASSWORD } });
