@@ -40,3 +40,4 @@ data/
 server/bin/
 .serena/
 web/tsconfig.tsbuildinfo
+.claude/worktrees/

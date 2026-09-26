@@ -18,6 +18,8 @@ Files:
 | `phase-7-bot-harness.md` | SIM mode and clock, historical session replay, bot protocol, harness TUI screen, leaderboard |
 | `phase-8-market-context.md` | NIFTY 500 daily universe, RS/A-D ratings and groups, market condition, bases and pivots, daily and session analogs, screener and stock page, pre-registered validation |
 | `phase-9-jev-and-gaps.md` | Jev typed-decision API, calibration, news and risk events on Jev, order-book/flow features, Jev bot and signal check, trade causes, pace and loss-streak allowance, passive entries |
+| `phase-10-web-design.md` | Web design pass: tokens and light/dark theme, shared components and app shell, every page restyled, phone layouts for the trading pages |
+| `phase-11-swing.md` | Swing trading: CNC positions overnight, Zerodha GTT stops, overnight risk, entries from the Phase 8 base setups, multi-day backtests, PAPER run (gated on H5) |
 
 ---
 
