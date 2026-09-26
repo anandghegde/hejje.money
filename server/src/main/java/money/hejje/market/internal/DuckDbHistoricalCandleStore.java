@@ -35,6 +35,7 @@ public class DuckDbHistoricalCandleStore implements HistoricalCandleStore {
     private static final Logger log = LoggerFactory.getLogger(DuckDbHistoricalCandleStore.class);
 
     private final Path root;
+    private volatile long writes;
 
     DuckDbHistoricalCandleStore(HejjeProperties properties) {
         this.root = properties.dataDir().resolve("candles");
@@ -61,8 +62,17 @@ public class DuckDbHistoricalCandleStore implements HistoricalCandleStore {
         if (candles.isEmpty()) {
             return;
         }
-        candles.stream().map(c -> yearOf(c.openTime())).distinct().forEach(year -> writeYear(instrumentId, timeframe, year,
-                candles.stream().filter(c -> yearOf(c.openTime()) == year).toList()));
+        try {
+            candles.stream().map(c -> yearOf(c.openTime())).distinct().forEach(year -> writeYear(instrumentId, timeframe, year,
+                    candles.stream().filter(c -> yearOf(c.openTime()) == year).toList()));
+        } finally {
+            writes++;
+        }
+    }
+
+    @Override
+    public long writes() {
+        return writes;
     }
 
     private void writeYear(UUID instrumentId, Timeframe timeframe, int year, List<Candle> yearCandles) {

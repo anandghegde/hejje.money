@@ -22,6 +22,7 @@ import money.hejje.instruments.InstrumentService;
 import money.hejje.instruments.UniverseCatalog;
 import money.hejje.market.Candle;
 import money.hejje.market.ContinuousSeries;
+import money.hejje.market.HistoricalCandleStore;
 import money.hejje.market.MarketService;
 import money.hejje.regime.EventEnvironment;
 import money.hejje.regime.EventEnvironmentSource;
@@ -34,7 +35,9 @@ import org.springframework.stereotype.Component;
  * Session analogs for a date and checkpoint (plan M8.6). A summary is a function of stored M5 bars only: the
  * benchmark's bars of that date that closed by the checkpoint, and the intraday universe's sessions strictly before
  * the date. It does not depend on when it is computed, so a SIM replay of a day gives what the live job gave on it.
- * The reduced history is cached per date (about 1 kB per past session).
+ * The reduced history (about 1 kB per past session) is cached for the last date asked; a later date extends it with the
+ * sessions in between instead of reading every session again, unless the Hejje day has changed, a candle has been
+ * written to the historical store or the universe differs since it was built (then it is rebuilt).
  */
 @Component
 public class SessionAnalogComputer {
@@ -42,14 +45,18 @@ public class SessionAnalogComputer {
     private static final Logger log = LoggerFactory.getLogger(SessionAnalogComputer.class);
     private static final LocalDate EPOCH = LocalDate.of(2000, 1, 1);
 
-    private record Cache(LocalDate date, List<SessionAnalogEngine.Instrument> instruments, Map<UUID, SessionAnalogEngine.History> histories,
-            List<SessionAnalogEngine.Session> candidates, Set<LocalDate> expiryDays) {
+    private static final SessionAnalogEngine.History EMPTY = new SessionAnalogEngine.History(List.of(), List.of(), List.of());
+
+    /** {@code builtOn} (the Hejje day) and {@code writes} (the historical store's count) are what an extension must still match. */
+    private record Cache(LocalDate date, LocalDate builtOn, long writes, List<SessionAnalogEngine.Instrument> instruments,
+            Map<UUID, SessionAnalogEngine.History> histories, List<SessionAnalogEngine.Session> candidates, Set<LocalDate> expiryDays) {
     }
 
     private final AnalogsProperties props;
     private final UniverseCatalog universes;
     private final InstrumentService instrumentService;
     private final MarketService market;
+    private final HistoricalCandleStore historical;
     private final EventEnvironmentSource environment;
     private final AnalogStore store;
     private final HejjeClock clock;
@@ -58,11 +65,12 @@ public class SessionAnalogComputer {
     private Cache cache;
 
     SessionAnalogComputer(AnalogsProperties props, UniverseCatalog universes, InstrumentService instrumentService, MarketService market,
-            EventEnvironmentSource environment, AnalogStore store, HejjeClock clock, ApplicationEventPublisher events) {
+            HistoricalCandleStore historical, EventEnvironmentSource environment, AnalogStore store, HejjeClock clock, ApplicationEventPublisher events) {
         this.props = props;
         this.universes = universes;
         this.instrumentService = instrumentService;
         this.market = market;
+        this.historical = historical;
         this.environment = environment;
         this.store = store;
         this.clock = clock;
@@ -95,7 +103,7 @@ public class SessionAnalogComputer {
             if (benchmark == null) {
                 continue;
             }
-            SessionAnalogEngine.History history = c.histories().computeIfAbsent(id, k -> history(-1, id, date));
+            SessionAnalogEngine.History history = c.histories().computeIfAbsent(id, k -> history(-1, id, EPOCH, date, EMPTY));
             List<SessionAnalogEngine.Bar> today = bars(market.candles(id, Timeframe.M5, open, until.minusSeconds(1)), until).getOrDefault(date, List.of());
             engine.today(today, index, history).ifPresent(snapshot -> {
                 SessionAnalogEngine.Analysis a = engine.analyse(benchmark, date, index, snapshot, c.candidates(), c.instruments(), c.expiryDays());
@@ -134,29 +142,35 @@ public class SessionAnalogComputer {
             return cache;
         }
         long started = System.nanoTime();
+        long writes = historical.writes(); // before reading: a write that lands during the read makes the next date rebuild
         List<SessionAnalogEngine.Instrument> instruments = universe();
+        // Postgres candles are pruned overnight and the event calendar can change, so an extension stays within the Hejje day
+        boolean extend = cache != null && cache.date().isBefore(date) && cache.builtOn().equals(clock.today()) && cache.writes() == writes
+                && cache.instruments().equals(instruments);
+        LocalDate from = extend ? cache.date() : EPOCH;
         Map<UUID, SessionAnalogEngine.History> histories = new java.util.HashMap<>();
         List<SessionAnalogEngine.Session> candidates = new ArrayList<>();
         for (int k = 0; k < instruments.size(); k++) {
-            SessionAnalogEngine.History h = history(k, instruments.get(k).id(), date);
-            histories.put(instruments.get(k).id(), h);
+            UUID id = instruments.get(k).id();
+            SessionAnalogEngine.History h = history(k, id, from, date, extend ? cache.histories().get(id) : EMPTY);
+            histories.put(id, h);
             candidates.addAll(h.sessions());
         }
-        Set<LocalDate> expiry = new HashSet<>();
-        candidates.stream().map(SessionAnalogEngine.Session::date).distinct()
+        Set<LocalDate> expiry = extend ? new HashSet<>(cache.expiryDays()) : new HashSet<>();
+        candidates.stream().map(SessionAnalogEngine.Session::date).filter(d -> !d.isBefore(from)).distinct()
                 .filter(d -> environment.environment(d) == EventEnvironment.EXPIRY_SESSION).forEach(expiry::add);
-        cache = new Cache(date, instruments, histories, List.copyOf(candidates), expiry);
-        log.info("Session analog history for {}: {} instruments, {} candidate sessions, {} ms", date, instruments.size(), candidates.size(),
-                (System.nanoTime() - started) / 1_000_000);
+        cache = new Cache(date, clock.today(), writes, instruments, histories, List.copyOf(candidates), expiry);
+        log.info("Session analog history for {} ({} from {}): {} instruments, {} candidate sessions, {} ms", date, extend ? "extended" : "built", from,
+                instruments.size(), candidates.size(), (System.nanoTime() - started) / 1_000_000);
         return cache;
     }
 
-    /** The instrument's sessions strictly before {@code date}, reduced. */
-    private SessionAnalogEngine.History history(int index, UUID id, LocalDate date) {
+    /** {@code earlier}, the instrument's reduced sessions before {@code from}, extended with its sessions from {@code from} to before {@code date}. */
+    private SessionAnalogEngine.History history(int index, UUID id, LocalDate from, LocalDate date, SessionAnalogEngine.History earlier) {
         Instant end = date.atStartOfDay(clock.zone()).toInstant();
         TreeMap<LocalDate, List<SessionAnalogEngine.Bar>> byDate = bars(
-                market.candles(id, Timeframe.M5, EPOCH.atStartOfDay(clock.zone()).toInstant(), end.minusSeconds(1)), end);
-        return engine.history(index, new ArrayList<>(byDate.keySet()), new ArrayList<>(byDate.values()));
+                market.candles(id, Timeframe.M5, from.atStartOfDay(clock.zone()).toInstant(), end.minusSeconds(1)), end);
+        return engine.extend(earlier, index, new ArrayList<>(byDate.keySet()), new ArrayList<>(byDate.values()));
     }
 
     /** Candles that closed by {@code until}, grouped by session, as bars indexed from 09:15. */

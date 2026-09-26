@@ -115,7 +115,9 @@ python3 research/tools/context_validation.py run  --latest 2026-09-18 [slugs…]
 python3 research/tools/context_validation.py report                                  # writes the tables and verdicts below
 ```
 
-`run` is resumable (stored ratings and summaries are skipped by the server) and takes `--only h1,h2,h3,h4,h5`. Before
+`run` is resumable (stored ratings and summaries are skipped by the server) and takes `--only h1,h2,h3,h4,h5`. H2 asks
+for its sample dates in ascending order, so the server reads the session history once and extends it date by date
+(`docs/analogs.md`); a candle backfill during the run, or midnight, costs one more full read. Before
 it: the M8.1 backfill, `POST /ratings/compute`, `POST /ratings/bases/compute` and the regime relabelling (classifier
 version 2) over at least the evaluation range plus its warm-up.
 

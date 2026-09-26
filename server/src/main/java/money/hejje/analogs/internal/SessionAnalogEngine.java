@@ -101,9 +101,17 @@ final class SessionAnalogEngine {
      * ATR and the volume average of later sessions).
      */
     History history(int instrument, List<LocalDate> dates, List<List<Bar>> bars) {
-        List<Session> out = new ArrayList<>();
-        List<double[]> daily = new ArrayList<>(); // high, low, close per earlier session
-        List<double[]> cumulativeVolumes = new ArrayList<>(); // per earlier session: cumulative volume at each checkpoint
+        return extend(new History(List.of(), List.of(), List.of()), instrument, dates, bars);
+    }
+
+    /**
+     * {@code earlier} followed by the sessions {@code dates}, which all come after it: the same history as reducing every
+     * session at once, because a session only reads the ones before it.
+     */
+    History extend(History earlier, int instrument, List<LocalDate> dates, List<List<Bar>> bars) {
+        List<Session> out = new ArrayList<>(earlier.sessions());
+        List<double[]> daily = new ArrayList<>(earlier.daily()); // high, low, close per earlier session
+        List<double[]> cumulativeVolumes = new ArrayList<>(earlier.cumulativeVolumes()); // per earlier session: cumulative volume at each checkpoint
         for (int d = 0; d < dates.size(); d++) {
             List<Bar> session = bars.get(d);
             if (session.isEmpty()) {

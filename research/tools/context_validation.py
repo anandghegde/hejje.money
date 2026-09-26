@@ -392,8 +392,8 @@ def cmd_plan(api: Api, args) -> None:
     print(f"evaluation range {ev['from']} .. {ev['to']}: {len(ev['sessions'])} sessions (calendar: {args.calendar_symbol})")
     print(f"H1: {len(ev['h1Dates'])} sample dates ({ev['h1Dates'][0]} .. {ev['h1Dates'][-1]}), lookbacks {H1_LOOKBACKS}, forwards {H1_FORWARDS}; "
           f"{math.ceil(len(ev['h1Dates']) / 5)} compute calls, {len(ev['h1Dates']) * len(H1_LOOKBACKS) * len(H1_FORWARDS)} rank reads, one history read per symbol")
-    print(f"H2: {len(ev['h2Dates'])} sample dates x {len(H2_CHECKPOINTS)} checkpoints x {len(nifty50_symbols())} symbols; the server rebuilds its session "
-          f"history once per date (about {len(ev['h2Dates'])} rebuilds)")
+    print(f"H2: {len(ev['h2Dates'])} sample dates x {len(H2_CHECKPOINTS)} checkpoints x {len(nifty50_symbols())} symbols; the server reads its session "
+          f"history once and extends it date by date (again after a write to the candle store or past midnight)")
     for slug in args.slugs:
         s = strategy(api, slug)
         h3 = "H3" if s["stocks"] and s["direction"] in ("long", "short") else "H3 skipped (not a one-sided stock strategy)"

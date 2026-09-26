@@ -134,7 +134,13 @@ to the checkpoint. A summary is a function of stored bars only (today's up to th
 today), so it does not matter when it is computed: a one-minute job computes each checkpoint once it has passed for the
 instruments of the enabled deployments and the watchlist (on simulation time in SIM), and the API computes any other
 symbol on demand. `SessionAnalogSimIT` shows a SIM replay giving what the stored day gives. The reduced history
-(about 1 kB per past session) is cached per date; the first request of a day loads it.
+(about 1 kB per past session) is cached for the last date asked. A later date **extends** it with the sessions in
+between rather than reading every session again, so a run over many dates in ascending order (the H2 validation, a
+backfill) reads the history once; a session only depends on the ones before it, so the result is the same as a fresh
+read (`SessionAnalogHistoryCacheTest`). It is read from scratch instead for an earlier date, after any write to the
+Parquet store (backfill, import, continuous series), when the universe changed, and on the first request of each Hejje
+day (overnight the Postgres candles are pruned and the event calendar may have changed). An engine-version change needs
+a restart, which empties the cache.
 
 ## Storage and retention
 

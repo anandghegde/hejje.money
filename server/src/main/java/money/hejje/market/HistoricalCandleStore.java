@@ -15,4 +15,7 @@ public interface HistoricalCandleStore {
     List<Candle> read(UUID instrumentId, Timeframe timeframe, Instant from, Instant to);
 
     CandleCoverage coverage(UUID instrumentId, Timeframe timeframe);
+
+    /** Writes completed since start (counted after each one), so a cache of what was read can tell that nothing changed. */
+    long writes();
 }
